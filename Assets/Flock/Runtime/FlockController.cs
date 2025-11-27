@@ -69,7 +69,6 @@ namespace Flock.Runtime {
                 $"FlockController.Awake on '{name}'.",
                 this);
 
-            CreateBehaviourSettingsArray();
             CreateSimulation();
             SpawnAgents();
         }

@@ -54,7 +54,19 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public NativeArray<uint> BehaviourGroupMask;
 
         [ReadOnly] public NativeArray<float> BehaviourAvoidResponse;  // NEW
-                                                                      // REPLACE Execute IN FlockStepJob
+        [ReadOnly] public NativeArray<float> BehaviourSplitPanicThreshold;
+        [ReadOnly] public NativeArray<float> BehaviourSplitLateralWeight;
+        [ReadOnly] public NativeArray<float> BehaviourSplitAccelBoost;
+
+        // REPLACE Execute IN FlockStepJob
+        // Grouping behaviour
+        [ReadOnly] public NativeArray<int> BehaviourMinGroupSize;
+        [ReadOnly] public NativeArray<int> BehaviourMaxGroupSize;
+        [ReadOnly] public NativeArray<float> BehaviourGroupRadiusMultiplier;
+        [ReadOnly] public NativeArray<float> BehaviourLonerRadiusMultiplier;
+        [ReadOnly] public NativeArray<float> BehaviourLonerCohesionBoost;
+
+
         [ReadOnly] public bool UseAttraction;
         [ReadOnly] public float GlobalAttractionWeight;
         [ReadOnly] public NativeArray<float3> AttractionSteering;
@@ -62,6 +74,12 @@ namespace Flock.Runtime.Jobs {
         // REPLACE Execute WITH THIS VERSION
 
         // ===== FlockStepJob.Execute (REPLACE WHOLE METHOD) =====
+        // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
+        // REPLACE WHOLE Execute METHOD
+
+        // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
+        // REPLACE WHOLE Execute METHOD WITH THIS VERSION
+
         public void Execute(int index) {
             float3 position = Positions[index];
             float3 velocity = PrevVelocities[index];
@@ -89,86 +107,242 @@ namespace Flock.Runtime.Jobs {
             float3 alignment = float3.zero;
             float3 cohesion = float3.zero;
             float3 separation = float3.zero;
+            float3 avoidSeparation = float3.zero;   // repulse from Avoid neighbours only
 
             int leaderNeighbourCount = 0;
             int separationCount = 0;
+            int friendlyNeighbourCount = 0;
             float alignmentWeightSum = 0.0f;
             float cohesionWeightSum = 0.0f;
-
-            // NEW: how “panicked” we are this frame because of Avoid neighbours
-            float panicStrength = 0.0f;
+            float avoidDanger = 0.0f;      // max panic from Avoid neighbours (0..1+)
 
             AccumulateNeighbourForces(
-                index,
-                behaviourIndex,
-                friendlyMask,
-                avoidMask,
-                neutralMask,
-                position,
-                neighbourRadius,
-                separationRadius,
-                ref alignment,
-                ref cohesion,
-                ref separation,
-                ref leaderNeighbourCount,
-                ref separationCount,
-                ref alignmentWeightSum,
-                ref cohesionWeightSum,
-                ref panicStrength);
+                agentIndex: index,
+                myBehaviourIndex: behaviourIndex,
+                friendlyMask: friendlyMask,
+                avoidMask: avoidMask,
+                neutralMask: neutralMask,
+                agentPosition: position,
+                neighbourRadius: neighbourRadius,
+                separationRadius: separationRadius,
+                alignment: ref alignment,
+                cohesion: ref cohesion,
+                separation: ref separation,
+                leaderNeighbourCount: ref leaderNeighbourCount,
+                separationCount: ref separationCount,
+                alignmentWeightSum: ref alignmentWeightSum,
+                cohesionWeightSum: ref cohesionWeightSum,
+                avoidDanger: ref avoidDanger,
+                friendlyNeighbourCount: ref friendlyNeighbourCount,
+                avoidSeparation: ref avoidSeparation);
 
-            // clamp panic into [0,1] then turn it into 1..2 multiplier
-            float separationPanicMultiplier = 1.0f + math.saturate(panicStrength);
+            // -------------------------------------------------------
+            // NEW: group size logic (min / max, loner / overcrowded)
+            // -------------------------------------------------------
+            int groupSize = friendlyNeighbourCount + 1; // me + friendly neighbours
+
+            bool hasGroupSettings =
+                BehaviourMinGroupSize.IsCreated
+                && BehaviourMaxGroupSize.IsCreated
+                && BehaviourLonerCohesionBoost.IsCreated
+                && BehaviourMinGroupSize.Length > behaviourIndex
+                && BehaviourMaxGroupSize.Length > behaviourIndex
+                && BehaviourLonerCohesionBoost.Length > behaviourIndex;
+
+            int minGroupSize = 0;
+            int maxGroupSize = 0;
+            float lonerCohesionBoost = 0.0f;
+            float groupRadiusMultiplier = 1.0f;
+            float lonerRadiusMultiplier = 1.0f;
+
+            if (hasGroupSettings) {
+                minGroupSize = BehaviourMinGroupSize[behaviourIndex];
+                maxGroupSize = BehaviourMaxGroupSize[behaviourIndex];
+                lonerCohesionBoost = BehaviourLonerCohesionBoost[behaviourIndex];
+
+                // radius multipliers are optional – treat missing arrays as 1.0
+                if (BehaviourGroupRadiusMultiplier.IsCreated
+                    && BehaviourGroupRadiusMultiplier.Length > behaviourIndex) {
+                    groupRadiusMultiplier = BehaviourGroupRadiusMultiplier[behaviourIndex];
+                }
+
+                if (BehaviourLonerRadiusMultiplier.IsCreated
+                    && BehaviourLonerRadiusMultiplier.Length > behaviourIndex) {
+                    lonerRadiusMultiplier = BehaviourLonerRadiusMultiplier[behaviourIndex];
+                }
+
+                // sane clamps
+                if (minGroupSize < 1) {
+                    minGroupSize = 1;
+                }
+
+                if (maxGroupSize < minGroupSize) {
+                    maxGroupSize = minGroupSize;
+                }
+
+                bool hasFriends = friendlyNeighbourCount > 0;
+                bool isLoner = groupSize < minGroupSize;
+                bool isOvercrowded = groupSize > maxGroupSize;
+
+                // LONER: has some friends in view but group is smaller than we want.
+                // → pull harder towards them (stronger cohesion), slightly scaled by loner multiplier.
+                if (isLoner && hasFriends) {
+                    float lonerFactor = math.max(0f, lonerCohesionBoost);
+                    lonerFactor *= math.max(1f, lonerRadiusMultiplier); // more “desperate” search if multiplier > 1
+                    cohesionWeight *= (1.0f + lonerFactor);
+                }
+
+                // OVERCROWDED: group too large.
+                // → increase separation, reduce cohesion a bit so the ball can breathe.
+                if (isOvercrowded && hasFriends) {
+                    float crowdFactor = (groupSize - maxGroupSize) / math.max(1f, (float)maxGroupSize);
+                    crowdFactor = math.saturate(crowdFactor);
+
+                    // more sensitive to crowding if groupRadiusMultiplier > 1
+                    crowdFactor *= math.max(1f, groupRadiusMultiplier);
+
+                    separationWeight *= (1.0f + crowdFactor);
+                    cohesionWeight *= (1.0f - 0.5f * crowdFactor); // up to −50% cohesion
+                }
+            }
+
+            // Panic magnifies separation rule (like before)
+            float separationPanicMultiplier = 1.0f + math.saturate(avoidDanger);
 
             float3 flockSteering = ComputeSteering(
-                position,
-                velocity,
-                alignment,
-                cohesion,
-                separation,
-                leaderNeighbourCount,
-                separationCount,
-                alignmentWeight,
-                cohesionWeight,
-                separationWeight,
-                desiredSpeed,
-                alignmentWeightSum,
-                cohesionWeightSum,
-                separationPanicMultiplier);
+                currentPosition: position,
+                currentVelocity: velocity,
+                alignment: alignment,
+                cohesion: cohesion,
+                separation: separation,
+                neighbourCount: leaderNeighbourCount,
+                separationCount: separationCount,
+                alignmentWeight: alignmentWeight,
+                cohesionWeight: cohesionWeight,
+                separationWeight: separationWeight,
+                desiredSpeed: desiredSpeed,
+                alignmentWeightSum: alignmentWeightSum,
+                cohesionWeightSum: cohesionWeightSum,
+                separationPanicMultiplier: separationPanicMultiplier);
 
             flockSteering *= influenceWeight;
 
             float3 steering = flockSteering;
 
+            // -------------------------------------------------------
+            // Split behaviour (unchanged except using computed groupSize)
+            // -------------------------------------------------------
+
+            float localMaxAcceleration = maxAcceleration;
+            float localMaxSpeed = maxSpeed;
+
+            float splitPanicThreshold = BehaviourSplitPanicThreshold.IsCreated
+                                        && BehaviourSplitPanicThreshold.Length > behaviourIndex
+                ? BehaviourSplitPanicThreshold[behaviourIndex]
+                : 0.0f;
+
+            float splitLateralWeight = BehaviourSplitLateralWeight.IsCreated
+                                       && BehaviourSplitLateralWeight.Length > behaviourIndex
+                ? BehaviourSplitLateralWeight[behaviourIndex]
+                : 0.0f;
+
+            float splitAccelBoost = BehaviourSplitAccelBoost.IsCreated
+                                    && BehaviourSplitAccelBoost.Length > behaviourIndex
+                ? BehaviourSplitAccelBoost[behaviourIndex]
+                : 0.0f;
+
+            // Require at least 3 fish for proper split – or minGroupSize if that is higher.
+            int minSplitGroup = 3;
+            if (hasGroupSettings) {
+                minSplitGroup = math.max(minSplitGroup, minGroupSize);
+            }
+
+            bool hasGroupForSplit = groupSize >= minSplitGroup;
+            bool canSplit = splitPanicThreshold > 0.0f && splitLateralWeight > 0.0f && splitAccelBoost >= 0.0f;
+            bool doSplit = hasGroupForSplit && canSplit && avoidDanger >= splitPanicThreshold;
+
+            if (doSplit) {
+                // Base flee direction: prefer Avoid-only separation, fallback to general separation, then velocity.
+                float3 fleeSource = math.lengthsq(avoidSeparation) > 1e-6f
+                    ? avoidSeparation
+                    : (math.lengthsq(separation) > 1e-6f ? separation : velocity);
+
+                float3 fleeDir = math.normalizesafe(
+                    fleeSource,
+                    new float3(0.0f, 0.0f, 1.0f));
+
+                // Build lateral axis.
+                float3 up = new float3(0.0f, 1.0f, 0.0f);
+                float3 side = math.cross(fleeDir, up);
+                if (math.lengthsq(side) < 1e-4f) {
+                    up = new float3(0.0f, 0.0f, 1.0f);
+                    side = math.cross(fleeDir, up);
+                }
+                side = math.normalizesafe(side, float3.zero);
+
+                // Cheap hash from agent index → {0,1,2}
+                uint hash = (uint)(index * 9781 + 1);
+                hash ^= hash >> 11;
+                hash *= 0x9E3779B1u;
+                int branch = (int)(hash % 3u); // 0 = left, 1 = straight, 2 = right
+
+                float sideSign = 0.0f;
+                if (branch == 0) sideSign = -1.0f;
+                else if (branch == 2) sideSign = 1.0f;
+
+                float3 branchDir = fleeDir;
+                if (sideSign != 0.0f) {
+                    branchDir = math.normalizesafe(
+                        fleeDir + side * sideSign * splitLateralWeight,
+                        fleeDir);
+                }
+
+                float splitIntensity = math.saturate(avoidDanger); // 0..1-ish
+                float3 splitForce = branchDir * separationWeight * splitIntensity;
+
+                steering += splitForce;
+
+                // Panic burst: accelerate and allow slightly higher top speed while splitting
+                float boost = 1.0f + splitAccelBoost * splitIntensity;
+                localMaxAcceleration *= boost;
+                localMaxSpeed *= boost;
+            }
+
+            // Obstacles
             if (UseObstacleAvoidance && ObstacleSteering.IsCreated) {
                 float3 obstacleAccel = ObstacleSteering[index];
                 steering += obstacleAccel * ObstacleAvoidWeight;
             }
 
+            // Attraction areas
             if (UseAttraction && AttractionSteering.IsCreated) {
-                float3 attract = AttractionSteering[index];
-                steering += attract * GlobalAttractionWeight;
+                float3 attractionAccel = AttractionSteering[index];
+                steering += attractionAccel * GlobalAttractionWeight;
             }
 
+            // Self propulsion to maintain desiredSpeed
             float3 propulsion = ComputePropulsion(
-                velocity,
-                desiredSpeed);
+                currentVelocity: velocity,
+                desiredSpeed: desiredSpeed);
 
             steering += propulsion;
 
-            steering = LimitVector(steering, maxAcceleration);
+            steering = LimitVector(steering, localMaxAcceleration);
 
             velocity += steering * DeltaTime;
-            velocity = LimitVector(velocity, maxSpeed);
+            velocity = LimitVector(velocity, localMaxSpeed);
             velocity = ApplyDamping(velocity, EnvironmentData.GlobalDamping, DeltaTime);
             velocity = ApplyBoundsSteering(position, velocity, EnvironmentData);
 
             Velocities[index] = velocity;
         }
 
-
         // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
         // REPLACE ONLY THIS METHOD
         // ===== FlockStepJob.AccumulateNeighbourForces (REPLACE WHOLE METHOD) =====
+        // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
+        // REPLACE WHOLE METHOD
+
         void AccumulateNeighbourForces(
             int agentIndex,
             int myBehaviourIndex,
@@ -185,7 +359,9 @@ namespace Flock.Runtime.Jobs {
             ref int separationCount,
             ref float alignmentWeightSum,
             ref float cohesionWeightSum,
-            ref float avoidDanger) {
+            ref float avoidDanger,
+            ref int friendlyNeighbourCount,
+            ref float3 avoidSeparation) {
 
             float neighbourRadiusSquared = neighbourRadius * neighbourRadius;
             float separationRadiusSquared = separationRadius * separationRadius;
@@ -199,6 +375,11 @@ namespace Flock.Runtime.Jobs {
             // leadership state
             float maxLeaderWeight = -1.0f;
             const float epsilon = 1e-4f;
+
+            // initialise outputs
+            avoidDanger = 0.0f;
+            friendlyNeighbourCount = 0;
+            avoidSeparation = float3.zero;
 
             for (int x = -NeighbourCellRange; x <= NeighbourCellRange; x += 1) {
                 for (int y = -NeighbourCellRange; y <= NeighbourCellRange; y += 1) {
@@ -229,7 +410,7 @@ namespace Flock.Runtime.Jobs {
                                 continue;
                             }
 
-                            // hard collision separation (always on)
+                            // Hard collision separation (always on)
                             if (distanceSquared < separationRadiusSquared) {
                                 separation -= offset / distanceSquared;
                                 separationCount += 1;
@@ -265,8 +446,10 @@ namespace Flock.Runtime.Jobs {
                             float t = 1.0f - math.saturate(distance / neighbourRadius);
                             float3 dir = offset / distance; // from me towards neighbour
 
-                            // === FRIENDLY: standard schooling + leadership ===
+                            // === FRIENDLY: schooling + leadership ===
                             if (isFriendly) {
+                                friendlyNeighbourCount += 1;
+
                                 float neighbourLeaderWeight = BehaviourLeadershipWeight[neighbourBehaviourIndex];
                                 float3 neighbourVelocity = PrevVelocities[neighbourIndex];
 
@@ -291,7 +474,7 @@ namespace Flock.Runtime.Jobs {
                                 }
                             }
 
-                            // === AVOID: prey (lower avoidance weight) runs from predator (higher avoidance weight) ===
+                            // === AVOID: prey runs from predator ===
                             if (isAvoid && myAvoidResponse > 0f) {
                                 float neighbourAvoidWeight = BehaviourAvoidanceWeight[neighbourBehaviourIndex];
 
@@ -299,22 +482,20 @@ namespace Flock.Runtime.Jobs {
                                     float weightDelta = neighbourAvoidWeight - myAvoidWeight;
                                     float normalised = weightDelta / math.max(neighbourAvoidWeight, 1e-3f);
 
-                                    // local “danger” from this neighbour
                                     float localIntensity = t * normalised * myAvoidResponse;
 
-                                    // push away from neighbour
-                                    float3 repulse = -dir * localIntensity;
+                                    float3 repulse = -dir * localIntensity; // away from predator
                                     separation += repulse;
+                                    avoidSeparation += repulse;
                                     separationCount += 1;
 
-                                    // track max danger so Execute can boost accel/speed
                                     if (localIntensity > avoidDanger) {
                                         avoidDanger = localIntensity;
                                     }
                                 }
                             }
 
-                            // === NEUTRAL: lower neutral weight gently avoids higher ones (don't clip through) ===
+                            // === NEUTRAL: soft avoid higher neutral weight (don't clip) ===
                             if (isNeutral) {
                                 float neighbourNeutralWeight = BehaviourNeutralWeight[neighbourBehaviourIndex];
 
@@ -322,7 +503,6 @@ namespace Flock.Runtime.Jobs {
                                     float weightDelta = neighbourNeutralWeight - myNeutralWeight;
                                     float normalised = weightDelta / math.max(neighbourNeutralWeight, 1e-3f);
 
-                                    // softer than explicit "Avoid"
                                     float3 softRepulse = -dir * (t * normalised * 0.5f);
                                     separation += softRepulse;
                                     separationCount += 1;
@@ -389,7 +569,6 @@ namespace Flock.Runtime.Jobs {
                     separationDir,
                     float3.zero);
 
-                // NEW: panic multiplier – when Avoid triggers, this rises towards 2x
                 float3 separationForce = separationDir * separationWeight * separationPanicMultiplier;
                 steering += separationForce;
             }

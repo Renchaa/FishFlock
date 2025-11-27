@@ -31,5 +31,12 @@ namespace Flock.Runtime.Data {
         // Leadership / following
         public float LeadershipWeight;
         public uint GroupMask;
+
+        public int MinGroupSize;
+        public int MaxGroupSize;
+
+        public float GroupRadiusMultiplier;   // radius factor when in a group
+        public float LonerRadiusMultiplier;   // radius factor when under-grouped / lonely
+        public float LonerCohesionBoost;      // extra cohesion when lonely (magnet to school)
     }
 }

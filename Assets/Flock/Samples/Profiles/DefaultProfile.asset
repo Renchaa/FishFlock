@@ -25,3 +25,12 @@ MonoBehaviour:
   neutralWeight: 1
   attractionResponse: 1
   avoidResponse: 5
+  splitPanicThreshold: 0.4
+  splitLateralWeight: 0.8
+  splitAccelBoost: 1
+  attractionWeight: 1
+  minGroupSize: 3
+  maxGroupSize: 10
+  groupRadiusMultiplier: 1
+  lonerRadiusMultiplier: 2
+  lonerCohesionBoost: 1.5

@@ -39,6 +39,12 @@ namespace Flock.Runtime {
         NativeArray<float> behaviourSplitPanicThreshold; // NEW
         NativeArray<float> behaviourSplitLateralWeight;  // NEW
         NativeArray<float> behaviourSplitAccelBoost;
+        // Grouping behaviour
+        NativeArray<int> behaviourMinGroupSize;
+        NativeArray<int> behaviourMaxGroupSize;
+        NativeArray<float> behaviourGroupRadiusMultiplier;
+        NativeArray<float> behaviourLonerRadiusMultiplier;
+        NativeArray<float> behaviourLonerCohesionBoost;
 
         NativeParallelMultiHashMap<int, int> cellToAgents;
         NativeParallelMultiHashMap<int, int> cellToObstacles;
@@ -151,7 +157,7 @@ namespace Flock.Runtime {
 
             cellToAgents.Clear();
 
-            // Snapshot previous velocities
+            // Snapshot previous velocities.
             var copyJob = new CopyVelocitiesJob {
                 Source = velocities,
                 Destination = prevVelocities,
@@ -175,6 +181,7 @@ namespace Flock.Runtime {
                 64,
                 inputHandle);
 
+            // ---------- Obstacles ----------
             bool useObstacleAvoidance =
                 obstacleCount > 0
                 && cellToObstacles.IsCreated
@@ -209,12 +216,13 @@ namespace Flock.Runtime {
                     assignHandle);
             }
 
-            // Attraction – now cell-based (Individual zones only)
+            // ---------- Attraction (per-cell lookup) ----------
             bool useAttraction =
                 attractorCount > 0
                 && attractors.IsCreated
                 && attractionSteering.IsCreated
-                && cellToIndividualAttractor.IsCreated;
+                && cellToIndividualAttractor.IsCreated
+                && gridCellCount > 0;
 
             JobHandle attractionHandle = assignHandle;
 
@@ -227,6 +235,7 @@ namespace Flock.Runtime {
                     BehaviourAttractionWeight = behaviourAttractionWeight,
 
                     CellToIndividualAttractor = cellToIndividualAttractor,
+
                     GridOrigin = environmentData.GridOrigin,
                     GridResolution = environmentData.GridResolution,
                     CellSize = environmentData.CellSize,
@@ -240,7 +249,7 @@ namespace Flock.Runtime {
                     assignHandle);
             }
 
-            // Flock job waits for obstacle + attraction + velocity copy
+            // Flock job waits for obstacle + attraction + velocity copy.
             JobHandle flockDeps = JobHandle.CombineDependencies(
                 obstacleHandle,
                 attractionHandle,
@@ -271,6 +280,18 @@ namespace Flock.Runtime {
                 BehaviourLeadershipWeight = behaviourLeadershipWeight,
                 BehaviourGroupMask = behaviourGroupMask,
                 BehaviourAvoidResponse = behaviourAvoidResponse,
+
+                // Split behaviour
+                BehaviourSplitPanicThreshold = behaviourSplitPanicThreshold,
+                BehaviourSplitLateralWeight = behaviourSplitLateralWeight,
+                BehaviourSplitAccelBoost = behaviourSplitAccelBoost,
+
+                // Grouping behaviour
+                BehaviourMinGroupSize = behaviourMinGroupSize,
+                BehaviourMaxGroupSize = behaviourMaxGroupSize,
+                BehaviourGroupRadiusMultiplier = behaviourGroupRadiusMultiplier,
+                BehaviourLonerRadiusMultiplier = behaviourLonerRadiusMultiplier,
+                BehaviourLonerCohesionBoost = behaviourLonerCohesionBoost,
 
                 CellToAgents = cellToAgents,
                 GridOrigin = environmentData.GridOrigin,
@@ -309,6 +330,9 @@ namespace Flock.Runtime {
             return integrateHandle;
         }
 
+
+
+
         public void Dispose() {
             DisposeArray(ref positions);
             DisposeArray(ref velocities);
@@ -338,6 +362,17 @@ namespace Flock.Runtime {
             // Obstacles
             DisposeArray(ref obstacles);
             DisposeArray(ref obstacleSteering);
+
+            DisposeArray(ref behaviourSplitPanicThreshold);
+            DisposeArray(ref behaviourSplitLateralWeight);
+            DisposeArray(ref behaviourSplitAccelBoost);
+
+            // === NEW: grouping ===
+            DisposeArray(ref behaviourMinGroupSize);
+            DisposeArray(ref behaviourMaxGroupSize);
+            DisposeArray(ref behaviourGroupRadiusMultiplier);
+            DisposeArray(ref behaviourLonerRadiusMultiplier);
+            DisposeArray(ref behaviourLonerCohesionBoost);
 
             if (cellToAgents.IsCreated) {
                 cellToAgents.Dispose();
@@ -401,14 +436,6 @@ namespace Flock.Runtime {
             }
         }
 
-        // File: Assets/Flock/Runtime/FlockSimulation.cs
-        // REPLACE AllocateBehaviourArrays WITH THIS VERSION
-
-        // ==========================================
-        // 8) FlockSimulation.AllocateBehaviourArrays – now fills avoid/neutral/attraction
-        // File: Assets/Flock/Runtime/FlockSimulation.cs
-        // (REPLACE WHOLE METHOD)
-        // ==========================================
         void AllocateBehaviourArrays(
             NativeArray<FlockBehaviourSettings> settings,
             Allocator allocator) {
@@ -470,7 +497,7 @@ namespace Flock.Runtime {
                 allocator,
                 NativeArrayOptions.UninitializedMemory);
 
-            // NEW: relationship-related arrays
+            // Relations
             behaviourAvoidanceWeight = new NativeArray<float>(
                 behaviourCount,
                 allocator,
@@ -501,6 +528,48 @@ namespace Flock.Runtime {
                 allocator,
                 NativeArrayOptions.UninitializedMemory);
 
+            // Split behaviour
+            behaviourSplitPanicThreshold = new NativeArray<float>(
+                behaviourCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
+            behaviourSplitLateralWeight = new NativeArray<float>(
+                behaviourCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
+            behaviourSplitAccelBoost = new NativeArray<float>(
+                behaviourCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
+            // Grouping
+            behaviourMinGroupSize = new NativeArray<int>(
+                behaviourCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
+            behaviourMaxGroupSize = new NativeArray<int>(
+                behaviourCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
+            behaviourGroupRadiusMultiplier = new NativeArray<float>(
+                behaviourCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
+            behaviourLonerRadiusMultiplier = new NativeArray<float>(
+                behaviourCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
+            behaviourLonerCohesionBoost = new NativeArray<float>(
+                behaviourCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
             for (int index = 0; index < behaviourCount; index += 1) {
                 FlockBehaviourSettings behaviour = settings[index];
 
@@ -520,7 +589,6 @@ namespace Flock.Runtime {
                 behaviourLeadershipWeight[index] = behaviour.LeadershipWeight;
                 behaviourGroupMask[index] = behaviour.GroupMask;
 
-                // NEW: relationships
                 behaviourAvoidanceWeight[index] = behaviour.AvoidanceWeight;
                 behaviourNeutralWeight[index] = behaviour.NeutralWeight;
                 behaviourAttractionWeight[index] = behaviour.AttractionWeight;
@@ -528,6 +596,18 @@ namespace Flock.Runtime {
 
                 behaviourAvoidMask[index] = behaviour.AvoidMask;
                 behaviourNeutralMask[index] = behaviour.NeutralMask;
+
+                // Split
+                behaviourSplitPanicThreshold[index] = behaviour.SplitPanicThreshold;
+                behaviourSplitLateralWeight[index] = behaviour.SplitLateralWeight;
+                behaviourSplitAccelBoost[index] = behaviour.SplitAccelBoost;
+
+                // Grouping
+                behaviourMinGroupSize[index] = behaviour.MinGroupSize;
+                behaviourMaxGroupSize[index] = behaviour.MaxGroupSize;
+                behaviourGroupRadiusMultiplier[index] = behaviour.GroupRadiusMultiplier;
+                behaviourLonerRadiusMultiplier[index] = behaviour.LonerRadiusMultiplier;
+                behaviourLonerCohesionBoost[index] = behaviour.LonerCohesionBoost;
             }
         }
 

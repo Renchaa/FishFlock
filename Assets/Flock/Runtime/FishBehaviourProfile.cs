@@ -47,10 +47,25 @@ namespace Flock.Runtime {
         [SerializeField, Min(0f)]
         float attractionWeight = 1.0f;
 
-        // File: Assets/Flock/Runtime/FishBehaviourProfile.cs
+        [Header("Grouping")]
+        [SerializeField, Min(1)]
+        int minGroupSize = 3;
 
+        [SerializeField, Min(0)]
+        int maxGroupSize = 0; // 0 = no upper limit
+
+        [SerializeField, Range(0.5f, 1.5f)]
+        float groupRadiusMultiplier = 1.0f;
+
+        [SerializeField, Range(1.0f, 3.0f)]
+        float lonerRadiusMultiplier = 2.0f;
+
+        [SerializeField, Range(0f, 3f)]
+        float lonerCohesionBoost = 1.5f;
+
+
+        // File: Assets/Flock/Runtime/FishBehaviourProfile.cs
         public FlockBehaviourSettings ToSettings() {
-            // IMPORTANT: initialise struct so all fields have defined values
             FlockBehaviourSettings settings = default;
 
             settings.MaxSpeed = maxSpeed;
@@ -60,7 +75,7 @@ namespace Flock.Runtime {
             settings.NeighbourRadius = neighbourRadius;
             settings.SeparationRadius = separationRadius;
 
-            // Relationship-related fields – defaults here, overridden by matrix / controller
+            // Relationship-related defaults – will be overridden by interaction matrix
             settings.AvoidanceWeight = 1.0f;
             settings.NeutralWeight = 1.0f;
 
@@ -73,17 +88,29 @@ namespace Flock.Runtime {
 
             settings.InfluenceWeight = influenceWeight;
 
-            // Leadership / grouping defaults – overridden from interaction matrix
+            // Leadership / group mask – overridden from matrix
             settings.LeadershipWeight = 1.0f;
             settings.GroupMask = 0u;
 
-            // Attraction / avoid response / split – pure per-type settings
-            settings.AttractionWeight = attractionWeight;
-            settings.AvoidResponse = avoidResponse;
+            // === Grouping behaviour ===
+            settings.MinGroupSize = Mathf.Max(1, minGroupSize);
+            settings.MaxGroupSize = Mathf.Max(0, maxGroupSize);
 
+            settings.GroupRadiusMultiplier = Mathf.Max(0.1f, groupRadiusMultiplier);
+
+            float safeLonerMultiplier = Mathf.Max(groupRadiusMultiplier, lonerRadiusMultiplier);
+            settings.LonerRadiusMultiplier = Mathf.Max(0.1f, safeLonerMultiplier);
+
+            settings.LonerCohesionBoost = Mathf.Max(0f, lonerCohesionBoost);
+
+            // === Split behaviour ===
             settings.SplitPanicThreshold = splitPanicThreshold;
             settings.SplitLateralWeight = splitLateralWeight;
             settings.SplitAccelBoost = splitAccelBoost;
+
+            // === Attraction / avoid response ===
+            settings.AttractionWeight = Mathf.Max(0f, attractionWeight);
+            settings.AvoidResponse = Mathf.Max(0f, avoidResponse);
 
             return settings;
         }
