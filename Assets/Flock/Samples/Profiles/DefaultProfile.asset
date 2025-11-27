@@ -18,7 +18,10 @@ MonoBehaviour:
   neighbourRadius: 3
   separationRadius: 1
   alignmentWeight: 0.8
-  cohesionWeight: 0.5
-  separationWeight: 1
-  influenceWeight: 0.8
+  cohesionWeight: 0.6
+  separationWeight: 1.2
+  influenceWeight: 0.7
+  avoidanceWeight: 3
+  neutralWeight: 1
+  attractionResponse: 1
   avoidResponse: 5

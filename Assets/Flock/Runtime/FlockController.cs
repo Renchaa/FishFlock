@@ -614,7 +614,6 @@ namespace Flock.Runtime {
             return mask;
         }
 
-        // --- NEW: update dynamic attractors each frame ---
         void UpdateDynamicAttractors() {
             if (simulation == null || !simulation.IsCreated) {
                 return;
@@ -628,6 +627,7 @@ namespace Flock.Runtime {
             }
 
             int count = Mathf.Min(dynamicAttractors.Length, dynamicAttractorIndices.Length);
+            bool anyUpdated = false;
 
             for (int i = 0; i < count; i += 1) {
                 int attractorIndex = dynamicAttractorIndices[i];
@@ -643,6 +643,12 @@ namespace Flock.Runtime {
                 uint mask = ComputeAttractorMask(area);
                 FlockAttractorData data = area.ToData(mask);
                 simulation.SetAttractorData(attractorIndex, data);
+                anyUpdated = true;
+            }
+
+            // Re-stamp attractors into grid if anything moved / changed
+            if (anyUpdated) {
+                simulation.RebuildAttractorGrid();
             }
         }
 

@@ -20,5 +20,8 @@ MonoBehaviour:
   alignmentWeight: 0.8
   cohesionWeight: 0.7
   separationWeight: 1
-  influenceWeight: 0.8
+  influenceWeight: 1
+  avoidanceWeight: 1
+  neutralWeight: 1
+  attractionResponse: 1
   avoidResponse: 3

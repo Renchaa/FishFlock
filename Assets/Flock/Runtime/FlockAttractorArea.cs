@@ -1,5 +1,5 @@
 // ==========================================
-// 2) NEW COMPONENT
+// 3) UPDATE FlockAttractorArea
 // File: Assets/Flock/Runtime/FlockAttractorArea.cs
 // ==========================================
 namespace Flock.Runtime {
@@ -23,13 +23,20 @@ namespace Flock.Runtime {
         [SerializeField, Min(0f)]
         float baseStrength = 1.0f;
 
-        // 0.1 = very soft spread, 1 = linear, 2+ = concentrated near center
         [SerializeField, Range(0.1f, 4f)]
         float falloffPower = 1.0f;
 
-        // If empty => affects all fish types
         [SerializeField]
         FishTypePreset[] attractedTypes = System.Array.Empty<FishTypePreset>();
+
+        // === NEW: usage + cell priority ===
+        [Header("Usage")]
+        [SerializeField]
+        FlockAttractorUsage usage = FlockAttractorUsage.Individual;
+
+        [Tooltip("Higher value wins when multiple attractors overlap the same grid cells.")]
+        [SerializeField, Min(0f)]
+        float cellPriority = 1.0f;
 
         public FlockAttractorShape Shape => shape;
         public float SphereRadius => sphereRadius;
@@ -38,7 +45,10 @@ namespace Flock.Runtime {
         public float FalloffPower => falloffPower;
         public FishTypePreset[] AttractedTypes => attractedTypes;
 
-        // Controller passes the bitmask it computed from AttractedTypes + its FishTypes[]
+        public FlockAttractorUsage Usage => usage;
+        public float CellPriority => cellPriority;
+
+        // ===== REPLACE ToData WITH THIS VERSION =====
         public FlockAttractorData ToData(uint affectedTypesMask) {
             FlockAttractorData data;
 
@@ -48,6 +58,10 @@ namespace Flock.Runtime {
             data.BaseStrength = Mathf.Max(0f, baseStrength);
             data.FalloffPower = Mathf.Max(0.1f, falloffPower);
             data.AffectedTypesMask = affectedTypesMask == 0u ? uint.MaxValue : affectedTypesMask;
+
+            // NEW: usage + cell priority
+            data.Usage = usage;
+            data.CellPriority = Mathf.Max(0f, cellPriority);
 
             if (shape == FlockAttractorShape.Sphere) {
                 float radius = math.max(0.0f, sphereRadius);
@@ -64,7 +78,7 @@ namespace Flock.Runtime {
                 data.BoxHalfExtents = halfExtents;
                 data.BoxRotation = transform.rotation;
 
-                // Bounding sphere radius for cheap radial falloff
+                // Bounding sphere radius for broad-phase / stamping
                 data.Radius = math.length(halfExtents);
             }
 

@@ -21,5 +21,8 @@ namespace Flock.Runtime.Data {
         public float BaseStrength;
         public float FalloffPower;       // controls how quickly attraction fades from center to bounds
         public uint AffectedTypesMask;   // bit per behaviour index (same convention as GroupMask)
+
+        public FlockAttractorUsage Usage;
+        public float CellPriority;
     }
 }

@@ -13,6 +13,11 @@ namespace Flock.Runtime.Data {
         public float AttractionWeight;  // how strongly this type responds to attractor areas
         public float AvoidResponse;     // how “panicked” this type gets when avoiding (0 = chill, 1+ = very reactive)
 
+
+        public float SplitPanicThreshold;  // panic level at which this type starts splitting
+        public float SplitLateralWeight;   // how wide it fans out left/right when splitting
+        public float SplitAccelBoost;      // how much extra accel/speed during split burst
+
         public uint AvoidMask;          // bitmask of types this behaviour avoids
         public uint NeutralMask;        // bitmask of types treated as Neutral
 

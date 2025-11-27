@@ -36,6 +36,9 @@ namespace Flock.Runtime {
         NativeArray<float3> obstacleSteering;
         NativeArray<float> behaviourAvoidResponse;
         NativeArray<float> behaviourAttractionWeight;
+        NativeArray<float> behaviourSplitPanicThreshold; // NEW
+        NativeArray<float> behaviourSplitLateralWeight;  // NEW
+        NativeArray<float> behaviourSplitAccelBoost;
 
         NativeParallelMultiHashMap<int, int> cellToAgents;
         NativeParallelMultiHashMap<int, int> cellToObstacles;
@@ -47,6 +50,10 @@ namespace Flock.Runtime {
         NativeArray<FlockAttractorData> attractors;
         NativeArray<float3> attractionSteering;
         int attractorCount;        // NEW: relationship-related behaviour arrays
+        NativeArray<int> cellToIndividualAttractor;
+        NativeArray<int> cellToGroupAttractor;
+        NativeArray<float> cellIndividualPriority;
+        NativeArray<float> cellGroupPriority;
 
         int obstacleCount;
         int gridCellCount;
@@ -82,6 +89,7 @@ namespace Flock.Runtime {
             // NEW: attractors
             AllocateAttractors(attractorsSource, allocator);
             AllocateAttractorSimulationData(allocator);
+            RebuildAttractorGrid(); // NEW: stamp attractors into grid cells
 
             InitializeAgentsRandomInsideBounds();
 
@@ -113,9 +121,6 @@ namespace Flock.Runtime {
             }
         }
 
-        // File: Assets/Flock/Runtime/FlockSimulation.cs
-        // REPLACE ScheduleStepJobs WITH THIS VERSION
-
         public JobHandle ScheduleStepJobs(
             float deltaTime,
             JobHandle inputHandle = default) {
@@ -146,7 +151,7 @@ namespace Flock.Runtime {
 
             cellToAgents.Clear();
 
-            // Snapshot previous velocities.
+            // Snapshot previous velocities
             var copyJob = new CopyVelocitiesJob {
                 Source = velocities,
                 Destination = prevVelocities,
@@ -204,11 +209,12 @@ namespace Flock.Runtime {
                     assignHandle);
             }
 
-            // NEW: attraction job
+            // Attraction – now cell-based (Individual zones only)
             bool useAttraction =
                 attractorCount > 0
                 && attractors.IsCreated
-                && attractionSteering.IsCreated;
+                && attractionSteering.IsCreated
+                && cellToIndividualAttractor.IsCreated;
 
             JobHandle attractionHandle = assignHandle;
 
@@ -220,7 +226,11 @@ namespace Flock.Runtime {
                     Attractors = attractors,
                     BehaviourAttractionWeight = behaviourAttractionWeight,
 
-                    AttractorCount = attractorCount,
+                    CellToIndividualAttractor = cellToIndividualAttractor,
+                    GridOrigin = environmentData.GridOrigin,
+                    GridResolution = environmentData.GridResolution,
+                    CellSize = environmentData.CellSize,
+
                     AttractionSteering = attractionSteering,
                 };
 
@@ -230,7 +240,7 @@ namespace Flock.Runtime {
                     assignHandle);
             }
 
-            // Flock job waits for obstacle + attraction + velocity copy.
+            // Flock job waits for obstacle + attraction + velocity copy
             JobHandle flockDeps = JobHandle.CombineDependencies(
                 obstacleHandle,
                 attractionHandle,
@@ -274,7 +284,6 @@ namespace Flock.Runtime {
                 ObstacleAvoidWeight = DefaultObstacleAvoidWeight,
                 ObstacleSteering = obstacleSteering,
 
-                // NEW: attraction hook
                 UseAttraction = useAttraction,
                 GlobalAttractionWeight = DefaultAttractionWeight,
                 AttractionSteering = attractionSteering,
@@ -300,7 +309,6 @@ namespace Flock.Runtime {
             return integrateHandle;
         }
 
-        // File: Assets/Flock/Runtime/FlockSimulation.cs
         public void Dispose() {
             DisposeArray(ref positions);
             DisposeArray(ref velocities);
@@ -319,7 +327,7 @@ namespace Flock.Runtime {
             DisposeArray(ref behaviourLeadershipWeight);
             DisposeArray(ref behaviourGroupMask);
 
-            // NEW: relationship-related
+            // Relationship-related
             DisposeArray(ref behaviourAvoidanceWeight);
             DisposeArray(ref behaviourNeutralWeight);
             DisposeArray(ref behaviourAttractionWeight);
@@ -339,9 +347,15 @@ namespace Flock.Runtime {
                 cellToObstacles.Dispose();
             }
 
-            // NEW: attractors
+            // Attractors
             DisposeArray(ref attractors);
             DisposeArray(ref attractionSteering);
+
+            // Per-cell attractor lookup arrays
+            DisposeArray(ref cellToIndividualAttractor);
+            DisposeArray(ref cellToGroupAttractor);
+            DisposeArray(ref cellIndividualPriority);
+            DisposeArray(ref cellGroupPriority);
 
             AgentCount = 0;
         }
@@ -577,6 +591,115 @@ namespace Flock.Runtime {
             cellToAgents = new NativeParallelMultiHashMap<int, int>(
                 capacity,
                 allocator);
+
+            if (gridCellCount <= 0) {
+                cellToIndividualAttractor = default;
+                cellToGroupAttractor = default;
+                cellIndividualPriority = default;
+                cellGroupPriority = default;
+                return;
+            }
+
+            // Per-cell attractor indices
+            cellToIndividualAttractor = new NativeArray<int>(
+                gridCellCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
+            cellToGroupAttractor = new NativeArray<int>(
+                gridCellCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
+            cellIndividualPriority = new NativeArray<float>(
+                gridCellCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
+            cellGroupPriority = new NativeArray<float>(
+                gridCellCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
+            // Init with "no attractor" and lowest priority
+            for (int i = 0; i < gridCellCount; i += 1) {
+                cellToIndividualAttractor[i] = -1;
+                cellToGroupAttractor[i] = -1;
+                cellIndividualPriority[i] = float.NegativeInfinity;
+                cellGroupPriority[i] = float.NegativeInfinity;
+            }
+        }
+
+        // File: Assets/Flock/Runtime/FlockSimulation.cs
+        // NEW METHOD: stamps Individual / Group attractors into grid cells
+        public void RebuildAttractorGrid() {
+            if (!cellToIndividualAttractor.IsCreated
+                || !cellToGroupAttractor.IsCreated
+                || !cellIndividualPriority.IsCreated
+                || !cellGroupPriority.IsCreated
+                || gridCellCount <= 0) {
+                return;
+            }
+
+            // Reset per-cell mappings
+            for (int i = 0; i < gridCellCount; i += 1) {
+                cellToIndividualAttractor[i] = -1;
+                cellToGroupAttractor[i] = -1;
+                cellIndividualPriority[i] = float.NegativeInfinity;
+                cellGroupPriority[i] = float.NegativeInfinity;
+            }
+
+            if (!attractors.IsCreated || attractorCount <= 0) {
+                return;
+            }
+
+            float cellSize = math.max(environmentData.CellSize, 0.0001f);
+            float3 origin = environmentData.GridOrigin;
+            int3 res = environmentData.GridResolution;
+            int layerSize = res.x * res.y;
+
+            for (int index = 0; index < attractorCount; index += 1) {
+                FlockAttractorData data = attractors[index];
+
+                // Bounding sphere around the volume
+                float radius = math.max(data.Radius, cellSize);
+                float3 minPos = data.Position - new float3(radius);
+                float3 maxPos = data.Position + new float3(radius);
+
+                float3 minLocal = (minPos - origin) / cellSize;
+                float3 maxLocal = (maxPos - origin) / cellSize;
+
+                int3 minCell = (int3)math.floor(minLocal);
+                int3 maxCell = (int3)math.floor(maxLocal);
+
+                int3 minClamp = new int3(0, 0, 0);
+                int3 maxClamp = res - new int3(1, 1, 1);
+
+                minCell = math.clamp(minCell, minClamp, maxClamp);
+                maxCell = math.clamp(maxCell, minClamp, maxClamp);
+
+                for (int z = minCell.z; z <= maxCell.z; z += 1) {
+                    for (int y = minCell.y; y <= maxCell.y; y += 1) {
+                        int rowBase = y * res.x + z * layerSize;
+
+                        for (int x = minCell.x; x <= maxCell.x; x += 1) {
+                            int cellIndex = x + rowBase;
+
+                            if (data.Usage == FlockAttractorUsage.Individual) {
+                                if (data.CellPriority > cellIndividualPriority[cellIndex]) {
+                                    cellIndividualPriority[cellIndex] = data.CellPriority;
+                                    cellToIndividualAttractor[cellIndex] = index;
+                                }
+                            } else if (data.Usage == FlockAttractorUsage.Group) {
+                                if (data.CellPriority > cellGroupPriority[cellIndex]) {
+                                    cellGroupPriority[cellIndex] = data.CellPriority;
+                                    cellToGroupAttractor[cellIndex] = index;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         void AllocateObstacles(
