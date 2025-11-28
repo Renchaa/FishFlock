@@ -51,6 +51,23 @@ namespace Flock.Runtime {
         [SerializeField, Min(1)]
         int minGroupSize = 3;
 
+        [Header("Preferred Depth")]
+        [SerializeField] bool usePreferredDepth = false;
+
+        [Tooltip("Normalised depth band [0..1] where 0 = bottom of bounds, 1 = top of bounds.")]
+        [SerializeField, Range(0f, 1f)] float preferredDepthMin = 0.0f;
+
+        [SerializeField, Range(0f, 1f)] float preferredDepthMax = 1.0f;
+
+        [SerializeField, Min(0f)]
+
+        float preferredDepthWeight = 1.0f;
+
+        [SerializeField, Min(0f)] float depthBiasStrength = 1.0f;
+
+        [Tooltip("If true, preferred depth wins when attraction would pull fish out of its band.")]
+        [SerializeField] bool depthWinsOverAttractor = true;
+
         [SerializeField, Min(0)]
         int maxGroupSize = 0; // 0 = no upper limit
 
@@ -63,8 +80,13 @@ namespace Flock.Runtime {
         [SerializeField, Range(0f, 3f)]
         float lonerCohesionBoost = 1.5f;
 
+        [Tooltip("Fraction of the preferred depth band treated as soft edge buffer (0 = no buffer, 0.5 = band is mostly buffer).")]
+        [SerializeField, Range(0f, 0.5f)]
+        float preferredDepthEdgeFraction = 0.25f;
 
         // File: Assets/Flock/Runtime/FishBehaviourProfile.cs
+        // File: Assets/Flock/Runtime/FishBehaviourProfile.cs
+        // UPDATED ToSettings – now correctly wires preferred-depth settings
         public FlockBehaviourSettings ToSettings() {
             FlockBehaviourSettings settings = default;
 
@@ -112,7 +134,38 @@ namespace Flock.Runtime {
             settings.AttractionWeight = Mathf.Max(0f, attractionWeight);
             settings.AvoidResponse = Mathf.Max(0f, avoidResponse);
 
+            // === Preferred depth ===
+            float min = Mathf.Clamp01(preferredDepthMin);
+            float max = Mathf.Clamp01(preferredDepthMax);
+            if (max < min) {
+                // swap if user drags the sliders in weird order
+                float tmp = min;
+                min = max;
+                max = tmp;
+            }
+
+            // Flag: enable/disable depth control in jobs
+            settings.UsePreferredDepth = (byte)(usePreferredDepth ? 1 : 0);
+
+            // Store band in both raw + normalised fields (we use normalised everywhere right now)
+            settings.PreferredDepthMin = min;
+            settings.PreferredDepthMax = max;
+            settings.PreferredDepthMinNorm = min;
+            settings.PreferredDepthMaxNorm = max;
+
+            // Strength & conflict resolution
+            settings.PreferredDepthWeight = usePreferredDepth
+                ? Mathf.Max(0f, preferredDepthWeight)
+                : 0f; // 0 = disabled in jobs
+
+            settings.DepthBiasStrength = Mathf.Max(0f, depthBiasStrength);
+            settings.DepthWinsOverAttractor = (byte)(depthWinsOverAttractor ? 1 : 0);
+
+            settings.PreferredDepthEdgeFraction = Mathf.Clamp(preferredDepthEdgeFraction, 0f, 0.5f);
+
             return settings;
         }
+
+
     }
 }

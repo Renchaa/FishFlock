@@ -38,5 +38,35 @@ namespace Flock.Runtime.Data {
         public float GroupRadiusMultiplier;   // radius factor when in a group
         public float LonerRadiusMultiplier;   // radius factor when under-grouped / lonely
         public float LonerCohesionBoost;      // extra cohesion when lonely (magnet to school)
+
+        /// <summary>
+        /// 0 = disabled, 1 = enabled.
+        /// </summary>
+        public byte UsePreferredDepth;
+
+        /// <summary>
+        /// Normalised depth band [0..1] in world bounds (0 = bottom, 1 = top).
+        /// </summary>
+        public float PreferredDepthMin;
+        public float PreferredDepthMax;
+
+        /// <summary>
+        /// Strength of vertical bias toward the preferred band.
+        /// </summary>
+        public float DepthBiasStrength;
+
+        /// <summary>
+        /// 0 = attraction wins when they conflict, 1 = depth wins.
+        /// </summary>
+        public byte DepthWinsOverAttractor;
+
+        // Preferred depth band [0..1] in environment bounds (0 = bottom, 1 = top)
+        public float PreferredDepthMinNorm;
+        public float PreferredDepthMaxNorm;
+
+        // Strength of depth steering. <= 0 means "disabled".
+        public float PreferredDepthWeight;
+
+        public float PreferredDepthEdgeFraction;
     }
 }

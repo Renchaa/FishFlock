@@ -24,5 +24,12 @@ namespace Flock.Runtime.Data {
 
         public FlockAttractorUsage Usage;
         public float CellPriority;
+
+        /// <summary>
+        /// Normalised depth range of the attractor volume in environment bounds [0..1].
+        /// 0 = bottom of bounds, 1 = top.
+        /// </summary>
+        public float DepthMinNorm;
+        public float DepthMaxNorm;
     }
 }

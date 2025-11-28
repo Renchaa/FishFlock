@@ -21,9 +21,15 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public int3 GridResolution;
         [ReadOnly] public float CellSize;
 
+        [ReadOnly] public NativeArray<byte> BehaviourUsePreferredDepth;
+        [ReadOnly] public NativeArray<float> BehaviourPreferredDepthMin;
+        [ReadOnly] public NativeArray<float> BehaviourPreferredDepthMax;
+        [ReadOnly] public NativeArray<byte> BehaviourDepthWinsOverAttractor;
+
         [NativeDisableParallelForRestriction]
         public NativeArray<float3> AttractionSteering;
 
+        // REPLACE WHOLE Execute IN AttractorSamplingJob
         public void Execute(int index) {
             float3 position = Positions[index];
 
@@ -64,6 +70,54 @@ namespace Flock.Runtime.Jobs {
                     AttractionSteering[index] = float3.zero;
                     return;
                 }
+            }
+
+            // --- Preferred-depth vs attractor depth conflict handling ---
+            bool hasDepthArrays =
+                BehaviourUsePreferredDepth.IsCreated
+                && BehaviourPreferredDepthMin.IsCreated
+                && BehaviourPreferredDepthMax.IsCreated
+                && BehaviourUsePreferredDepth.Length > behaviourIndex
+                && BehaviourPreferredDepthMin.Length > behaviourIndex
+                && BehaviourPreferredDepthMax.Length > behaviourIndex;
+
+            if (hasDepthArrays && BehaviourUsePreferredDepth[behaviourIndex] != 0) {
+                float prefMin = BehaviourPreferredDepthMin[behaviourIndex];
+                float prefMax = BehaviourPreferredDepthMax[behaviourIndex];
+
+                float aMin = data.DepthMinNorm;
+                float aMax = data.DepthMaxNorm;
+
+                if (prefMax < prefMin) {
+                    float tmp = prefMin;
+                    prefMin = prefMax;
+                    prefMax = tmp;
+                }
+
+                if (aMax < aMin) {
+                    float tmp = aMin;
+                    aMin = aMax;
+                    aMax = tmp;
+                }
+
+                float overlapMin = math.max(prefMin, aMin);
+                float overlapMax = math.min(prefMax, aMax);
+                const float MinOverlap = 0.001f;
+
+                // If there is effectively no overlap → full conflict.
+                // If DepthWinsOverAttractor is true, we completely ignore this attractor.
+                bool depthWins =
+                    BehaviourDepthWinsOverAttractor.IsCreated
+                    && BehaviourDepthWinsOverAttractor.Length > behaviourIndex
+                    && BehaviourDepthWinsOverAttractor[behaviourIndex] != 0;
+
+                if (overlapMax - overlapMin <= MinOverlap && depthWins) {
+                    AttractionSteering[index] = float3.zero;
+                    return;
+                }
+
+                // For partial overlap we currently keep full attraction;
+                // the vertical component will be shaped by ApplyPreferredDepth.
             }
 
             float3 offset;

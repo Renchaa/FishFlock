@@ -48,9 +48,9 @@ namespace Flock.Runtime {
         public FlockAttractorUsage Usage => usage;
         public float CellPriority => cellPriority;
 
-        // ===== REPLACE ToData WITH THIS VERSION =====
         public FlockAttractorData ToData(uint affectedTypesMask) {
-            FlockAttractorData data;
+            // IMPORTANT: initialise struct so C# is happy
+            FlockAttractorData data = default;
 
             data.Shape = shape;
             data.Position = transform.position;
@@ -81,7 +81,6 @@ namespace Flock.Runtime {
                 // Bounding sphere radius for broad-phase / stamping
                 data.Radius = math.length(halfExtents);
             }
-
             return data;
         }
 

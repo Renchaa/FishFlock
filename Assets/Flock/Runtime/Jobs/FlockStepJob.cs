@@ -1,6 +1,7 @@
 ﻿// File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
 namespace Flock.Runtime.Jobs {
     using Flock.Runtime.Data;
+    using System;
     using Unity.Burst;
     using Unity.Collections;
     using Unity.Jobs;
@@ -66,10 +67,20 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public NativeArray<float> BehaviourLonerRadiusMultiplier;
         [ReadOnly] public NativeArray<float> BehaviourLonerCohesionBoost;
 
+        [ReadOnly] public NativeArray<byte> BehaviourUsePreferredDepth;
+        [ReadOnly] public NativeArray<float> BehaviourPreferredDepthMin;
+        [ReadOnly] public NativeArray<float> BehaviourPreferredDepthMax;
+        [ReadOnly] public NativeArray<float> BehaviourDepthBiasStrength;
+        [ReadOnly] public NativeArray<byte> BehaviourDepthWinsOverAttractor;
+        [ReadOnly] public NativeArray<float> BehaviourPreferredDepthMinNorm;
+        [ReadOnly] public NativeArray<float> BehaviourPreferredDepthMaxNorm;
+        [ReadOnly] public NativeArray<float> BehaviourPreferredDepthWeight;
 
         [ReadOnly] public bool UseAttraction;
         [ReadOnly] public float GlobalAttractionWeight;
         [ReadOnly] public NativeArray<float3> AttractionSteering;
+        [ReadOnly] public NativeArray<float> BehaviourPreferredDepthEdgeFraction;
+
         // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
         // REPLACE Execute WITH THIS VERSION
 
@@ -81,29 +92,31 @@ namespace Flock.Runtime.Jobs {
         // REPLACE WHOLE Execute METHOD WITH THIS VERSION
 
         public void Execute(int index) {
-            float3 position = Positions[index];
-            float3 velocity = PrevVelocities[index];
+            // --- 1) Load per-agent + per-behaviour scalars ---
+            if (!TryLoadBehaviourScalars(
+                    index,
+                    out float3 position,
+                    out float3 velocity,
+                    out int behaviourIndex,
+                    out float maxSpeed,
+                    out float maxAcceleration,
+                    out float desiredSpeed,
+                    out float neighbourRadius,
+                    out float separationRadius,
+                    out float alignmentWeight,
+                    out float cohesionWeight,
+                    out float separationWeight,
+                    out float influenceWeight,
+                    out uint friendlyMask,
+                    out uint avoidMask,
+                    out uint neutralMask)) {
 
-            int behaviourIndex = BehaviourIds[index];
-            if ((uint)behaviourIndex >= (uint)BehaviourMaxSpeed.Length) {
-                Velocities[index] = velocity;
+                // Behaviour index out of range – keep previous velocity.
+                Velocities[index] = PrevVelocities[index];
                 return;
             }
 
-            float maxSpeed = BehaviourMaxSpeed[behaviourIndex];
-            float maxAcceleration = BehaviourMaxAcceleration[behaviourIndex];
-            float desiredSpeed = BehaviourDesiredSpeed[behaviourIndex];
-            float neighbourRadius = BehaviourNeighbourRadius[behaviourIndex];
-            float separationRadius = BehaviourSeparationRadius[behaviourIndex];
-            float alignmentWeight = BehaviourAlignmentWeight[behaviourIndex];
-            float cohesionWeight = BehaviourCohesionWeight[behaviourIndex];
-            float separationWeight = BehaviourSeparationWeight[behaviourIndex];
-            float influenceWeight = BehaviourInfluenceWeight[behaviourIndex];
-
-            uint friendlyMask = BehaviourGroupMask[behaviourIndex];
-            uint avoidMask = BehaviourAvoidMask[behaviourIndex];
-            uint neutralMask = BehaviourNeutralMask[behaviourIndex];
-
+            // --- 2) Neighbours: alignment / cohesion / separation / danger ---
             float3 alignment = float3.zero;
             float3 cohesion = float3.zero;
             float3 separation = float3.zero;
@@ -136,9 +149,7 @@ namespace Flock.Runtime.Jobs {
                 friendlyNeighbourCount: ref friendlyNeighbourCount,
                 avoidSeparation: ref avoidSeparation);
 
-            // -------------------------------------------------------
-            // NEW: group size logic (min / max, loner / overcrowded)
-            // -------------------------------------------------------
+            // --- 3) Group size logic (loners / overcrowding) ---
             int groupSize = friendlyNeighbourCount + 1; // me + friendly neighbours
 
             bool hasGroupSettings =
@@ -160,7 +171,6 @@ namespace Flock.Runtime.Jobs {
                 maxGroupSize = BehaviourMaxGroupSize[behaviourIndex];
                 lonerCohesionBoost = BehaviourLonerCohesionBoost[behaviourIndex];
 
-                // radius multipliers are optional – treat missing arrays as 1.0
                 if (BehaviourGroupRadiusMultiplier.IsCreated
                     && BehaviourGroupRadiusMultiplier.Length > behaviourIndex) {
                     groupRadiusMultiplier = BehaviourGroupRadiusMultiplier[behaviourIndex];
@@ -171,7 +181,6 @@ namespace Flock.Runtime.Jobs {
                     lonerRadiusMultiplier = BehaviourLonerRadiusMultiplier[behaviourIndex];
                 }
 
-                // sane clamps
                 if (minGroupSize < 1) {
                     minGroupSize = 1;
                 }
@@ -184,29 +193,24 @@ namespace Flock.Runtime.Jobs {
                 bool isLoner = groupSize < minGroupSize;
                 bool isOvercrowded = groupSize > maxGroupSize;
 
-                // LONER: has some friends in view but group is smaller than we want.
-                // → pull harder towards them (stronger cohesion), slightly scaled by loner multiplier.
                 if (isLoner && hasFriends) {
                     float lonerFactor = math.max(0f, lonerCohesionBoost);
-                    lonerFactor *= math.max(1f, lonerRadiusMultiplier); // more “desperate” search if multiplier > 1
+                    lonerFactor *= math.max(1f, lonerRadiusMultiplier);
                     cohesionWeight *= (1.0f + lonerFactor);
                 }
 
-                // OVERCROWDED: group too large.
-                // → increase separation, reduce cohesion a bit so the ball can breathe.
                 if (isOvercrowded && hasFriends) {
                     float crowdFactor = (groupSize - maxGroupSize) / math.max(1f, (float)maxGroupSize);
                     crowdFactor = math.saturate(crowdFactor);
 
-                    // more sensitive to crowding if groupRadiusMultiplier > 1
                     crowdFactor *= math.max(1f, groupRadiusMultiplier);
 
                     separationWeight *= (1.0f + crowdFactor);
-                    cohesionWeight *= (1.0f - 0.5f * crowdFactor); // up to −50% cohesion
+                    cohesionWeight *= (1.0f - 0.5f * crowdFactor);
                 }
             }
 
-            // Panic magnifies separation rule (like before)
+            // --- 4) Core flock steering (Boids rules) ---
             float separationPanicMultiplier = 1.0f + math.saturate(avoidDanger);
 
             float3 flockSteering = ComputeSteering(
@@ -229,10 +233,7 @@ namespace Flock.Runtime.Jobs {
 
             float3 steering = flockSteering;
 
-            // -------------------------------------------------------
-            // Split behaviour (unchanged except using computed groupSize)
-            // -------------------------------------------------------
-
+            // --- 5) Split behaviour (panic-driven group splitting) ---
             float localMaxAcceleration = maxAcceleration;
             float localMaxSpeed = maxSpeed;
 
@@ -251,7 +252,6 @@ namespace Flock.Runtime.Jobs {
                 ? BehaviourSplitAccelBoost[behaviourIndex]
                 : 0.0f;
 
-            // Require at least 3 fish for proper split – or minGroupSize if that is higher.
             int minSplitGroup = 3;
             if (hasGroupSettings) {
                 minSplitGroup = math.max(minSplitGroup, minGroupSize);
@@ -262,7 +262,6 @@ namespace Flock.Runtime.Jobs {
             bool doSplit = hasGroupForSplit && canSplit && avoidDanger >= splitPanicThreshold;
 
             if (doSplit) {
-                // Base flee direction: prefer Avoid-only separation, fallback to general separation, then velocity.
                 float3 fleeSource = math.lengthsq(avoidSeparation) > 1e-6f
                     ? avoidSeparation
                     : (math.lengthsq(separation) > 1e-6f ? separation : velocity);
@@ -271,7 +270,6 @@ namespace Flock.Runtime.Jobs {
                     fleeSource,
                     new float3(0.0f, 0.0f, 1.0f));
 
-                // Build lateral axis.
                 float3 up = new float3(0.0f, 1.0f, 0.0f);
                 float3 side = math.cross(fleeDir, up);
                 if (math.lengthsq(side) < 1e-4f) {
@@ -280,7 +278,6 @@ namespace Flock.Runtime.Jobs {
                 }
                 side = math.normalizesafe(side, float3.zero);
 
-                // Cheap hash from agent index → {0,1,2}
                 uint hash = (uint)(index * 9781 + 1);
                 hash ^= hash >> 11;
                 hash *= 0x9E3779B1u;
@@ -297,44 +294,342 @@ namespace Flock.Runtime.Jobs {
                         fleeDir);
                 }
 
-                float splitIntensity = math.saturate(avoidDanger); // 0..1-ish
+                float splitIntensity = math.saturate(avoidDanger);
                 float3 splitForce = branchDir * separationWeight * splitIntensity;
 
                 steering += splitForce;
 
-                // Panic burst: accelerate and allow slightly higher top speed while splitting
                 float boost = 1.0f + splitAccelBoost * splitIntensity;
                 localMaxAcceleration *= boost;
                 localMaxSpeed *= boost;
             }
 
-            // Obstacles
+            // --- 6) Obstacles ---
             if (UseObstacleAvoidance && ObstacleSteering.IsCreated) {
                 float3 obstacleAccel = ObstacleSteering[index];
                 steering += obstacleAccel * ObstacleAvoidWeight;
             }
 
-            // Attraction areas
-            if (UseAttraction && AttractionSteering.IsCreated) {
-                float3 attractionAccel = AttractionSteering[index];
-                steering += attractionAccel * GlobalAttractionWeight;
-            }
+            // --- 7) Attraction (no depth logic here) ---
+            steering += ComputeAttraction(index);
 
-            // Self propulsion to maintain desiredSpeed
+            // --- 8) Self-propulsion (target speed) ---
             float3 propulsion = ComputePropulsion(
                 currentVelocity: velocity,
                 desiredSpeed: desiredSpeed);
 
             steering += propulsion;
 
+            // --- 9) Integrate acceleration / velocity / damping ---
             steering = LimitVector(steering, localMaxAcceleration);
 
             velocity += steering * DeltaTime;
             velocity = LimitVector(velocity, localMaxSpeed);
             velocity = ApplyDamping(velocity, EnvironmentData.GlobalDamping, DeltaTime);
+
+            // --- 10) Preferred depth controller (Y-only autopilot) ---
+            velocity = ApplyPreferredDepth(
+                behaviourIndex,
+                position,
+                velocity,
+                localMaxSpeed);
+
+            // Make sure vertical correction didn’t overshoot global speed
+            velocity = LimitVector(velocity, localMaxSpeed);
+
+            // --- 11) Bounds ---
             velocity = ApplyBoundsSteering(position, velocity, EnvironmentData);
 
             Velocities[index] = velocity;
+        }
+
+        float3 ComputeAttraction(int agentIndex) {
+            if (!UseAttraction || !AttractionSteering.IsCreated) {
+                return float3.zero;
+            }
+
+            if ((uint)agentIndex >= (uint)AttractionSteering.Length) {
+                return float3.zero;
+            }
+
+            return AttractionSteering[agentIndex] * GlobalAttractionWeight;
+        }
+
+        // =======================================================
+        // 3) NEW HELPER – ApplyPreferredDepth (Y controller)
+        // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
+        // =======================================================
+        float3 ApplyPreferredDepth(
+           int behaviourIndex,
+           float3 position,
+           float3 velocity,
+           float maxSpeed) {
+
+            // --- Safety & enable check ---
+            bool hasDepthArrays =
+                BehaviourUsePreferredDepth.IsCreated
+                && BehaviourPreferredDepthMinNorm.IsCreated
+                && BehaviourPreferredDepthMaxNorm.IsCreated
+                && BehaviourPreferredDepthWeight.IsCreated
+                && BehaviourDepthBiasStrength.IsCreated
+                && BehaviourUsePreferredDepth.Length > behaviourIndex
+                && BehaviourPreferredDepthMinNorm.Length > behaviourIndex
+                && BehaviourPreferredDepthMaxNorm.Length > behaviourIndex
+                && BehaviourPreferredDepthWeight.Length > behaviourIndex
+                && BehaviourDepthBiasStrength.Length > behaviourIndex;
+
+            if (!hasDepthArrays) {
+                return velocity;
+            }
+
+            if (BehaviourUsePreferredDepth[behaviourIndex] == 0) {
+                return velocity;
+            }
+
+            float prefMin = BehaviourPreferredDepthMinNorm[behaviourIndex];
+            float prefMax = BehaviourPreferredDepthMaxNorm[behaviourIndex];
+            float weight = math.max(0f, BehaviourPreferredDepthWeight[behaviourIndex]);
+            float biasStrength = math.max(0f, BehaviourDepthBiasStrength[behaviourIndex]);
+
+            // If no strength configured, effectively disabled
+            if (weight <= 0f || biasStrength <= 0f) {
+                return velocity;
+            }
+
+            if (prefMax < prefMin) {
+                float tmp = prefMin;
+                prefMin = prefMax;
+                prefMax = tmp;
+            }
+
+            float bandWidth = prefMax - prefMin;
+            if (bandWidth <= 1e-4f) {
+                // Degenerate band – treat as no-op
+                return velocity;
+            }
+
+            // --- Normalised depth [0..1] inside environment bounds ---
+            float envMinY = EnvironmentData.BoundsCenter.y - EnvironmentData.BoundsExtents.y;
+            float envMaxY = EnvironmentData.BoundsCenter.y + EnvironmentData.BoundsExtents.y;
+            float envHeight = math.max(envMaxY - envMinY, 0.0001f);
+
+            float depthNorm = math.saturate((position.y - envMinY) / envHeight);
+
+            float vy = velocity.y;
+
+            // Combined strength scalar 0..1
+            float strength = math.saturate(weight * biasStrength);
+
+            // === ZONE A: Outside the band – strong push back in ===
+            if (depthNorm < prefMin || depthNorm > prefMax) {
+                float deltaNorm;
+                float dir; // +1 = push up, -1 = push down
+
+                if (depthNorm < prefMin) {
+                    deltaNorm = (prefMin - depthNorm) / bandWidth;
+                    dir = 1.0f;
+                } else {
+                    deltaNorm = (depthNorm - prefMax) / bandWidth;
+                    dir = -1.0f;
+                }
+
+                deltaNorm = math.saturate(deltaNorm);               // 0..1
+                float edgeT = deltaNorm * deltaNorm;                // smoother ramp
+                float lerpFactor = math.saturate(strength * edgeT); // 0..1
+
+                float targetVy = dir * maxSpeed;
+
+                vy = math.lerp(vy, targetVy, lerpFactor);
+
+                float damping = math.saturate(1.0f - strength * edgeT * DeltaTime);
+                vy *= damping;
+            }
+            // === ZONE B / C: Inside the band ===
+            else {
+                // Explicit control: per-type edge buffer thickness [0..0.5] of band width
+                float edgeFrac = 0.25f;
+                if (BehaviourPreferredDepthEdgeFraction.IsCreated
+                    && BehaviourPreferredDepthEdgeFraction.Length > behaviourIndex) {
+                    edgeFrac = math.clamp(BehaviourPreferredDepthEdgeFraction[behaviourIndex], 0.01f, 0.49f);
+                }
+
+                float borderThickness = bandWidth * edgeFrac;
+
+                float distToMin = depthNorm - prefMin;
+                float distToMax = prefMax - depthNorm;
+                float edgeDist = math.min(distToMin, distToMax);
+
+                // ZONE B: inside band but close to edges – soft push + damping
+                if (edgeDist < borderThickness) {
+                    float t = 1.0f - edgeDist / math.max(borderThickness, 0.0001f); // 0 at inner edge of buffer, 1 at band edge
+                    t = math.saturate(t);
+
+                    bool nearBottom = distToMin < distToMax;
+                    float dir = nearBottom ? 1.0f : -1.0f; // bottom → up, top → down
+
+                    float innerStrength = strength * 0.5f; // weaker than outside band
+                    float lerpFactor = math.saturate(innerStrength * t);
+
+                    float targetVy = dir * maxSpeed * (innerStrength * t);
+
+                    vy = math.lerp(vy, targetVy, lerpFactor);
+
+                    float damping = math.saturate(1.0f - innerStrength * t * DeltaTime);
+                    vy *= damping;
+                }
+                // ZONE C: inside central band – no extra vertical steering
+                else {
+                    // leave vy as is; depth controller is inactive in the inner band
+                }
+            }
+
+            // Clamp vertical speed to something reasonable (<= maxSpeed)
+            float maxVy = maxSpeed;
+            vy = math.clamp(vy, -maxVy, maxVy);
+
+            velocity.y = vy;
+            return velocity;
+        }
+
+        // =====================================================================
+        // NEW HELPER: common per-behaviour scalars
+        // =====================================================================
+
+        bool TryLoadBehaviourScalars(
+            int agentIndex,
+            out float3 position,
+            out float3 velocity,
+            out int behaviourIndex,
+            out float maxSpeed,
+            out float maxAcceleration,
+            out float desiredSpeed,
+            out float neighbourRadius,
+            out float separationRadius,
+            out float alignmentWeight,
+            out float cohesionWeight,
+            out float separationWeight,
+            out float influenceWeight,
+            out uint friendlyMask,
+            out uint avoidMask,
+            out uint neutralMask) {
+
+            position = Positions[agentIndex];
+            velocity = PrevVelocities[agentIndex];
+
+            behaviourIndex = BehaviourIds[agentIndex];
+
+            if ((uint)behaviourIndex >= (uint)BehaviourMaxSpeed.Length) {
+                maxSpeed = maxAcceleration = desiredSpeed = 0f;
+                neighbourRadius = separationRadius = 0f;
+                alignmentWeight = cohesionWeight = separationWeight = 0f;
+                influenceWeight = 0f;
+                friendlyMask = avoidMask = neutralMask = 0u;
+                return false;
+            }
+
+            maxSpeed = BehaviourMaxSpeed[behaviourIndex];
+            maxAcceleration = BehaviourMaxAcceleration[behaviourIndex];
+            desiredSpeed = BehaviourDesiredSpeed[behaviourIndex];
+            neighbourRadius = BehaviourNeighbourRadius[behaviourIndex];
+            separationRadius = BehaviourSeparationRadius[behaviourIndex];
+            alignmentWeight = BehaviourAlignmentWeight[behaviourIndex];
+            cohesionWeight = BehaviourCohesionWeight[behaviourIndex];
+            separationWeight = BehaviourSeparationWeight[behaviourIndex];
+            influenceWeight = BehaviourInfluenceWeight[behaviourIndex];
+
+            friendlyMask = BehaviourGroupMask[behaviourIndex];
+            avoidMask = BehaviourAvoidMask[behaviourIndex];
+            neutralMask = BehaviourNeutralMask[behaviourIndex];
+
+            return true;
+        }
+
+        // =====================================================================
+        // NEW HELPER: Attraction + Preferred Depth combination
+        // =====================================================================
+
+        float3 ComputeAttractionAndDepth(
+            int agentIndex,
+            int behaviourIndex,
+            float3 position) {
+
+            float3 result = float3.zero;
+
+            // --- Attraction ---
+            float3 attractionAccel = float3.zero;
+            if (UseAttraction && AttractionSteering.IsCreated) {
+                attractionAccel = AttractionSteering[agentIndex] * GlobalAttractionWeight;
+            }
+
+            // --- Preferred depth (vertical bias) ---
+            float3 depthAccel = float3.zero;
+            bool hasDepthSettings =
+                BehaviourUsePreferredDepth.IsCreated
+                && BehaviourPreferredDepthMin.IsCreated
+                && BehaviourPreferredDepthMax.IsCreated
+                && BehaviourDepthBiasStrength.IsCreated
+                && BehaviourDepthWinsOverAttractor.IsCreated
+                && BehaviourUsePreferredDepth.Length > behaviourIndex
+                && BehaviourPreferredDepthMin.Length > behaviourIndex
+                && BehaviourPreferredDepthMax.Length > behaviourIndex
+                && BehaviourDepthBiasStrength.Length > behaviourIndex
+                && BehaviourDepthWinsOverAttractor.Length > behaviourIndex;
+
+            bool usePreferredDepth =
+                hasDepthSettings
+                && BehaviourUsePreferredDepth[behaviourIndex] != 0;
+
+            if (usePreferredDepth) {
+                float prefMin = BehaviourPreferredDepthMin[behaviourIndex];
+                float prefMax = BehaviourPreferredDepthMax[behaviourIndex];
+                float depthStrength = BehaviourDepthBiasStrength[behaviourIndex];
+                bool depthWins = BehaviourDepthWinsOverAttractor[behaviourIndex] != 0;
+
+                // Ensure min <= max
+                if (prefMax < prefMin) {
+                    float tmp = prefMin;
+                    prefMin = prefMax;
+                    prefMax = tmp;
+                }
+
+                float envMinY = EnvironmentData.BoundsCenter.y - EnvironmentData.BoundsExtents.y;
+                float envMaxY = EnvironmentData.BoundsCenter.y + EnvironmentData.BoundsExtents.y;
+                float envHeight = math.max(envMaxY - envMinY, 0.0001f);
+
+                float depthNorm = math.saturate((position.y - envMinY) / envHeight);
+                float bandCenter = 0.5f * (prefMin + prefMax);
+
+                float bias = 0.0f;
+
+                if (depthNorm < prefMin) {
+                    // Too low → push up
+                    bias = (prefMin - depthNorm);
+                } else if (depthNorm > prefMax) {
+                    // Too high → push down
+                    bias = (depthNorm - prefMax) * -1.0f;
+                } else {
+                    // Inside band – gentle spring to band center
+                    float toCenter = bandCenter - depthNorm;
+                    bias = toCenter * 0.25f;
+                }
+
+                float depthPriority = 1.0f;
+                bool hasAttractor = math.lengthsq(attractionAccel) > 1e-6f;
+
+                if (hasAttractor) {
+                    // Conflict resolution via flag:
+                    // - if depthWinsOverAttractor: slightly favour depth
+                    // - else: slightly favour attractor
+                    depthPriority = depthWins ? 1.5f : 0.75f;
+                }
+
+                depthAccel.y = bias * depthStrength * depthPriority;
+            }
+
+            result += attractionAccel;
+            result += depthAccel;
+
+            return result;
         }
 
         // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs

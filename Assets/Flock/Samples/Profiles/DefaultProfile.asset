@@ -26,11 +26,18 @@ MonoBehaviour:
   attractionResponse: 1
   avoidResponse: 5
   splitPanicThreshold: 0.4
-  splitLateralWeight: 0.8
+  splitLateralWeight: 1
   splitAccelBoost: 1
   attractionWeight: 1
   minGroupSize: 3
-  maxGroupSize: 10
-  groupRadiusMultiplier: 1
-  lonerRadiusMultiplier: 2
+  usePreferredDepth: 1
+  preferredDepthMin: 0.3
+  preferredDepthMax: 0.6
+  preferredDepthWeight: 0.3
+  depthBiasStrength: 0.2
+  depthWinsOverAttractor: 1
+  maxGroupSize: 100
+  groupRadiusMultiplier: 0.5
+  lonerRadiusMultiplier: 1
   lonerCohesionBoost: 1.5
+  preferredDepthEdgeFraction: 0.2

@@ -30,7 +30,14 @@ MonoBehaviour:
   splitAccelBoost: 1
   attractionWeight: 1
   minGroupSize: 3
+  usePreferredDepth: 1
+  preferredDepthMin: 0.808
+  preferredDepthMax: 1
+  preferredDepthWeight: 5
+  depthBiasStrength: 3
+  depthWinsOverAttractor: 1
   maxGroupSize: 10
   groupRadiusMultiplier: 1
   lonerRadiusMultiplier: 2
   lonerCohesionBoost: 1.5
+  preferredDepthEdgeFraction: 0

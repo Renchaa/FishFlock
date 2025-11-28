@@ -3,6 +3,7 @@ namespace Flock.Runtime {
     using Flock.Runtime.Data;
     using Flock.Runtime.Jobs;
     using Flock.Runtime.Logging;
+    using System;
     using Unity.Collections;
     using Unity.Jobs;
     using Unity.Mathematics;
@@ -45,6 +46,15 @@ namespace Flock.Runtime {
         NativeArray<float> behaviourGroupRadiusMultiplier;
         NativeArray<float> behaviourLonerRadiusMultiplier;
         NativeArray<float> behaviourLonerCohesionBoost;
+        NativeArray<byte> behaviourUsePreferredDepth;
+        NativeArray<float> behaviourPreferredDepthMin;
+        NativeArray<float> behaviourPreferredDepthMax;
+        NativeArray<float> behaviourDepthBiasStrength;
+        NativeArray<byte> behaviourDepthWinsOverAttractor;
+        NativeArray<float> behaviourPreferredDepthMinNorm;
+        NativeArray<float> behaviourPreferredDepthMaxNorm;
+        NativeArray<float> behaviourPreferredDepthWeight;
+        NativeArray<float> behaviourPreferredDepthEdgeFraction;
 
         NativeParallelMultiHashMap<int, int> cellToAgents;
         NativeParallelMultiHashMap<int, int> cellToObstacles;
@@ -241,6 +251,12 @@ namespace Flock.Runtime {
                     CellSize = environmentData.CellSize,
 
                     AttractionSteering = attractionSteering,
+
+                    // Preferred depth behaviour per type (normalised band)
+                    BehaviourUsePreferredDepth = behaviourUsePreferredDepth,
+                    BehaviourPreferredDepthMin = behaviourPreferredDepthMinNorm,
+                    BehaviourPreferredDepthMax = behaviourPreferredDepthMaxNorm,
+                    BehaviourDepthWinsOverAttractor = behaviourDepthWinsOverAttractor,
                 };
 
                 attractionHandle = attractionJob.Schedule(
@@ -286,12 +302,23 @@ namespace Flock.Runtime {
                 BehaviourSplitLateralWeight = behaviourSplitLateralWeight,
                 BehaviourSplitAccelBoost = behaviourSplitAccelBoost,
 
-                // Grouping behaviour
+                // Grouping
                 BehaviourMinGroupSize = behaviourMinGroupSize,
                 BehaviourMaxGroupSize = behaviourMaxGroupSize,
                 BehaviourGroupRadiusMultiplier = behaviourGroupRadiusMultiplier,
                 BehaviourLonerRadiusMultiplier = behaviourLonerRadiusMultiplier,
                 BehaviourLonerCohesionBoost = behaviourLonerCohesionBoost,
+
+                // Preferred depth (all normalised)
+                BehaviourUsePreferredDepth = behaviourUsePreferredDepth,
+                BehaviourPreferredDepthMin = behaviourPreferredDepthMinNorm,  // we store norm here
+                BehaviourPreferredDepthMax = behaviourPreferredDepthMaxNorm,
+                BehaviourDepthBiasStrength = behaviourDepthBiasStrength,
+                BehaviourDepthWinsOverAttractor = behaviourDepthWinsOverAttractor,
+                BehaviourPreferredDepthMinNorm = behaviourPreferredDepthMinNorm,
+                BehaviourPreferredDepthMaxNorm = behaviourPreferredDepthMaxNorm,
+                BehaviourPreferredDepthWeight = behaviourPreferredDepthWeight,
+                BehaviourPreferredDepthEdgeFraction = behaviourPreferredDepthEdgeFraction,
 
                 CellToAgents = cellToAgents,
                 GridOrigin = environmentData.GridOrigin,
@@ -330,9 +357,6 @@ namespace Flock.Runtime {
             return integrateHandle;
         }
 
-
-
-
         public void Dispose() {
             DisposeArray(ref positions);
             DisposeArray(ref velocities);
@@ -359,6 +383,11 @@ namespace Flock.Runtime {
             DisposeArray(ref behaviourAvoidMask);
             DisposeArray(ref behaviourNeutralMask);
 
+            // Preferred depth
+            DisposeArray(ref behaviourPreferredDepthMinNorm);
+            DisposeArray(ref behaviourPreferredDepthMaxNorm);
+            DisposeArray(ref behaviourPreferredDepthWeight);
+
             // Obstacles
             DisposeArray(ref obstacles);
             DisposeArray(ref obstacleSteering);
@@ -367,12 +396,19 @@ namespace Flock.Runtime {
             DisposeArray(ref behaviourSplitLateralWeight);
             DisposeArray(ref behaviourSplitAccelBoost);
 
-            // === NEW: grouping ===
+            // Grouping
             DisposeArray(ref behaviourMinGroupSize);
             DisposeArray(ref behaviourMaxGroupSize);
             DisposeArray(ref behaviourGroupRadiusMultiplier);
             DisposeArray(ref behaviourLonerRadiusMultiplier);
             DisposeArray(ref behaviourLonerCohesionBoost);
+
+            DisposeArray(ref behaviourUsePreferredDepth);
+            DisposeArray(ref behaviourPreferredDepthMin);
+            DisposeArray(ref behaviourPreferredDepthMax);
+            DisposeArray(ref behaviourDepthBiasStrength);
+            DisposeArray(ref behaviourDepthWinsOverAttractor);
+            DisposeArray(ref behaviourPreferredDepthEdgeFraction);
 
             if (cellToAgents.IsCreated) {
                 cellToAgents.Dispose();
@@ -436,139 +472,59 @@ namespace Flock.Runtime {
             }
         }
 
+        // =======================================================
+        // 5) FlockSimulation.AllocateBehaviourArrays – REPLACE BODY
+        // File: Assets/Flock/Runtime/FlockSimulation.cs
+        // =======================================================
         void AllocateBehaviourArrays(
             NativeArray<FlockBehaviourSettings> settings,
             Allocator allocator) {
 
             int behaviourCount = settings.Length;
 
-            behaviourMaxSpeed = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourMaxAcceleration = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourDesiredSpeed = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourNeighbourRadius = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourSeparationRadius = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourAlignmentWeight = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourCohesionWeight = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourSeparationWeight = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourInfluenceWeight = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourLeadershipWeight = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourGroupMask = new NativeArray<uint>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
+            behaviourMaxSpeed = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourMaxAcceleration = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourDesiredSpeed = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourNeighbourRadius = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourSeparationRadius = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourAlignmentWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourCohesionWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourSeparationWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourInfluenceWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourLeadershipWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourGroupMask = new NativeArray<uint>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
 
             // Relations
-            behaviourAvoidanceWeight = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourNeutralWeight = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourAttractionWeight = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourAvoidResponse = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourAvoidMask = new NativeArray<uint>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourNeutralMask = new NativeArray<uint>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
+            behaviourAvoidanceWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourNeutralWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourAttractionWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourAvoidResponse = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourAvoidMask = new NativeArray<uint>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourNeutralMask = new NativeArray<uint>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
 
             // Split behaviour
-            behaviourSplitPanicThreshold = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourSplitLateralWeight = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourSplitAccelBoost = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
+            behaviourSplitPanicThreshold = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourSplitLateralWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourSplitAccelBoost = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
 
             // Grouping
-            behaviourMinGroupSize = new NativeArray<int>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
+            behaviourMinGroupSize = new NativeArray<int>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourMaxGroupSize = new NativeArray<int>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourGroupRadiusMultiplier = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourLonerRadiusMultiplier = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourLonerCohesionBoost = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
 
-            behaviourMaxGroupSize = new NativeArray<int>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
+            // Preferred depth
+            behaviourUsePreferredDepth = new NativeArray<byte>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourPreferredDepthMin = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourPreferredDepthMax = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourDepthBiasStrength = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourDepthWinsOverAttractor = new NativeArray<byte>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
 
-            behaviourGroupRadiusMultiplier = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourLonerRadiusMultiplier = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            behaviourLonerCohesionBoost = new NativeArray<float>(
-                behaviourCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
+            behaviourPreferredDepthMinNorm = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourPreferredDepthMaxNorm = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourPreferredDepthWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourPreferredDepthEdgeFraction = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
 
             for (int index = 0; index < behaviourCount; index += 1) {
                 FlockBehaviourSettings behaviour = settings[index];
@@ -608,12 +564,27 @@ namespace Flock.Runtime {
                 behaviourGroupRadiusMultiplier[index] = behaviour.GroupRadiusMultiplier;
                 behaviourLonerRadiusMultiplier[index] = behaviour.LonerRadiusMultiplier;
                 behaviourLonerCohesionBoost[index] = behaviour.LonerCohesionBoost;
+
+                // Preferred depth (all normalised [0..1] against environment bounds)
+                byte useDepth = behaviour.UsePreferredDepth != 0 ? (byte)1 : (byte)0;
+                byte depthWins = behaviour.DepthWinsOverAttractor != 0 ? (byte)1 : (byte)0;
+
+                behaviourUsePreferredDepth[index] = useDepth;
+                behaviourPreferredDepthMin[index] = behaviour.PreferredDepthMinNorm;
+                behaviourPreferredDepthMax[index] = behaviour.PreferredDepthMaxNorm;
+                behaviourDepthBiasStrength[index] = behaviour.DepthBiasStrength;
+                behaviourDepthWinsOverAttractor[index] = depthWins;
+
+                behaviourPreferredDepthMinNorm[index] = behaviour.PreferredDepthMinNorm;
+                behaviourPreferredDepthMaxNorm[index] = behaviour.PreferredDepthMaxNorm;
+                behaviourPreferredDepthWeight[index] = behaviour.PreferredDepthWeight;
+                behaviourPreferredDepthEdgeFraction[index] = behaviour.PreferredDepthEdgeFraction;
             }
         }
 
         void AllocateAttractors(
-    FlockAttractorData[] source,
-    Allocator allocator) {
+                   FlockAttractorData[] source,
+                   Allocator allocator) {
 
             if (source == null || source.Length == 0) {
                 attractorCount = 0;
@@ -628,8 +599,52 @@ namespace Flock.Runtime {
                 allocator,
                 NativeArrayOptions.UninitializedMemory);
 
+            // Environment vertical range for normalisation
+            float envMinY = environmentData.BoundsCenter.y - environmentData.BoundsExtents.y;
+            float envMaxY = environmentData.BoundsCenter.y + environmentData.BoundsExtents.y;
+            float envHeight = math.max(envMaxY - envMinY, 0.0001f);
+
             for (int index = 0; index < attractorCount; index += 1) {
-                attractors[index] = source[index];
+                FlockAttractorData data = source[index];
+
+                float worldMinY;
+                float worldMaxY;
+
+                if (data.Shape == FlockAttractorShape.Sphere) {
+                    // Simple sphere: radius in Y
+                    worldMinY = data.Position.y - data.Radius;
+                    worldMaxY = data.Position.y + data.Radius;
+                } else {
+                    // Box: approximate vertical extent using rotated half-extents
+                    quaternion rot = data.BoxRotation;
+                    float3 halfExtents = data.BoxHalfExtents;
+
+                    float3 right = math.mul(rot, new float3(1f, 0f, 0f));
+                    float3 up = math.mul(rot, new float3(0f, 1f, 0f));
+                    float3 fwd = math.mul(rot, new float3(0f, 0f, 1f));
+
+                    float extentY =
+                        math.abs(right.y) * halfExtents.x +
+                        math.abs(up.y) * halfExtents.y +
+                        math.abs(fwd.y) * halfExtents.z;
+
+                    worldMinY = data.Position.y - extentY;
+                    worldMaxY = data.Position.y + extentY;
+                }
+
+                float depthMinNorm = math.saturate((worldMinY - envMinY) / envHeight);
+                float depthMaxNorm = math.saturate((worldMaxY - envMinY) / envHeight);
+
+                if (depthMaxNorm < depthMinNorm) {
+                    float tmp = depthMinNorm;
+                    depthMinNorm = depthMaxNorm;
+                    depthMaxNorm = tmp;
+                }
+
+                data.DepthMinNorm = depthMinNorm;
+                data.DepthMaxNorm = depthMaxNorm;
+
+                attractors[index] = data;
             }
         }
 
