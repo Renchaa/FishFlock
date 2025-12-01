@@ -9,18 +9,11 @@ namespace Flock.Runtime.Jobs {
 
     [BurstCompile]
     public struct FlockStepJob : IJobParallelFor {
-        const int NeighbourCellRange = 1;
+        const int NeighbourCellRange = 2;
 
-        [ReadOnly]
-        public NativeArray<float3> Positions;
-
-        // NEW: snapshot of last frame velocities used for neighbour logic
-        [ReadOnly]
-        public NativeArray<float3> PrevVelocities;
-
-        // NEW: this frame's velocities (write target)
-        [NativeDisableParallelForRestriction]
-        public NativeArray<float3> Velocities;
+        [ReadOnly] public NativeArray<float3> Positions;
+        [ReadOnly] public NativeArray<float3> PrevVelocities;
+        [NativeDisableParallelForRestriction] public NativeArray<float3> Velocities;
 
         [ReadOnly] public NativeArray<int> BehaviourIds;
 
@@ -54,13 +47,11 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public NativeArray<float> BehaviourLeadershipWeight;
         [ReadOnly] public NativeArray<uint> BehaviourGroupMask;
 
-        [ReadOnly] public NativeArray<float> BehaviourAvoidResponse;  // NEW
+        [ReadOnly] public NativeArray<float> BehaviourAvoidResponse;
         [ReadOnly] public NativeArray<float> BehaviourSplitPanicThreshold;
         [ReadOnly] public NativeArray<float> BehaviourSplitLateralWeight;
         [ReadOnly] public NativeArray<float> BehaviourSplitAccelBoost;
 
-        // REPLACE Execute IN FlockStepJob
-        // Grouping behaviour
         [ReadOnly] public NativeArray<int> BehaviourMinGroupSize;
         [ReadOnly] public NativeArray<int> BehaviourMaxGroupSize;
         [ReadOnly] public NativeArray<float> BehaviourGroupRadiusMultiplier;
@@ -75,22 +66,28 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public NativeArray<float> BehaviourPreferredDepthMinNorm;
         [ReadOnly] public NativeArray<float> BehaviourPreferredDepthMaxNorm;
         [ReadOnly] public NativeArray<float> BehaviourPreferredDepthWeight;
+        [ReadOnly] public NativeArray<float> BehaviourPreferredDepthEdgeFraction;
 
         [ReadOnly] public bool UseAttraction;
         [ReadOnly] public float GlobalAttractionWeight;
         [ReadOnly] public NativeArray<float3> AttractionSteering;
-        [ReadOnly] public NativeArray<float> BehaviourPreferredDepthEdgeFraction;
 
-        // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
-        // REPLACE Execute WITH THIS VERSION
+        // === NEW: radius + zone arrays ===
+        [ReadOnly] public NativeArray<float> BehaviourBaseRadius;
+        [ReadOnly] public NativeArray<float> BehaviourDeadBandFraction;
+        [ReadOnly] public NativeArray<float> BehaviourFriendlyInnerFraction;
+        [ReadOnly] public NativeArray<float> BehaviourFriendDistanceFactor;
+        [ReadOnly] public NativeArray<float> BehaviourAvoidDistanceFactor;
+        [ReadOnly] public NativeArray<float> BehaviourNeutralDistanceFactor;
+        [ReadOnly] public NativeArray<float> BehaviourInfluenceDistanceFactor;
+        [ReadOnly] public NativeArray<float> BehaviourHardRepulsionGain;
+        [ReadOnly] public NativeArray<float> BehaviourFriendlySoftGain;
+        [ReadOnly] public NativeArray<float> BehaviourAvoidRadialGain;
+        [ReadOnly] public NativeArray<float> BehaviourNeutralRadialGain;
 
-        // ===== FlockStepJob.Execute (REPLACE WHOLE METHOD) =====
-        // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
-        // REPLACE WHOLE Execute METHOD
-
-        // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
-        // REPLACE WHOLE Execute METHOD WITH THIS VERSION
-
+        [ReadOnly] public NativeArray<float> BehaviourMaxTurnRateDeg;     // deg / second, 0 = unlimited
+        [ReadOnly] public NativeArray<float> BehaviourTurnResponsiveness; // 0..1, how strongly we follow desired dir
+        // ========================= CHANGED EXECUTE =========================
         public void Execute(int index) {
             // --- 1) Load per-agent + per-behaviour scalars ---
             if (!TryLoadBehaviourScalars(
@@ -114,6 +111,19 @@ namespace Flock.Runtime.Jobs {
                 // Behaviour index out of range – keep previous velocity.
                 Velocities[index] = PrevVelocities[index];
                 return;
+            }
+
+            float maxTurnRateDeg = 0f;      // 0 = unlimited
+            float turnResponsiveness = 1f;  // 1 = full allowed turn, 0 = almost frozen
+
+            if (BehaviourMaxTurnRateDeg.IsCreated
+                && (uint)behaviourIndex < (uint)BehaviourMaxTurnRateDeg.Length) {
+                maxTurnRateDeg = BehaviourMaxTurnRateDeg[behaviourIndex];
+            }
+
+            if (BehaviourTurnResponsiveness.IsCreated
+                && (uint)behaviourIndex < (uint)BehaviourTurnResponsiveness.Length) {
+                turnResponsiveness = BehaviourTurnResponsiveness[behaviourIndex];
             }
 
             // --- 2) Neighbours: alignment / cohesion / separation / danger ---
@@ -340,8 +350,230 @@ namespace Flock.Runtime.Jobs {
             // --- 11) Bounds ---
             velocity = ApplyBoundsSteering(position, velocity, EnvironmentData);
 
+            // --- 12) HARD PAIR-RADIUS CONSTRAINT (new) ---
+            velocity = ApplyPairRadiusConstraint(
+                agentIndex: index,
+                myBehaviourIndex: behaviourIndex,
+                position: position,
+                velocity: velocity);
+
+
+            velocity = ApplyTurnLimit(
+                previousVelocity: PrevVelocities[index],
+                newVelocity: velocity,
+                maxTurnRateDeg: maxTurnRateDeg,
+                responsiveness: turnResponsiveness,
+                deltaTime: DeltaTime);
+
+            velocity = ApplyAccelerationLimit(
+                previousVelocity: PrevVelocities[index],
+                newVelocity: velocity,
+                maxAcceleration: localMaxAcceleration,
+                deltaTime: DeltaTime);
+
             Velocities[index] = velocity;
         }
+
+        float3 ApplyAccelerationLimit(
+    float3 previousVelocity,
+    float3 newVelocity,
+    float maxAcceleration,
+    float deltaTime) {
+
+            // No limit configured → do nothing
+            if (maxAcceleration <= 0f || deltaTime <= 0f) {
+                return newVelocity;
+            }
+
+            // Delta-v this frame
+            float3 dv = newVelocity - previousVelocity;
+            float maxDelta = maxAcceleration * deltaTime;
+
+            float dvLenSq = math.lengthsq(dv);
+            float maxDeltaSq = maxDelta * maxDelta;
+
+            // If inside allowed accel, keep it
+            if (dvLenSq <= maxDeltaSq) {
+                return newVelocity;
+            }
+
+            // Otherwise scale delta-v down to the cap
+            float dvLen = math.sqrt(dvLenSq);
+            float scale = maxDelta / math.max(dvLen, 1e-4f);
+
+            return previousVelocity + dv * scale;
+        }
+
+        // 3) NEW HELPER METHOD – put it near other helpers (e.g. below ApplyPairRadiusConstraint / SafeRead)
+
+        float3 ApplyTurnLimit(
+            float3 previousVelocity,
+            float3 newVelocity,
+            float maxTurnRateDeg,
+            float responsiveness,
+            float deltaTime) {
+
+            // No limit configured → do nothing.
+            if (maxTurnRateDeg <= 0f) {
+                return newVelocity;
+            }
+
+            float prevLenSq = math.lengthsq(previousVelocity);
+            float newLenSq = math.lengthsq(newVelocity);
+
+            // If any vector is almost zero – don't try to limit
+            if (prevLenSq < 1e-8f || newLenSq < 1e-8f) {
+                return newVelocity;
+            }
+
+            float prevLen = math.sqrt(prevLenSq);
+            float newLen = math.sqrt(newLenSq);
+
+            float3 prevDir = previousVelocity / prevLen;
+            float3 newDir = newVelocity / newLen;
+
+            float r = math.saturate(responsiveness);
+
+            // Angle between directions
+            float dot = math.clamp(math.dot(prevDir, newDir), -1f, 1f);
+            float angle = math.acos(dot); // radians
+
+            if (angle <= 1e-4f) {
+                // Already almost same direction
+                return newVelocity;
+            }
+
+            float maxAngleRad = maxTurnRateDeg * (math.PI / 180f) * deltaTime * r;
+
+            // If desired change is smaller than allowed, let it pass
+            if (angle <= maxAngleRad) {
+                return newVelocity;
+            }
+
+            // Rotate previous direction towards desired direction by maxAngleRad
+            float t = maxAngleRad / angle;
+            t = math.saturate(t);
+
+            float3 limitedDir = math.normalizesafe(
+                math.lerp(prevDir, newDir, t),
+                newDir);
+
+            // Keep the new speed, only clamp heading change
+            return limitedDir * newLen;
+        }
+
+
+        // ========================= NEW HELPER =========================
+        // ================== REPLACE ApplyPairRadiusConstraint WITH THIS ==================
+        float3 ApplyPairRadiusConstraint(
+            int agentIndex,
+            int myBehaviourIndex,
+            float3 position,
+            float3 velocity) {
+
+            // If we don't have authored radii, skip.
+            float myRadius = SafeRead(BehaviourBaseRadius, myBehaviourIndex, 0.0f);
+            if (myRadius <= 0.0f || !CellToAgents.IsCreated) {
+                return velocity;
+            }
+
+            int3 baseCell = GetCell(position);
+
+            const float minDistSq = 1e-6f;
+            const float minPenetration = 0.01f;  // ignore microscopic overlaps
+            const float fullClampPenFrac = 0.25f;  // ≥25% inside -> fully kill inward speed
+            const float softPushThresh = 0.05f;  // start outward push only if clearly inside
+            const float maxTotalPush = 1.0f;   // safety clamp for accumulated correction
+
+            float3 totalCorrection = float3.zero;
+
+            for (int dx = -NeighbourCellRange; dx <= NeighbourCellRange; dx++) {
+                for (int dy = -NeighbourCellRange; dy <= NeighbourCellRange; dy++) {
+                    for (int dz = -NeighbourCellRange; dz <= NeighbourCellRange; dz++) {
+                        int3 neighbourCell = baseCell + new int3(dx, dy, dz);
+
+                        if (!IsCellInsideGrid(neighbourCell)) {
+                            continue;
+                        }
+
+                        int cellId = GetCellId(neighbourCell);
+                        var enumerator = CellToAgents.GetValuesForKey(cellId);
+
+                        while (enumerator.MoveNext()) {
+                            int neighbourIndex = enumerator.Current;
+
+                            if (neighbourIndex == agentIndex) {
+                                continue;
+                            }
+
+                            float3 neighbourPos = Positions[neighbourIndex];
+                            float3 offset = neighbourPos - position;
+                            float distSq = math.lengthsq(offset);
+                            if (distSq < minDistSq) {
+                                continue;
+                            }
+
+                            float dist = math.sqrt(distSq);
+
+                            int neighbourBehaviourIndex = BehaviourIds[neighbourIndex];
+                            float otherRadius = SafeRead(BehaviourBaseRadius, neighbourBehaviourIndex, 0.0f);
+
+                            float pairRadius = myRadius + otherRadius;
+                            if (pairRadius <= 0.0f || dist >= pairRadius) {
+                                continue; // outside hard gap
+                            }
+
+                            // How deep inside the no-go zone we are (0..1).
+                            float penetration = (pairRadius - dist) / pairRadius;
+                            if (penetration < minPenetration) {
+                                // tiny overlap → ignore to avoid micro jitter
+                                continue;
+                            }
+
+                            float3 dirToNeighbour = offset / dist;
+
+                            // Radial speed towards neighbour (positive = going in).
+                            float radialSpeed = math.dot(velocity, dirToNeighbour);
+
+                            // If we're only slightly inside AND already sliding outwards/tangentially,
+                            // don't touch it – let flocking forces pull us out smoothly.
+                            if (radialSpeed <= 0.0f && penetration < softPushThresh) {
+                                continue;
+                            }
+
+                            // Smooth clamp: near boundary only reduce some of inward speed,
+                            // deeper inside → kill all inward component.
+                            float clampT = math.saturate(penetration / fullClampPenFrac); // 0..1
+                            float inwardKill = math.max(0.0f, radialSpeed) * clampT;
+
+                            if (inwardKill > 0.0f) {
+                                // Collect correction instead of applying per neighbour directly,
+                                // to avoid huge per-frame jumps with many neighbours.
+                                totalCorrection -= dirToNeighbour * inwardKill;
+                            }
+
+                            // Small outward bias only when clearly inside, scaled by penetration²,
+                            // so it’s soft near the boundary and stronger if we are really inside.
+                            if (penetration > softPushThresh) {
+                                float push = (penetration * penetration) * 0.3f; // tuned "skin" push
+                                totalCorrection += (-dirToNeighbour) * push;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Safety clamp: don't let constraint itself create extreme acceleration.
+            float corrLenSq = math.lengthsq(totalCorrection);
+            if (corrLenSq > maxTotalPush * maxTotalPush) {
+                float corrLen = math.sqrt(corrLenSq);
+                totalCorrection *= (maxTotalPush / math.max(corrLen, 0.0001f));
+            }
+
+            velocity += totalCorrection;
+            return velocity;
+        }
+
 
         float3 ComputeAttraction(int agentIndex) {
             if (!UseAttraction || !AttractionSteering.IsCreated) {
@@ -544,100 +776,6 @@ namespace Flock.Runtime.Jobs {
             return true;
         }
 
-        // =====================================================================
-        // NEW HELPER: Attraction + Preferred Depth combination
-        // =====================================================================
-
-        float3 ComputeAttractionAndDepth(
-            int agentIndex,
-            int behaviourIndex,
-            float3 position) {
-
-            float3 result = float3.zero;
-
-            // --- Attraction ---
-            float3 attractionAccel = float3.zero;
-            if (UseAttraction && AttractionSteering.IsCreated) {
-                attractionAccel = AttractionSteering[agentIndex] * GlobalAttractionWeight;
-            }
-
-            // --- Preferred depth (vertical bias) ---
-            float3 depthAccel = float3.zero;
-            bool hasDepthSettings =
-                BehaviourUsePreferredDepth.IsCreated
-                && BehaviourPreferredDepthMin.IsCreated
-                && BehaviourPreferredDepthMax.IsCreated
-                && BehaviourDepthBiasStrength.IsCreated
-                && BehaviourDepthWinsOverAttractor.IsCreated
-                && BehaviourUsePreferredDepth.Length > behaviourIndex
-                && BehaviourPreferredDepthMin.Length > behaviourIndex
-                && BehaviourPreferredDepthMax.Length > behaviourIndex
-                && BehaviourDepthBiasStrength.Length > behaviourIndex
-                && BehaviourDepthWinsOverAttractor.Length > behaviourIndex;
-
-            bool usePreferredDepth =
-                hasDepthSettings
-                && BehaviourUsePreferredDepth[behaviourIndex] != 0;
-
-            if (usePreferredDepth) {
-                float prefMin = BehaviourPreferredDepthMin[behaviourIndex];
-                float prefMax = BehaviourPreferredDepthMax[behaviourIndex];
-                float depthStrength = BehaviourDepthBiasStrength[behaviourIndex];
-                bool depthWins = BehaviourDepthWinsOverAttractor[behaviourIndex] != 0;
-
-                // Ensure min <= max
-                if (prefMax < prefMin) {
-                    float tmp = prefMin;
-                    prefMin = prefMax;
-                    prefMax = tmp;
-                }
-
-                float envMinY = EnvironmentData.BoundsCenter.y - EnvironmentData.BoundsExtents.y;
-                float envMaxY = EnvironmentData.BoundsCenter.y + EnvironmentData.BoundsExtents.y;
-                float envHeight = math.max(envMaxY - envMinY, 0.0001f);
-
-                float depthNorm = math.saturate((position.y - envMinY) / envHeight);
-                float bandCenter = 0.5f * (prefMin + prefMax);
-
-                float bias = 0.0f;
-
-                if (depthNorm < prefMin) {
-                    // Too low → push up
-                    bias = (prefMin - depthNorm);
-                } else if (depthNorm > prefMax) {
-                    // Too high → push down
-                    bias = (depthNorm - prefMax) * -1.0f;
-                } else {
-                    // Inside band – gentle spring to band center
-                    float toCenter = bandCenter - depthNorm;
-                    bias = toCenter * 0.25f;
-                }
-
-                float depthPriority = 1.0f;
-                bool hasAttractor = math.lengthsq(attractionAccel) > 1e-6f;
-
-                if (hasAttractor) {
-                    // Conflict resolution via flag:
-                    // - if depthWinsOverAttractor: slightly favour depth
-                    // - else: slightly favour attractor
-                    depthPriority = depthWins ? 1.5f : 0.75f;
-                }
-
-                depthAccel.y = bias * depthStrength * depthPriority;
-            }
-
-            result += attractionAccel;
-            result += depthAccel;
-
-            return result;
-        }
-
-        // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
-        // REPLACE ONLY THIS METHOD
-        // ===== FlockStepJob.AccumulateNeighbourForces (REPLACE WHOLE METHOD) =====
-        // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
-        // REPLACE WHOLE METHOD
-
         void AccumulateNeighbourForces(
             int agentIndex,
             int myBehaviourIndex,
@@ -646,7 +784,7 @@ namespace Flock.Runtime.Jobs {
             uint neutralMask,
             float3 agentPosition,
             float neighbourRadius,
-            float separationRadius,
+            float separationRadius, // kept for fallback only
             ref float3 alignment,
             ref float3 cohesion,
             ref float3 separation,
@@ -659,19 +797,31 @@ namespace Flock.Runtime.Jobs {
             ref float3 avoidSeparation) {
 
             float neighbourRadiusSquared = neighbourRadius * neighbourRadius;
-            float separationRadiusSquared = separationRadius * separationRadius;
+
+            // === Read my radius + zone parameters (fully driven from BehaviourProfile) ===
+            float myRadius = SafeRead(BehaviourBaseRadius, myBehaviourIndex, 0.0f);
+            float deadBandFraction = math.saturate(SafeRead(BehaviourDeadBandFraction, myBehaviourIndex, 0.10f));
+            float friendlyInnerFraction = math.saturate(SafeRead(BehaviourFriendlyInnerFraction, myBehaviourIndex, 0.25f));
+
+            float friendDistanceFactor = math.max(0.1f, SafeRead(BehaviourFriendDistanceFactor, myBehaviourIndex, 1.4f));
+            float avoidDistanceFactor = math.max(0.1f, SafeRead(BehaviourAvoidDistanceFactor, myBehaviourIndex, 3.0f));
+            float neutralDistanceFactor = math.max(0.1f, SafeRead(BehaviourNeutralDistanceFactor, myBehaviourIndex, 2.0f));
+            float influenceDistanceFactor = math.max(0.1f, SafeRead(BehaviourInfluenceDistanceFactor, myBehaviourIndex, 4.0f));
+
+            float hardRepulsionGain = math.max(0f, SafeRead(BehaviourHardRepulsionGain, myBehaviourIndex, 4.0f));
+            float friendlySoftGain = math.max(0f, SafeRead(BehaviourFriendlySoftGain, myBehaviourIndex, 1.0f));
+            float avoidRadialGain = math.max(0f, SafeRead(BehaviourAvoidRadialGain, myBehaviourIndex, 2.0f));
+            float neutralRadialGain = math.max(0f, SafeRead(BehaviourNeutralRadialGain, myBehaviourIndex, 0.75f));
 
             float myAvoidWeight = BehaviourAvoidanceWeight[myBehaviourIndex];
             float myNeutralWeight = BehaviourNeutralWeight[myBehaviourIndex];
-            float myAvoidResponse = math.max(0f, BehaviourAvoidResponse[myBehaviourIndex]); // “panic” factor
+            float myAvoidResponse = math.max(0f, BehaviourAvoidResponse[myBehaviourIndex]);
 
             int3 baseCell = GetCell(agentPosition);
 
-            // leadership state
             float maxLeaderWeight = -1.0f;
             const float epsilon = 1e-4f;
 
-            // initialise outputs
             avoidDanger = 0.0f;
             friendlyNeighbourCount = 0;
             avoidSeparation = float3.zero;
@@ -705,12 +855,6 @@ namespace Flock.Runtime.Jobs {
                                 continue;
                             }
 
-                            // Hard collision separation (always on)
-                            if (distanceSquared < separationRadiusSquared) {
-                                separation -= offset / distanceSquared;
-                                separationCount += 1;
-                            }
-
                             if (distanceSquared > neighbourRadiusSquared) {
                                 continue;
                             }
@@ -728,20 +872,43 @@ namespace Flock.Runtime.Jobs {
                             bool isAvoid = bit != 0u && (avoidMask & bit) != 0u;
                             bool isNeutral = bit != 0u && (neutralMask & bit) != 0u;
 
-                            // no declared relation (apart from hard separation above) – ignore
                             if (!isFriendly && !isAvoid && !isNeutral) {
                                 continue;
                             }
 
                             float distance = math.sqrt(distanceSquared);
-                            if (distance <= 0.0f || neighbourRadius <= 0.0f) {
+                            if (distance <= 0.0f) {
                                 continue;
                             }
 
-                            float t = 1.0f - math.saturate(distance / neighbourRadius);
-                            float3 dir = offset / distance; // from me towards neighbour
+                            float3 dir = offset / distance;
 
-                            // === FRIENDLY: schooling + leadership ===
+                            // === Pair radius & zones ===
+                            float otherRadius = SafeRead(BehaviourBaseRadius, neighbourBehaviourIndex, 0.0f);
+                            float pairRadius = myRadius + otherRadius;
+
+                            if (pairRadius <= 0.0f) {
+                                // fallback if nothing was authored
+                                pairRadius = math.max(1e-3f, separationRadius);
+                            }
+
+                            float contact = pairRadius;
+                            float deadBandEnd = contact * (1.0f + deadBandFraction);
+                            float friendlyInnerEnd = contact * (1.0f + friendlyInnerFraction);
+
+                            float friendTarget = pairRadius * friendDistanceFactor;
+                            float avoidMin = pairRadius * avoidDistanceFactor;
+                            float neutralMin = pairRadius * neutralDistanceFactor;
+                            float maxInfluence = pairRadius * influenceDistanceFactor;
+                            float maxInfluenceSq = maxInfluence * maxInfluence;
+
+                            if (distanceSquared > maxInfluenceSq) {
+                                continue;
+                            }
+
+                            // === Leadership + tangential schooling ===
+                            float tProximity = 1.0f - math.saturate(distance / neighbourRadius);
+
                             if (isFriendly) {
                                 friendlyNeighbourCount += 1;
 
@@ -752,61 +919,143 @@ namespace Flock.Runtime.Jobs {
                                     maxLeaderWeight = neighbourLeaderWeight;
                                     leaderNeighbourCount = 1;
 
-                                    alignment = neighbourVelocity * t;
-                                    cohesion = neighbourPosition * t;
+                                    alignment = neighbourVelocity * tProximity;
+                                    cohesion = neighbourPosition * tProximity;
 
-                                    alignmentWeightSum = t;
-                                    cohesionWeightSum = t;
+                                    alignmentWeightSum = tProximity;
+                                    cohesionWeightSum = tProximity;
                                 } else if (math.abs(neighbourLeaderWeight - maxLeaderWeight) <= epsilon
                                            && maxLeaderWeight > -1.0f) {
                                     leaderNeighbourCount += 1;
 
-                                    alignment += neighbourVelocity * t;
-                                    cohesion += neighbourPosition * t;
+                                    alignment += neighbourVelocity * tProximity;
+                                    cohesion += neighbourPosition * tProximity;
 
-                                    alignmentWeightSum += t;
-                                    cohesionWeightSum += t;
+                                    alignmentWeightSum += tProximity;
+                                    cohesionWeightSum += tProximity;
                                 }
                             }
 
-                            // === AVOID: prey runs from predator ===
-                            if (isAvoid && myAvoidResponse > 0f) {
-                                float neighbourAvoidWeight = BehaviourAvoidanceWeight[neighbourBehaviourIndex];
+                            // === Radial repulsion from unified radius ===
+                            float repulseFactor = 0.0f;
 
-                                if (myAvoidWeight < neighbourAvoidWeight) {
-                                    float weightDelta = neighbourAvoidWeight - myAvoidWeight;
-                                    float normalised = weightDelta / math.max(neighbourAvoidWeight, 1e-3f);
+                            // 1) Inside body – hard push
+                            if (distance < contact) {
+                                float penetration = (contact - distance) / contact;
+                                repulseFactor += hardRepulsionGain * penetration;
+                            }
 
-                                    float localIntensity = t * normalised * myAvoidResponse;
+                            // 2) Dead band after contact – kill jitter but keep tiny push
+                            if (distance >= contact && distance < deadBandEnd) {
+                                float span = math.max(deadBandEnd - contact, 1e-4f);
+                                float tDead = (deadBandEnd - distance) / span; // 1 at contact, 0 at deadBandEnd
+                                repulseFactor += friendlySoftGain * tDead * 0.25f;
+                            }
 
-                                    float3 repulse = -dir * localIntensity; // away from predator
-                                    separation += repulse;
+                            // 3) Friendly inner shell
+                            if (isFriendly && distance < friendlyInnerEnd) {
+                                float innerStart = contact;
+                                float innerEnd = friendlyInnerEnd;
+                                float spanInner = math.max(innerEnd - innerStart, 1e-4f);
+                                float tInner = (innerEnd - distance) / spanInner;
+                                repulseFactor += friendlySoftGain * tInner;
+                            }
+
+                            // 4) Avoid: prey from predators
+                            if (isAvoid && distance < avoidMin) {
+                                float deficit = (avoidMin - distance) / avoidMin;
+                                float gain = avoidRadialGain * (1.0f + myAvoidWeight);
+                                repulseFactor += gain * deficit;
+
+                                float localIntensity = deficit * myAvoidResponse;
+                                if (localIntensity > avoidDanger) {
+                                    avoidDanger = localIntensity;
+                                }
+                            }
+
+                            // 5) Neutral: soft spacing
+                            if (isNeutral && distance < neutralMin) {
+                                float deficit = (neutralMin - distance) / neutralMin;
+                                float gain = neutralRadialGain * (1.0f + myNeutralWeight * 0.5f);
+                                repulseFactor += gain * deficit;
+                            }
+
+                            if (repulseFactor > 0.0f) {
+                                float3 repulse = -dir * repulseFactor;
+
+                                // ==== NEW: shape separation so it doesn't hard-flip direction ====
+                                // Use previous velocity to bias separation into more "side-step" than pure 180° turn,
+                                // which removes the glitchy back-and-forth when packed.
+                                repulse = ShapeSeparationResponse(
+                                    repulse,
+                                    PrevVelocities[agentIndex]);
+
+                                separation += repulse;
+                                separationCount += 1;
+
+                                if (isAvoid) {
                                     avoidSeparation += repulse;
-                                    separationCount += 1;
-
-                                    if (localIntensity > avoidDanger) {
-                                        avoidDanger = localIntensity;
-                                    }
-                                }
-                            }
-
-                            // === NEUTRAL: soft avoid higher neutral weight (don't clip) ===
-                            if (isNeutral) {
-                                float neighbourNeutralWeight = BehaviourNeutralWeight[neighbourBehaviourIndex];
-
-                                if (myNeutralWeight < neighbourNeutralWeight) {
-                                    float weightDelta = neighbourNeutralWeight - myNeutralWeight;
-                                    float normalised = weightDelta / math.max(neighbourNeutralWeight, 1e-3f);
-
-                                    float3 softRepulse = -dir * (t * normalised * 0.5f);
-                                    separation += softRepulse;
-                                    separationCount += 1;
                                 }
                             }
                         }
                     }
                 }
             }
+        }
+
+        // Add this helper somewhere below inside FlockStepJob (alongside SafeRead, LimitVector, etc.)
+
+        float3 ShapeSeparationResponse(
+            float3 repulse,
+            float3 currentVelocity) {
+
+            float repulseLenSq = math.lengthsq(repulse);
+            float velLenSq = math.lengthsq(currentVelocity);
+
+            // No shaping if one of the vectors is almost zero
+            if (repulseLenSq < 1e-8f || velLenSq < 1e-8f) {
+                return repulse;
+            }
+
+            float3 forward = currentVelocity / math.sqrt(velLenSq);
+            float3 repulseDir = repulse / math.sqrt(repulseLenSq);
+
+            // dotForward:
+            //  +1 = same direction as forward
+            //   0 = perpendicular
+            //  -1 = fully opposite (full brake / flip)
+            float dotForward = math.dot(repulseDir, forward);
+
+            // Only reshape when we would strongly push backwards.
+            if (dotForward < -0.25f) {
+                // Build a sideways axis relative to our current forward.
+                float3 side = math.cross(forward, new float3(0f, 1f, 0f));
+                if (math.lengthsq(side) < 1e-4f) {
+                    side = math.cross(forward, new float3(0f, 0f, 1f));
+                }
+                side = math.normalizesafe(side, repulseDir);
+
+                float t = math.saturate((-dotForward - 0.25f) / 0.75f); // 0 at -0.25, 1 at -1
+                float magnitude = math.sqrt(repulseLenSq);
+
+                float3 sideways = side * magnitude;
+                float3 backward = -forward * magnitude;
+
+                // Prefer sliding around neighbour (sideways) instead of full reverse.
+                float3 target = sideways * 0.7f + backward * 0.3f;
+
+                // Blend between original pure radial repulse and shaped side-step.
+                return math.lerp(repulse, target, t);
+            }
+
+            return repulse;
+        }
+
+
+        float SafeRead(NativeArray<float> array, int index, float fallback) {
+            if (!array.IsCreated) return fallback;
+            if ((uint)index >= (uint)array.Length) return fallback;
+            return array[index];
         }
 
         float3 ComputeSteering(

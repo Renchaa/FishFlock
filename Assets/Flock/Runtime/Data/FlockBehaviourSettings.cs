@@ -1,3 +1,4 @@
+// File: Assets/Flock/Runtime/Data/FlockBehaviourSettings.cs
 namespace Flock.Runtime.Data {
     public struct FlockBehaviourSettings {
         public float MaxSpeed;
@@ -7,66 +8,69 @@ namespace Flock.Runtime.Data {
         public float NeighbourRadius;
         public float SeparationRadius;
 
-        // Cross-type relationship weights
-        public float AvoidanceWeight;   // dominance / threat hierarchy for Avoid
-        public float NeutralWeight;     // soft priority for Neutral
-        public float AttractionWeight;  // how strongly this type responds to attractor areas
-        public float AvoidResponse;     // how “panicked” this type gets when avoiding (0 = chill, 1+ = very reactive)
-
-
-        public float SplitPanicThreshold;  // panic level at which this type starts splitting
-        public float SplitLateralWeight;   // how wide it fans out left/right when splitting
-        public float SplitAccelBoost;      // how much extra accel/speed during split burst
-
-        public uint AvoidMask;          // bitmask of types this behaviour avoids
-        public uint NeutralMask;        // bitmask of types treated as Neutral
-
-        // Standard flocking rule weights
         public float AlignmentWeight;
         public float CohesionWeight;
         public float SeparationWeight;
 
         public float InfluenceWeight;
 
-        // Leadership / following
         public float LeadershipWeight;
         public uint GroupMask;
 
+        // Relationships / matrix
+        public float AvoidanceWeight;
+        public float NeutralWeight;
+        public float AttractionWeight;
+        public float AvoidResponse;
+
+        public float MaxTurnRateDeg;
+        public float TurnResponsiveness;
+
+        public uint AvoidMask;
+        public uint NeutralMask;
+
+        // Grouping
         public int MinGroupSize;
         public int MaxGroupSize;
+        public float GroupRadiusMultiplier;
+        public float LonerRadiusMultiplier;
+        public float LonerCohesionBoost;
 
-        public float GroupRadiusMultiplier;   // radius factor when in a group
-        public float LonerRadiusMultiplier;   // radius factor when under-grouped / lonely
-        public float LonerCohesionBoost;      // extra cohesion when lonely (magnet to school)
+        // Split
+        public float SplitPanicThreshold;
+        public float SplitLateralWeight;
+        public float SplitAccelBoost;
 
-        /// <summary>
-        /// 0 = disabled, 1 = enabled.
-        /// </summary>
+        // Preferred depth
         public byte UsePreferredDepth;
-
-        /// <summary>
-        /// Normalised depth band [0..1] in world bounds (0 = bottom, 1 = top).
-        /// </summary>
         public float PreferredDepthMin;
         public float PreferredDepthMax;
-
-        /// <summary>
-        /// Strength of vertical bias toward the preferred band.
-        /// </summary>
-        public float DepthBiasStrength;
-
-        /// <summary>
-        /// 0 = attraction wins when they conflict, 1 = depth wins.
-        /// </summary>
-        public byte DepthWinsOverAttractor;
-
-        // Preferred depth band [0..1] in environment bounds (0 = bottom, 1 = top)
         public float PreferredDepthMinNorm;
         public float PreferredDepthMaxNorm;
-
-        // Strength of depth steering. <= 0 means "disabled".
         public float PreferredDepthWeight;
-
+        public float DepthBiasStrength;
+        public byte DepthWinsOverAttractor;
         public float PreferredDepthEdgeFraction;
+
+        // === NEW: single physical radius + radial zone tuning ===
+
+        // Base size; author this per type in FishBehaviourProfile.
+        public float BodyRadius;
+
+        // Fractions of *pair radius* that define zones around contact.
+        public float DeadBandFraction;        // jitter-killing shell
+        public float FriendlyInnerFraction;   // extra inner shell for friends
+
+        // Distance multipliers (in terms of pair radius).
+        public float FriendDistanceFactor;    // where friends want to sit
+        public float AvoidDistanceFactor;     // min distance from predators
+        public float NeutralDistanceFactor;   // neutral spacing
+        public float InfluenceDistanceFactor; // hard cutoff for neighbour effects
+
+        // Radial gains (how strong each zone reacts).
+        public float HardRepulsionGain;   // inside bodies
+        public float FriendlySoftGain;    // near friends
+        public float AvoidRadialGain;     // avoid relations
+        public float NeutralRadialGain;   // neutral relations
     }
 }

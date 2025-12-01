@@ -715,14 +715,48 @@ namespace Flock.Runtime {
         }
 
         void DrawAgentsGizmos(NativeArray<float3> positions) {
-            Gizmos.color = Color.cyan;
-
             int length = positions.Length;
 
+            if (length == 0) {
+                return;
+            }
+
+            Gizmos.color = Color.cyan;
+
+            // If we don't have behaviour data for some reason, at least draw tiny wire spheres
+            bool hasBehaviourData =
+                behaviourSettingsArray.IsCreated &&
+                behaviourSettingsArray.Length > 0 &&
+                agentBehaviourIds != null &&
+                agentBehaviourIds.Length >= length;
+
+            if (!hasBehaviourData) {
+                for (int index = 0; index < length; index += 1) {
+                    Gizmos.DrawWireSphere(
+                        positions[index],
+                        0.1f);
+                }
+
+                return;
+            }
+
             for (int index = 0; index < length; index += 1) {
-                Gizmos.DrawSphere(
-                    positions[index],
-                    0.1f);
+                float3 pos = positions[index];
+
+                // Map agent → behaviour type
+                int behaviourIndex = agentBehaviourIds[index];
+                float radius = 0.1f;
+
+                if ((uint)behaviourIndex < (uint)behaviourSettingsArray.Length) {
+                    // SeparationRadius is our effective "fish size" in the sim
+                    float separationRadius = behaviourSettingsArray[behaviourIndex].SeparationRadius;
+                    radius = math.max(0.01f, separationRadius);
+                }
+
+                // Draw only a wire sphere – no solid spheres
+                Gizmos.DrawWireSphere(
+                    pos,
+                    radius);
             }
         }
 

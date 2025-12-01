@@ -1,4 +1,4 @@
-// File: Assets/Flock/Runtime/FlockSimulation.cs
+ï»¿// File: Assets/Flock/Runtime/FlockSimulation.cs
 namespace Flock.Runtime {
     using Flock.Runtime.Data;
     using Flock.Runtime.Jobs;
@@ -16,7 +16,7 @@ namespace Flock.Runtime {
 
         NativeArray<float3> positions;
         NativeArray<float3> velocities;
-        NativeArray<float3> prevVelocities; // NEW
+        NativeArray<float3> prevVelocities;
         NativeArray<int> behaviourIds;
         NativeArray<float> behaviourMaxSpeed;
         NativeArray<float> behaviourMaxAcceleration;
@@ -29,23 +29,26 @@ namespace Flock.Runtime {
         NativeArray<float> behaviourInfluenceWeight;
         NativeArray<float> behaviourLeadershipWeight;
         NativeArray<uint> behaviourGroupMask;
-        NativeArray<float> behaviourAvoidanceWeight;   // ADD
-        NativeArray<float> behaviourNeutralWeight;     // ADD
-        NativeArray<uint> behaviourAvoidMask;          // ADD
-        NativeArray<uint> behaviourNeutralMask;        // ADD
+        NativeArray<float> behaviourAvoidanceWeight;
+        NativeArray<float> behaviourNeutralWeight;
+        NativeArray<uint> behaviourAvoidMask;
+        NativeArray<uint> behaviourNeutralMask;
         NativeArray<FlockObstacleData> obstacles;
         NativeArray<float3> obstacleSteering;
         NativeArray<float> behaviourAvoidResponse;
         NativeArray<float> behaviourAttractionWeight;
-        NativeArray<float> behaviourSplitPanicThreshold; // NEW
-        NativeArray<float> behaviourSplitLateralWeight;  // NEW
+        NativeArray<float> behaviourSplitPanicThreshold;
+        NativeArray<float> behaviourSplitLateralWeight;
         NativeArray<float> behaviourSplitAccelBoost;
-        // Grouping behaviour
+
+        // Grouping
         NativeArray<int> behaviourMinGroupSize;
         NativeArray<int> behaviourMaxGroupSize;
         NativeArray<float> behaviourGroupRadiusMultiplier;
         NativeArray<float> behaviourLonerRadiusMultiplier;
         NativeArray<float> behaviourLonerCohesionBoost;
+
+        // Preferred depth
         NativeArray<byte> behaviourUsePreferredDepth;
         NativeArray<float> behaviourPreferredDepthMin;
         NativeArray<float> behaviourPreferredDepthMax;
@@ -56,16 +59,29 @@ namespace Flock.Runtime {
         NativeArray<float> behaviourPreferredDepthWeight;
         NativeArray<float> behaviourPreferredDepthEdgeFraction;
 
+        // === NEW: per-type radius + radial zone tuning ===
+        NativeArray<float> behaviourBaseRadius;
+        NativeArray<float> behaviourDeadBandFraction;
+        NativeArray<float> behaviourFriendlyInnerFraction;
+        NativeArray<float> behaviourFriendDistanceFactor;
+        NativeArray<float> behaviourAvoidDistanceFactor;
+        NativeArray<float> behaviourNeutralDistanceFactor;
+        NativeArray<float> behaviourInfluenceDistanceFactor;
+        NativeArray<float> behaviourHardRepulsionGain;
+        NativeArray<float> behaviourFriendlySoftGain;
+        NativeArray<float> behaviourAvoidRadialGain;
+        NativeArray<float> behaviourNeutralRadialGain;
+        NativeArray<float> behaviourMaxTurnRateDeg;
+        NativeArray<float> behaviourTurnResponsiveness;
         NativeParallelMultiHashMap<int, int> cellToAgents;
         NativeParallelMultiHashMap<int, int> cellToObstacles;
 
         FlockEnvironmentData environmentData;
-
         IFlockLogger logger;
 
         NativeArray<FlockAttractorData> attractors;
         NativeArray<float3> attractionSteering;
-        int attractorCount;        // NEW: relationship-related behaviour arrays
+        int attractorCount;
         NativeArray<int> cellToIndividualAttractor;
         NativeArray<int> cellToGroupAttractor;
         NativeArray<float> cellIndividualPriority;
@@ -76,12 +92,9 @@ namespace Flock.Runtime {
         public int AgentCount { get; private set; }
 
         public bool IsCreated => positions.IsCreated;
-
         public NativeArray<float3> Positions => positions;
         public NativeArray<float3> Velocities => velocities;
-
         public int ObstacleCount => obstacleCount;
-
         public void Initialize(
             int agentCount,
             FlockEnvironmentData environment,
@@ -297,21 +310,18 @@ namespace Flock.Runtime {
                 BehaviourGroupMask = behaviourGroupMask,
                 BehaviourAvoidResponse = behaviourAvoidResponse,
 
-                // Split behaviour
                 BehaviourSplitPanicThreshold = behaviourSplitPanicThreshold,
                 BehaviourSplitLateralWeight = behaviourSplitLateralWeight,
                 BehaviourSplitAccelBoost = behaviourSplitAccelBoost,
 
-                // Grouping
                 BehaviourMinGroupSize = behaviourMinGroupSize,
                 BehaviourMaxGroupSize = behaviourMaxGroupSize,
                 BehaviourGroupRadiusMultiplier = behaviourGroupRadiusMultiplier,
                 BehaviourLonerRadiusMultiplier = behaviourLonerRadiusMultiplier,
                 BehaviourLonerCohesionBoost = behaviourLonerCohesionBoost,
 
-                // Preferred depth (all normalised)
                 BehaviourUsePreferredDepth = behaviourUsePreferredDepth,
-                BehaviourPreferredDepthMin = behaviourPreferredDepthMinNorm,  // we store norm here
+                BehaviourPreferredDepthMin = behaviourPreferredDepthMinNorm,
                 BehaviourPreferredDepthMax = behaviourPreferredDepthMaxNorm,
                 BehaviourDepthBiasStrength = behaviourDepthBiasStrength,
                 BehaviourDepthWinsOverAttractor = behaviourDepthWinsOverAttractor,
@@ -319,6 +329,22 @@ namespace Flock.Runtime {
                 BehaviourPreferredDepthMaxNorm = behaviourPreferredDepthMaxNorm,
                 BehaviourPreferredDepthWeight = behaviourPreferredDepthWeight,
                 BehaviourPreferredDepthEdgeFraction = behaviourPreferredDepthEdgeFraction,
+
+                // === NEW radius + zones wiring ===
+                BehaviourBaseRadius = behaviourBaseRadius,
+                BehaviourDeadBandFraction = behaviourDeadBandFraction,
+                BehaviourFriendlyInnerFraction = behaviourFriendlyInnerFraction,
+                BehaviourFriendDistanceFactor = behaviourFriendDistanceFactor,
+                BehaviourAvoidDistanceFactor = behaviourAvoidDistanceFactor,
+                BehaviourNeutralDistanceFactor = behaviourNeutralDistanceFactor,
+                BehaviourInfluenceDistanceFactor = behaviourInfluenceDistanceFactor,
+                BehaviourHardRepulsionGain = behaviourHardRepulsionGain,
+                BehaviourFriendlySoftGain = behaviourFriendlySoftGain,
+                BehaviourAvoidRadialGain = behaviourAvoidRadialGain,
+                BehaviourNeutralRadialGain = behaviourNeutralRadialGain,
+
+                BehaviourMaxTurnRateDeg = behaviourMaxTurnRateDeg,
+                BehaviourTurnResponsiveness = behaviourTurnResponsiveness,
 
                 CellToAgents = cellToAgents,
                 GridOrigin = environmentData.GridOrigin,
@@ -428,6 +454,21 @@ namespace Flock.Runtime {
             DisposeArray(ref cellIndividualPriority);
             DisposeArray(ref cellGroupPriority);
 
+            // NEW radius + zones
+            DisposeArray(ref behaviourBaseRadius);
+            DisposeArray(ref behaviourDeadBandFraction);
+            DisposeArray(ref behaviourFriendlyInnerFraction);
+            DisposeArray(ref behaviourFriendDistanceFactor);
+            DisposeArray(ref behaviourAvoidDistanceFactor);
+            DisposeArray(ref behaviourNeutralDistanceFactor);
+            DisposeArray(ref behaviourInfluenceDistanceFactor);
+            DisposeArray(ref behaviourHardRepulsionGain);
+            DisposeArray(ref behaviourFriendlySoftGain);
+            DisposeArray(ref behaviourAvoidRadialGain);
+            DisposeArray(ref behaviourNeutralRadialGain);
+
+            DisposeArray(ref behaviourMaxTurnRateDeg);
+            DisposeArray(ref behaviourTurnResponsiveness);
             AgentCount = 0;
         }
 
@@ -466,14 +507,14 @@ namespace Flock.Runtime {
                 allocator,
                 NativeArrayOptions.UninitializedMemory);
 
-            // Initialise with safe defaults (type 0) – controller will overwrite.
+            // Initialise with safe defaults (type 0) Â– controller will overwrite.
             for (int index = 0; index < AgentCount; index += 1) {
                 behaviourIds[index] = 0;
             }
         }
 
         // =======================================================
-        // 5) FlockSimulation.AllocateBehaviourArrays – REPLACE BODY
+        // 5) FlockSimulation.AllocateBehaviourArrays Â– REPLACE BODY
         // File: Assets/Flock/Runtime/FlockSimulation.cs
         // =======================================================
         void AllocateBehaviourArrays(
@@ -525,6 +566,21 @@ namespace Flock.Runtime {
             behaviourPreferredDepthMaxNorm = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
             behaviourPreferredDepthWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
             behaviourPreferredDepthEdgeFraction = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+
+            // === NEW: radius + zone tuning arrays ===
+            behaviourBaseRadius = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourDeadBandFraction = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourFriendlyInnerFraction = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourFriendDistanceFactor = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourAvoidDistanceFactor = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourNeutralDistanceFactor = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourInfluenceDistanceFactor = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourHardRepulsionGain = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourFriendlySoftGain = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourAvoidRadialGain = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourNeutralRadialGain = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourMaxTurnRateDeg = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourTurnResponsiveness = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
 
             for (int index = 0; index < behaviourCount; index += 1) {
                 FlockBehaviourSettings behaviour = settings[index];
@@ -579,6 +635,21 @@ namespace Flock.Runtime {
                 behaviourPreferredDepthMaxNorm[index] = behaviour.PreferredDepthMaxNorm;
                 behaviourPreferredDepthWeight[index] = behaviour.PreferredDepthWeight;
                 behaviourPreferredDepthEdgeFraction[index] = behaviour.PreferredDepthEdgeFraction;
+
+                // === NEW radius + zone tuning ===
+                behaviourBaseRadius[index] = behaviour.BodyRadius;
+                behaviourDeadBandFraction[index] = behaviour.DeadBandFraction;
+                behaviourFriendlyInnerFraction[index] = behaviour.FriendlyInnerFraction;
+                behaviourFriendDistanceFactor[index] = behaviour.FriendDistanceFactor;
+                behaviourAvoidDistanceFactor[index] = behaviour.AvoidDistanceFactor;
+                behaviourNeutralDistanceFactor[index] = behaviour.NeutralDistanceFactor;
+                behaviourInfluenceDistanceFactor[index] = behaviour.InfluenceDistanceFactor;
+                behaviourHardRepulsionGain[index] = behaviour.HardRepulsionGain;
+                behaviourFriendlySoftGain[index] = behaviour.FriendlySoftGain;
+                behaviourAvoidRadialGain[index] = behaviour.AvoidRadialGain;
+                behaviourNeutralRadialGain[index] = behaviour.NeutralRadialGain;
+                behaviourMaxTurnRateDeg[index] = behaviour.MaxTurnRateDeg;
+                behaviourTurnResponsiveness[index] = behaviour.TurnResponsiveness;
             }
         }
 

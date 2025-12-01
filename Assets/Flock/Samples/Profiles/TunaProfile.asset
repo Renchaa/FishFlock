@@ -12,14 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47e0eaefa1b0f4b45b356bbb3ff14cb4, type: 3}
   m_Name: TunaProfile
   m_EditorClassIdentifier: 
+  bodyRadius: 0.5
   maxSpeed: 1.5
   maxAcceleration: 2
   desiredSpeed: 1
-  neighbourRadius: 3
+  neighbourRadius: 2
   separationRadius: 1
   alignmentWeight: 0.8
   cohesionWeight: 0.7
-  separationWeight: 1
+  separationWeight: 1.2
   influenceWeight: 1
   avoidanceWeight: 1
   neutralWeight: 1
@@ -31,8 +32,8 @@ MonoBehaviour:
   attractionWeight: 1
   minGroupSize: 3
   usePreferredDepth: 1
-  preferredDepthMin: 0.808
-  preferredDepthMax: 1
+  preferredDepthMin: 0
+  preferredDepthMax: 0.3
   preferredDepthWeight: 5
   depthBiasStrength: 3
   depthWinsOverAttractor: 1

@@ -12,32 +12,41 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47e0eaefa1b0f4b45b356bbb3ff14cb4, type: 3}
   m_Name: DefaultProfile
   m_EditorClassIdentifier: 
-  maxSpeed: 5
-  maxAcceleration: 7
+  maxSpeed: 3.5
+  maxAcceleration: 5
   desiredSpeed: 2
-  neighbourRadius: 3
-  separationRadius: 1
+  bodyRadius: 0.3
+  deadBandFraction: 0.12
+  friendlyInnerFraction: 0.25
+  friendDistanceFactor: 1.4
+  avoidDistanceFactor: 3.5
+  neutralDistanceFactor: 2
+  influenceDistanceFactor: 3.5
+  hardRepulsionGain: 4
+  friendlySoftGain: 1
+  avoidRadialGain: 2.5
+  neutralRadialGain: 0.75
   alignmentWeight: 0.8
-  cohesionWeight: 0.6
-  separationWeight: 1.2
-  influenceWeight: 0.7
-  avoidanceWeight: 3
+  cohesionWeight: 0.7
+  separationWeight: 1.5
+  influenceWeight: 1
+  avoidanceWeight: 1.2
   neutralWeight: 1
   attractionResponse: 1
-  avoidResponse: 5
-  splitPanicThreshold: 0.4
+  avoidResponse: 1.5
+  splitPanicThreshold: 0.6
   splitLateralWeight: 1
-  splitAccelBoost: 1
+  splitAccelBoost: 1.2
   attractionWeight: 1
   minGroupSize: 3
-  usePreferredDepth: 1
-  preferredDepthMin: 0.3
-  preferredDepthMax: 0.6
-  preferredDepthWeight: 0.3
-  depthBiasStrength: 0.2
-  depthWinsOverAttractor: 1
-  maxGroupSize: 100
-  groupRadiusMultiplier: 0.5
-  lonerRadiusMultiplier: 1
+  maxGroupSize: 50
+  groupRadiusMultiplier: 1
+  lonerRadiusMultiplier: 2.5
   lonerCohesionBoost: 1.5
-  preferredDepthEdgeFraction: 0.2
+  usePreferredDepth: 0
+  preferredDepthMin: 0.7
+  preferredDepthMax: 1
+  preferredDepthWeight: 1
+  depthBiasStrength: 1
+  depthWinsOverAttractor: 1
+  preferredDepthEdgeFraction: 0.3
