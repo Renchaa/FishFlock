@@ -37,7 +37,7 @@ MonoBehaviour:
   splitAccelBoost: 1
   attractionWeight: 1
   minGroupSize: 3
-  usePreferredDepth: 1
+  usePreferredDepth: 0
   preferredDepthMin: 0
   preferredDepthMax: 0.246
   preferredDepthWeight: 0.3

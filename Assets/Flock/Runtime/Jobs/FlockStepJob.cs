@@ -1056,46 +1056,79 @@ namespace Flock.Runtime.Jobs {
             return direction * speedError;
         }
 
+        // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
+
         float3 ApplyBoundsSteering(
             float3 position,
             float3 velocity,
             FlockEnvironmentData environment) {
+
+            // Axis-aligned box: predictive sliding along walls
             if (environment.BoundsType == FlockBoundsType.Box) {
                 float3 min = environment.BoundsCenter - environment.BoundsExtents;
                 float3 max = environment.BoundsCenter + environment.BoundsExtents;
 
-                float3 correctedPosition = position;
-                bool corrected = false;
+                float soft = math.max(environment.BoundsSoftThickness, 0f);
+                float lookAhead = math.max(environment.BoundsLookAheadTime, 0f);
+                float strength = math.max(environment.BoundsSlideStrength, 0f);
 
-                if (position.x < min.x) {
-                    correctedPosition.x = min.x;
-                    corrected = true;
-                } else if (position.x > max.x) {
-                    correctedPosition.x = max.x;
-                    corrected = true;
+                // If disabled / zeroed, keep old "push in" behaviour as fallback.
+                if (soft <= 0f || strength <= 0f || lookAhead <= 0f) {
+                    float3 correctedPosition = position;
+                    bool corrected = false;
+
+                    if (position.x < min.x) {
+                        correctedPosition.x = min.x;
+                        corrected = true;
+                    } else if (position.x > max.x) {
+                        correctedPosition.x = max.x;
+                        corrected = true;
+                    }
+
+                    if (position.y < min.y) {
+                        correctedPosition.y = min.y;
+                        corrected = true;
+                    } else if (position.y > max.y) {
+                        correctedPosition.y = max.y;
+                        corrected = true;
+                    }
+
+                    if (position.z < min.z) {
+                        correctedPosition.z = min.z;
+                        corrected = true;
+                    } else if (position.z > max.z) {
+                        correctedPosition.z = max.z;
+                        corrected = true;
+                    }
+
+                    if (corrected) {
+                        float3 direction = math.normalizesafe(
+                            correctedPosition - position,
+                            float3.zero);
+                        velocity += direction;
+                    }
+
+                    return velocity;
                 }
 
-                if (position.y < min.y) {
-                    correctedPosition.y = min.y;
-                    corrected = true;
-                } else if (position.y > max.y) {
-                    correctedPosition.y = max.y;
-                    corrected = true;
-                }
+                // Predict where we will be after some time along current velocity.
+                float3 future = position + velocity * lookAhead;
 
-                if (position.z < min.z) {
-                    correctedPosition.z = min.z;
-                    corrected = true;
-                } else if (position.z > max.z) {
-                    correctedPosition.z = max.z;
-                    corrected = true;
-                }
+                // Slide per axis: kill only the component that pushes into walls
+                velocity = ApplyAxisWallSliding(
+                    velocity, future.x, min.x, max.x, soft, strength, 0); // X
 
-                if (corrected) {
-                    float3 direction = math.normalize(correctedPosition - position);
-                    velocity += direction;
-                }
-            } else if (environment.BoundsType == FlockBoundsType.Sphere) {
+                velocity = ApplyAxisWallSliding(
+                    velocity, future.y, min.y, max.y, soft, strength, 1); // Y
+
+                velocity = ApplyAxisWallSliding(
+                    velocity, future.z, min.z, max.z, soft, strength, 2); // Z
+
+                return velocity;
+            }
+
+            // Spherical bounds unchanged
+            if (environment.BoundsType == FlockBoundsType.Sphere) {
                 float3 offset = position - environment.BoundsCenter;
                 float distance = math.length(offset);
 
@@ -1107,6 +1140,60 @@ namespace Flock.Runtime.Jobs {
 
             return velocity;
         }
+
+        // NEW: helper – per-axis wall sliding (kills only inward velocity component)
+        float3 ApplyAxisWallSliding(
+            float3 velocity,
+            float futureAxis,    // predicted position along this axis
+            float minAxis,
+            float maxAxis,
+            float softThickness,
+            float strength,
+            int axisIndex) {
+
+            float vAxis = axisIndex == 0
+                ? velocity.x
+                : (axisIndex == 1 ? velocity.y : velocity.z);
+
+            // No movement along this axis → nothing to do.
+            if (math.abs(vAxis) < 1e-5f) {
+                return velocity;
+            }
+
+            float minSoft = minAxis + softThickness;
+            float maxSoft = maxAxis - softThickness;
+
+            float blend = 0f;
+            float target = vAxis;
+
+            // Approaching MIN wall from inside?
+            if (vAxis < 0f && futureAxis < minSoft) {
+                float depth = (minSoft - futureAxis) / math.max(softThickness, 1e-3f); // 0..1
+                blend = math.saturate(depth * strength);
+                target = 0f; // kill inward component along this axis
+            }
+            // Approaching MAX wall from inside?
+            else if (vAxis > 0f && futureAxis > maxSoft) {
+                float depth = (futureAxis - maxSoft) / math.max(softThickness, 1e-3f); // 0..1
+                blend = math.saturate(depth * strength);
+                target = 0f;
+            }
+
+            if (blend > 0f) {
+                float newAxis = math.lerp(vAxis, target, blend);
+
+                if (axisIndex == 0) {
+                    velocity.x = newAxis;
+                } else if (axisIndex == 1) {
+                    velocity.y = newAxis;
+                } else {
+                    velocity.z = newAxis;
+                }
+            }
+
+            return velocity;
+        }
+
 
         int3 GetCell(float3 position) {
             float cellSize = math.max(CellSize, 0.0001f);

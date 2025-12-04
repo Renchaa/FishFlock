@@ -24,6 +24,11 @@ namespace Flock.Runtime {
         [Header("Movement")]
         [SerializeField] float globalDamping = 0.5f;
 
+        [Header("Bounds Avoidance")]
+        [SerializeField, Min(0f)] float boundsSoftThickness = 1.5f;
+        [SerializeField, Min(0f)] float boundsLookAheadTime = 0.6f;
+        [SerializeField, Min(0f)] float boundsSlideStrength = 2.0f;
+
         [Header("Debug")]
         [SerializeField] bool debugDrawBounds = true;
         [SerializeField] bool debugDrawGrid = false;
@@ -372,8 +377,14 @@ namespace Flock.Runtime {
             environmentData.GridResolution = resolution;
             environmentData.GlobalDamping = math.max(globalDamping, 0.0f);
 
+            // NEW: bounds sliding config
+            environmentData.BoundsSoftThickness = math.max(boundsSoftThickness, 0f);
+            environmentData.BoundsLookAheadTime = math.max(boundsLookAheadTime, 0f);
+            environmentData.BoundsSlideStrength = math.max(boundsSlideStrength, 0f);
+
             return environmentData;
         }
+
 
         // REPLACE SpawnAgents IN FlockController
 
