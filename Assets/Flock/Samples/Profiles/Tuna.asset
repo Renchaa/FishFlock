@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   displayName: Tuna
   behaviourProfile: {fileID: 11400000, guid: 9981b6622fbf22e49a5b67e2068ceb61, type: 2}
-  prefab: {fileID: 8371508306270534608, guid: ce0e2eb6a7364664ca6c055111312c85, type: 3}
-  spawnCount: 0
+  prefab: {fileID: 8213360954548542300, guid: 7ab25238480a1e0439d289d25050f429, type: 3}
+  spawnCount: 10

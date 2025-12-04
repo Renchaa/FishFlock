@@ -1178,7 +1178,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
   boundsCenter: {x: 50, y: 8, z: 55}
-  boundsExtents: {x: 15, y: 8, z: 15}
+  boundsExtents: {x: 12, y: 8, z: 12}
   cellSize: 0.75
   globalDamping: 0.1
   debugDrawBounds: 1
@@ -1186,6 +1186,10 @@ MonoBehaviour:
   debugDrawAgents: 1
   debugDrawNeighbourhood: 1
   debugAgentIndex: 0
+  debugDrawBodyRadius: 1
+  debugDrawSeparationRadius: 1
+  debugDrawNeighbourRadiusSphere: 1
+  debugDrawGridSearchRadiusSphere: 1
   staticObstacles:
   - {fileID: 305406291}
   - {fileID: 1372069534}
@@ -2580,7 +2584,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!65 &2003321849
 BoxCollider:
   m_ObjectHideFlags: 0

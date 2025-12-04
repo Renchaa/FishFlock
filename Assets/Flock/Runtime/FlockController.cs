@@ -9,6 +9,8 @@ namespace Flock.Runtime {
     using UnityEngine;
 
     public sealed class FlockController : MonoBehaviour, IFlockLogger {
+
+
         [Header("Fish Types")]
         [SerializeField] FishTypePreset[] fishTypes;
 
@@ -28,6 +30,12 @@ namespace Flock.Runtime {
         [SerializeField] bool debugDrawAgents = true;
         [SerializeField] bool debugDrawNeighbourhood = false;
         [SerializeField, Min(0)] int debugAgentIndex = 0;
+
+        // NEW: per-agent radius debug toggles
+        [SerializeField] bool debugDrawBodyRadius = true;
+        [SerializeField] bool debugDrawSeparationRadius = true;
+        [SerializeField] bool debugDrawNeighbourRadiusSphere = true;
+        [SerializeField] bool debugDrawGridSearchRadiusSphere = false;
 
         [Header("Obstacles")]
         [SerializeField] FlockObstacle[] staticObstacles;
@@ -653,10 +661,13 @@ namespace Flock.Runtime {
 
         #region Debug
 
+        // ===== FlockController.cs – ONLY REPLACE THESE TWO METHODS =====
+
+        // ============================
+        // FlockController.cs – REPLACE OnDrawGizmosSelected
+        // ============================
         void OnDrawGizmosSelected() {
             // Rebuild environment data from current inspector values.
-            // This matches what the simulation was created with, as long as you do not
-            // change values at runtime via code.
             FlockEnvironmentData environmentData = BuildEnvironmentData();
 
             if (debugDrawBounds) {
@@ -676,14 +687,74 @@ namespace Flock.Runtime {
                 DrawGridGizmos(environmentData);
             }
 
+            // Per-fish radii for ALL agents (uses shared debug toggles)
             if (debugDrawAgents) {
                 DrawAgentsGizmos(positions);
             }
 
+            // NEW: single-agent detailed view – shows neighbour radius,
+            // search radius (cellRange) etc. for debugAgentIndex
             if (debugDrawNeighbourhood) {
                 DrawNeighbourhoodGizmos(positions, environmentData);
             }
         }
+
+
+        // ============================
+        // FlockController.cs – REPLACE DrawAgentsGizmos
+        // ============================
+        void DrawAgentsGizmos(NativeArray<float3> positions) {
+            int length = positions.Length;
+            if (length == 0
+                || !behaviourSettingsArray.IsCreated
+                || behaviourSettingsArray.Length == 0
+                || agentBehaviourIds == null
+                || agentBehaviourIds.Length < length) {
+                return;
+            }
+
+            for (int index = 0; index < length; index += 1) {
+                float3 pos = positions[index];
+
+                int behaviourIndex = agentBehaviourIds[index];
+                if ((uint)behaviourIndex >= (uint)behaviourSettingsArray.Length) {
+                    continue;
+                }
+
+                FlockBehaviourSettings settings = behaviourSettingsArray[behaviourIndex];
+
+                float bodyRadius = settings.BodyRadius;
+                float separationRadius = settings.SeparationRadius;
+                float neighbourRadius = settings.NeighbourRadius;
+
+                // Small center marker so you still see the fish itself
+                Gizmos.color = new Color(1f, 1f, 1f, 0.75f);
+                Gizmos.DrawSphere(pos, 0.05f);
+
+                // Body radius (physical size)
+                if (debugDrawBodyRadius && bodyRadius > 0f) {
+                    Gizmos.color = new Color(0f, 1f, 1f, 0.6f);      // cyan
+                    Gizmos.DrawWireSphere((Vector3)pos, bodyRadius);
+                }
+
+                // Separation radius (hard "back off" bubble)
+                if (debugDrawSeparationRadius && separationRadius > 0f) {
+                    Gizmos.color = new Color(1f, 0f, 0f, 0.4f);      // red
+                    Gizmos.DrawWireSphere((Vector3)pos, separationRadius);
+                }
+
+                // Logical neighbour radius (who this fish can see)
+                if (debugDrawNeighbourRadiusSphere && neighbourRadius > 0f) {
+                    Gizmos.color = new Color(1f, 1f, 0f, 0.25f);     // yellow
+                    Gizmos.DrawWireSphere((Vector3)pos, neighbourRadius);
+                }
+
+                // NOTE: grid search radius sphere is drawn only in DrawNeighbourhoodGizmos
+                // for the selected debugAgentIndex, to avoid insane clutter.
+            }
+        }
+
+
 
         void DrawGridGizmos(FlockEnvironmentData environmentData) {
             float3 origin = environmentData.GridOrigin;
@@ -714,57 +785,18 @@ namespace Flock.Runtime {
             }
         }
 
-        void DrawAgentsGizmos(NativeArray<float3> positions) {
-            int length = positions.Length;
-
-            if (length == 0) {
-                return;
-            }
-
-            Gizmos.color = Color.cyan;
-
-            // If we don't have behaviour data for some reason, at least draw tiny wire spheres
-            bool hasBehaviourData =
-                behaviourSettingsArray.IsCreated &&
-                behaviourSettingsArray.Length > 0 &&
-                agentBehaviourIds != null &&
-                agentBehaviourIds.Length >= length;
-
-            if (!hasBehaviourData) {
-                for (int index = 0; index < length; index += 1) {
-                    Gizmos.DrawWireSphere(
-                        positions[index],
-                        0.1f);
-                }
-
-                return;
-            }
-
-            for (int index = 0; index < length; index += 1) {
-                float3 pos = positions[index];
-
-                // Map agent → behaviour type
-                int behaviourIndex = agentBehaviourIds[index];
-                float radius = 0.1f;
-
-                if ((uint)behaviourIndex < (uint)behaviourSettingsArray.Length) {
-                    // SeparationRadius is our effective "fish size" in the sim
-                    float separationRadius = behaviourSettingsArray[behaviourIndex].SeparationRadius;
-                    radius = math.max(0.01f, separationRadius);
-                }
-
-                // Draw only a wire sphere – no solid spheres
-                Gizmos.DrawWireSphere(
-                    pos,
-                    radius);
-            }
-        }
-
+        // ============================
+        // FlockController.cs – REPLACE DrawNeighbourhoodGizmos
+        // (this is the per-agent detailed view for debugAgentIndex)
+        // ============================
         void DrawNeighbourhoodGizmos(
             NativeArray<float3> positions,
             FlockEnvironmentData environmentData) {
+
             int length = positions.Length;
-            if (length == 0) {
+            if (length == 0
+                || !behaviourSettingsArray.IsCreated
+                || behaviourSettingsArray.Length == 0) {
                 return;
             }
 
@@ -775,58 +807,119 @@ namespace Flock.Runtime {
 
             float3 agentPosition = positions[index];
 
-            // For now we use the first behaviour profile's neighbour radius.
-            float neighbourRadius = 0.0f;
-            if (behaviourSettingsArray.IsCreated && behaviourSettingsArray.Length > 0) {
-                neighbourRadius = behaviourSettingsArray[0].NeighbourRadius;
+            // Resolve this agent's behaviour index
+            int behaviourIndex = 0;
+            if (agentBehaviourIds != null
+                && index >= 0
+                && index < agentBehaviourIds.Length) {
+                behaviourIndex = math.clamp(
+                    agentBehaviourIds[index],
+                    0,
+                    behaviourSettingsArray.Length - 1);
             }
 
-            if (neighbourRadius <= 0.0f) {
+            FlockBehaviourSettings settings = behaviourSettingsArray[behaviourIndex];
+
+            float neighbourRadius = settings.NeighbourRadius;
+            float separationRadius = settings.SeparationRadius;
+            float bodyRadius = settings.BodyRadius;
+
+            if (neighbourRadius <= 0.0f
+                && separationRadius <= 0.0f
+                && bodyRadius <= 0.0f) {
                 return;
             }
 
-            // Draw the selected agent.
+            // Highlight the selected agent itself
             Gizmos.color = Color.yellow;
-            Gizmos.DrawSphere(agentPosition, 0.15f);
+            Gizmos.DrawSphere(agentPosition, 0.2f);
 
-            // Draw its perception radius.
-            Gizmos.color = new Color(1.0f, 1.0f, 0.0f, 0.25f);
-            Gizmos.DrawWireSphere(
-                agentPosition,
-                neighbourRadius);
+            // Body radius (physical size)
+            if (debugDrawBodyRadius && bodyRadius > 0f) {
+                Gizmos.color = new Color(0f, 1f, 1f, 0.7f); // cyan
+                Gizmos.DrawWireSphere(
+                    agentPosition,
+                    bodyRadius);
+            }
 
-            // Highlight its grid cell.
+            // Separation radius (hard "back off" bubble)
+            if (debugDrawSeparationRadius && separationRadius > 0f) {
+                Gizmos.color = new Color(1f, 0f, 0f, 0.5f); // red
+                Gizmos.DrawWireSphere(
+                    agentPosition,
+                    separationRadius);
+            }
+
+            // Neighbour perception radius (logical view distance)
+            if (debugDrawNeighbourRadiusSphere && neighbourRadius > 0f) {
+                Gizmos.color = new Color(1f, 1f, 0f, 0.35f); // yellow
+                Gizmos.DrawWireSphere(
+                    agentPosition,
+                    neighbourRadius);
+            }
+
+            // Grid search radius in world units (how far in cells this type actually scans)
+            if (debugDrawGridSearchRadiusSphere
+                && neighbourRadius > 0f
+                && environmentData.CellSize > 0.0001f) {
+
+                float cellSize = environmentData.CellSize;
+
+                // This mirrors how behaviourCellSearchRadius was computed in the simulation:
+                // cellRange = ceil(neighbourRadius / cellSize)
+                int cellRange = Mathf.Max(
+                    1,
+                    Mathf.CeilToInt(neighbourRadius / cellSize));
+
+                float gridSearchWorldRadius = cellRange * cellSize;
+
+                Gizmos.color = new Color(1f, 0.5f, 0f, 0.35f); // orange
+                Gizmos.DrawWireSphere(
+                    agentPosition,
+                    gridSearchWorldRadius);
+
+#if UNITY_EDITOR
+                UnityEditor.Handles.Label(
+                    (Vector3)agentPosition + Vector3.up * (gridSearchWorldRadius + 0.25f),
+                    $"beh={behaviourIndex}, cellRange={cellRange}, neighR={neighbourRadius:0.##}");
+#endif
+            }
+
+            // Highlight its grid cell
             int3 cell = GetCell(agentPosition, environmentData);
-            float cellSize = environmentData.CellSize;
+            float cellSizeG = environmentData.CellSize;
             float3 origin = environmentData.GridOrigin;
             float3 cellCenter = origin + new float3(
-                (cell.x + 0.5f) * cellSize,
-                (cell.y + 0.5f) * cellSize,
-                (cell.z + 0.5f) * cellSize);
+                (cell.x + 0.5f) * cellSizeG,
+                (cell.y + 0.5f) * cellSizeG,
+                (cell.z + 0.5f) * cellSizeG);
 
             Gizmos.color = Color.magenta;
             Gizmos.DrawWireCube(
                 cellCenter,
-                new float3(cellSize, cellSize, cellSize));
+                new float3(cellSizeG, cellSizeG, cellSizeG));
 
-            // Draw neighbours inside radius.
-            float radiusSquared = neighbourRadius * neighbourRadius;
-            Gizmos.color = Color.red;
+            // Draw neighbours inside logical neighbour radius
+            if (neighbourRadius > 0f) {
+                float radiusSquared = neighbourRadius * neighbourRadius;
+                Gizmos.color = Color.red;
 
-            for (int i = 0; i < length; i += 1) {
-                if (i == index) {
-                    continue;
-                }
+                for (int i = 0; i < length; i += 1) {
+                    if (i == index) {
+                        continue;
+                    }
 
-                float3 other = positions[i];
-                float3 offset = other - agentPosition;
-                float distanceSquared = math.lengthsq(offset);
+                    float3 other = positions[i];
+                    float3 offset = other - agentPosition;
+                    float distanceSquared = math.lengthsq(offset);
 
-                if (distanceSquared <= radiusSquared) {
-                    Gizmos.DrawSphere(other, 0.12f);
+                    if (distanceSquared <= radiusSquared) {
+                        Gizmos.DrawSphere(other, 0.12f);
+                    }
                 }
             }
         }
+
 
         static int3 GetCell(
             float3 position,
