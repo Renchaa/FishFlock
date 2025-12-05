@@ -1,4 +1,4 @@
-// File: Assets/Flock/Runtime/FlockSimulation.cs
+ï»¿// File: Assets/Flock/Runtime/FlockSimulation.cs
 namespace Flock.Runtime {
     using Flock.Runtime.Data;
     using Flock.Runtime.Jobs;
@@ -29,6 +29,9 @@ namespace Flock.Runtime {
         NativeArray<float> behaviourInfluenceWeight;
         NativeArray<float> behaviourLeadershipWeight;
         NativeArray<uint> behaviourGroupMask;
+        NativeArray<float> behaviourGroupFlowWeight;
+
+
         NativeArray<float> behaviourAvoidanceWeight;   // ADD
         NativeArray<float> behaviourNeutralWeight;     // ADD
         NativeArray<uint> behaviourAvoidMask;          // ADD
@@ -187,6 +190,15 @@ namespace Flock.Runtime {
                 64,
                 inputHandle);
 
+            var clearStampsJob = new ClearIntArrayJob {
+                Array = neighbourVisitStamp,
+            };
+
+            JobHandle clearStampsHandle = clearStampsJob.Schedule(
+                AgentCount,
+                64,
+                inputHandle);
+
             var assignJob = new AssignToGridJob {
                 Positions = positions,
                 BehaviourIds = behaviourIds,
@@ -281,8 +293,15 @@ namespace Flock.Runtime {
             // Flock job waits for obstacle + attraction + velocity copy.
             JobHandle flockDeps = JobHandle.CombineDependencies(
                 obstacleHandle,
-                attractionHandle,
+                attractionHandle);
+
+            flockDeps = JobHandle.CombineDependencies(
+                flockDeps,
                 copyHandle);
+
+            flockDeps = JobHandle.CombineDependencies(
+                flockDeps,
+                clearStampsHandle);
 
             var flockJob = new FlockStepJob {
                 // Core agent data
@@ -312,6 +331,7 @@ namespace Flock.Runtime {
                 BehaviourCohesionWeight = behaviourCohesionWeight,
                 BehaviourSeparationWeight = behaviourSeparationWeight,
                 BehaviourInfluenceWeight = behaviourInfluenceWeight,
+                BehaviourGroupFlowWeight = behaviourGroupFlowWeight,
 
                 // Cross-type relations
                 BehaviourAvoidanceWeight = behaviourAvoidanceWeight,
@@ -412,6 +432,7 @@ namespace Flock.Runtime {
             DisposeArray(ref behaviourInfluenceWeight);
             DisposeArray(ref behaviourLeadershipWeight);
             DisposeArray(ref behaviourGroupMask);
+            DisposeArray(ref behaviourGroupFlowWeight);
 
             // Relationship-related
             DisposeArray(ref behaviourAvoidanceWeight);
@@ -520,14 +541,14 @@ namespace Flock.Runtime {
                 allocator,
                 NativeArrayOptions.ClearMemory);
 
-            // Initialise with safe defaults (type 0) – controller will overwrite.
+            // Initialise with safe defaults (type 0) â€“ controller will overwrite.
             for (int index = 0; index < AgentCount; index += 1) {
                 behaviourIds[index] = 0;
             }
         }
 
         // =======================================================
-        // 5) FlockSimulation.AllocateBehaviourArrays – REPLACE BODY
+        // 5) FlockSimulation.AllocateBehaviourArrays â€“ REPLACE BODY
         // File: Assets/Flock/Runtime/FlockSimulation.cs
         // =======================================================
         void AllocateBehaviourArrays(
@@ -547,6 +568,7 @@ namespace Flock.Runtime {
             behaviourInfluenceWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
             behaviourLeadershipWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
             behaviourGroupMask = new NativeArray<uint>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourGroupFlowWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
 
             // Relations
             behaviourAvoidanceWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
@@ -640,6 +662,7 @@ namespace Flock.Runtime {
                 behaviourSeparationWeight[index] = behaviour.SeparationWeight;
 
                 behaviourInfluenceWeight[index] = behaviour.InfluenceWeight;
+                behaviourGroupFlowWeight[index] = behaviour.GroupFlowWeight;
 
                 behaviourLeadershipWeight[index] = behaviour.LeadershipWeight;
                 behaviourGroupMask[index] = behaviour.GroupMask;

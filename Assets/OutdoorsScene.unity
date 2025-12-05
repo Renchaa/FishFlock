@@ -1177,10 +1177,14 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
-  boundsCenter: {x: 50, y: 8, z: 55}
-  boundsExtents: {x: 12, y: 8, z: 12}
+  boundsCenter: {x: 50, y: 12, z: 55}
+  boundsExtents: {x: 20, y: 12, z: 20}
   cellSize: 0.75
   globalDamping: 0.1
+  boundsSoftThickness: 2
+  boundsLookAheadTime: 6
+  boundsSlideStrength: 2
+  boundsEdgeFlowSuppression: 1
   debugDrawBounds: 1
   debugDrawGrid: 1
   debugDrawAgents: 1
@@ -2584,7 +2588,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &2003321849
 BoxCollider:
   m_ObjectHideFlags: 0

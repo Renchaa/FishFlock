@@ -15,6 +15,11 @@ namespace Flock.Runtime {
         [SerializeField] float maxAcceleration = 10.0f;
         [SerializeField] float desiredSpeed = 3.0f;
 
+        [Header("Group Flow")]
+        [Tooltip("How strongly this type aligns to the local group flow (0 = no extra smoothing, 1+ = strong flock flow).")]
+        [SerializeField, Range(0f, 2f)]
+        float groupFlowWeight = 0.75f;
+
         [Header("Size & Schooling")]
         [Tooltip("Physical radius of this fish in world units. Used for grid occupancy and spacing band.")]
         [SerializeField, Min(0f)]
@@ -143,6 +148,7 @@ namespace Flock.Runtime {
             settings.SeparationWeight = separationWeight;
 
             settings.InfluenceWeight = influenceWeight;
+            settings.GroupFlowWeight = Mathf.Max(0f, groupFlowWeight);
 
             // Leadership / group mask – overridden from matrix
             settings.LeadershipWeight = 1.0f;

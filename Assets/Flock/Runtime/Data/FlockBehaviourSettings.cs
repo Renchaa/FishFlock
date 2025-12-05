@@ -3,6 +3,7 @@ namespace Flock.Runtime.Data {
         public float MaxSpeed;
         public float MaxAcceleration;
         public float DesiredSpeed;
+        public float GroupFlowWeight;
 
         public float NeighbourRadius;
         public float SeparationRadius;

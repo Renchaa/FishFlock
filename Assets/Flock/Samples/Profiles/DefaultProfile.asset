@@ -14,36 +14,37 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxSpeed: 5
   maxAcceleration: 7
-  desiredSpeed: 2
+  desiredSpeed: 3
+  groupFlowWeight: 0.75
   bodyRadius: 0.2
-  schoolingSpacingFactor: 1.5
+  schoolingSpacingFactor: 2
   schoolingOuterFactor: 2
-  schoolingStrength: 1
+  schoolingStrength: 0.8
   schoolingInnerSoftness: 1
   schoolingRadialDamping: 1
-  schoolingDeadzoneFraction: 0.1
-  neighbourRadius: 2
-  separationRadius: 1
-  alignmentWeight: 0.8
-  cohesionWeight: 0.6
-  separationWeight: 1.2
+  schoolingDeadzoneFraction: 0.5
+  neighbourRadius: 1
+  separationRadius: 0.5
+  alignmentWeight: 0.6
+  cohesionWeight: 0.3
+  separationWeight: 1.5
   influenceWeight: 0.7
   avoidanceWeight: 3
   neutralWeight: 1
   attractionResponse: 1
-  avoidResponse: 5
+  avoidResponse: 3
   splitPanicThreshold: 0.4
   splitLateralWeight: 1
   splitAccelBoost: 1
   attractionWeight: 1
-  minGroupSize: 3
+  minGroupSize: 1
   usePreferredDepth: 0
   preferredDepthMin: 0
   preferredDepthMax: 0.246
   preferredDepthWeight: 0.3
   depthBiasStrength: 0.2
   depthWinsOverAttractor: 1
-  maxGroupSize: 100
+  maxGroupSize: 20
   groupRadiusMultiplier: 0.5
   lonerRadiusMultiplier: 1
   lonerCohesionBoost: 1.5

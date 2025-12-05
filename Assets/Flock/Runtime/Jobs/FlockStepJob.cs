@@ -38,6 +38,7 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public NativeArray<float> BehaviourCohesionWeight;
         [ReadOnly] public NativeArray<float> BehaviourSeparationWeight;
         [ReadOnly] public NativeArray<float> BehaviourInfluenceWeight;
+        [ReadOnly] public NativeArray<float> BehaviourGroupFlowWeight;
 
         [ReadOnly] public NativeArray<float> BehaviourAvoidanceWeight;
         [ReadOnly] public NativeArray<float> BehaviourNeutralWeight;
@@ -110,6 +111,7 @@ namespace Flock.Runtime.Jobs {
                     out float cohesionWeight,
                     out float separationWeight,
                     out float influenceWeight,
+                    out float groupFlowWeight,
                     out uint friendlyMask,
                     out uint avoidMask,
                     out uint neutralMask)) {
@@ -243,6 +245,48 @@ namespace Flock.Runtime.Jobs {
             // NEW: apply predictive radial braking as additional steering
             steering += radialDamping;
 
+            // --- Bounds context (predictive wall proximity) ---
+            float3 boundsWallNormal;
+            float boundsEdgeFactor;
+            ComputeBoundsContext(
+                position,
+                velocity,
+                EnvironmentData,
+                out boundsWallNormal,
+                out boundsEdgeFactor);
+
+            // --- Group-flow steering: push velocity toward local flock heading ---
+            // With suppression near walls so corner-huggers don't drag the world.
+            float localGroupFlowWeight = groupFlowWeight;
+
+            if (EnvironmentData.BoundsEdgeFlowSuppression > 0f && boundsEdgeFactor > 0f) {
+                float suppression = math.saturate(
+                    boundsEdgeFactor * EnvironmentData.BoundsEdgeFlowSuppression);
+                localGroupFlowWeight *= (1f - suppression);
+            }
+
+            if (localGroupFlowWeight > 0f
+                && leaderNeighbourCount > 0
+                && alignmentWeightSum > 1e-6f) {
+
+                // Average neighbour heading we already collected for alignment
+                float3 groupDirRaw = alignment / alignmentWeightSum;
+                float3 groupDir = math.normalizesafe(groupDirRaw, velocity);
+
+                // Target speed: use desiredSpeed if set, otherwise keep current magnitude
+                float currentSpeed = math.length(velocity);
+                float targetSpeed = desiredSpeed > 0f ? desiredSpeed : currentSpeed;
+
+                if (targetSpeed > 1e-4f) {
+                    float3 desiredGroupVel = groupDir * targetSpeed;
+
+                    // Extra accel that tries to pull us into the group flow
+                    float3 flowAccel = (desiredGroupVel - velocity) * localGroupFlowWeight;
+
+                    steering += flowAccel;
+                }
+            }
+
             // --- 5) Split behaviour (panic-driven group splitting) ---
             float localMaxAcceleration = maxAcceleration;
             float localMaxSpeed = maxSpeed;
@@ -323,6 +367,16 @@ namespace Flock.Runtime.Jobs {
             // --- 7) Attraction (no depth logic here) ---
             steering += ComputeAttraction(index);
 
+            // --- 7.x) Bounds steering (smooth turn away from walls, no speed kill) ---
+            float3 boundsAccel = ComputeBoundsSteering(
+                position,
+                velocity,
+                boundsWallNormal,
+                boundsEdgeFactor,
+                EnvironmentData);
+
+            steering += boundsAccel;
+
             // --- 8) Self-propulsion (target speed) ---
             float3 propulsion = ComputePropulsion(
                 currentVelocity: velocity,
@@ -348,8 +402,7 @@ namespace Flock.Runtime.Jobs {
             velocity = LimitVector(velocity, localMaxSpeed);
 
             // --- 11) Bounds ---
-            velocity = ApplyBoundsSteering(position, velocity, EnvironmentData);
-
+            // Bounds are now handled via steering; no velocity hacks here.
             Velocities[index] = velocity;
         }
 
@@ -484,7 +537,8 @@ namespace Flock.Runtime.Jobs {
             if (math.abs(force) <= 1e-5f)
                 return float3.zero;
 
-            return dir * (force * strength);
+            float signedStrength = force * strength;
+            return -dir * signedStrength;
         }
 
         float3 ComputeAttraction(int agentIndex) {
@@ -653,6 +707,7 @@ namespace Flock.Runtime.Jobs {
             out float cohesionWeight,
             out float separationWeight,
             out float influenceWeight,
+            out float groupFlowWeight,
             out uint friendlyMask,
             out uint avoidMask,
             out uint neutralMask) {
@@ -667,6 +722,7 @@ namespace Flock.Runtime.Jobs {
                 neighbourRadius = separationRadius = 0f;
                 alignmentWeight = cohesionWeight = separationWeight = 0f;
                 influenceWeight = 0f;
+                groupFlowWeight = 0f;  // NEW
                 friendlyMask = avoidMask = neutralMask = 0u;
                 return false;
             }
@@ -680,6 +736,12 @@ namespace Flock.Runtime.Jobs {
             cohesionWeight = BehaviourCohesionWeight[behaviourIndex];
             separationWeight = BehaviourSeparationWeight[behaviourIndex];
             influenceWeight = BehaviourInfluenceWeight[behaviourIndex];
+
+            groupFlowWeight = 0f;
+            if (BehaviourGroupFlowWeight.IsCreated
+                && (uint)behaviourIndex < (uint)BehaviourGroupFlowWeight.Length) {
+                groupFlowWeight = BehaviourGroupFlowWeight[behaviourIndex];
+            }
 
             friendlyMask = BehaviourGroupMask[behaviourIndex];
             avoidMask = BehaviourAvoidMask[behaviourIndex];
@@ -1056,144 +1118,171 @@ namespace Flock.Runtime.Jobs {
             return direction * speedError;
         }
 
-        // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
-
-        float3 ApplyBoundsSteering(
+        void ComputeBoundsContext(
             float3 position,
             float3 velocity,
-            FlockEnvironmentData environment) {
+            FlockEnvironmentData environment,
+            out float3 wallNormal,
+            out float edgeFactor) {
 
-            // Axis-aligned box: predictive sliding along walls
+            wallNormal = float3.zero;
+            edgeFactor = 0f;
+
+            if (environment.BoundsSoftThickness <= 0f
+                || environment.BoundsLookAheadTime <= 0f
+                || math.lengthsq(velocity) < 1e-6f) {
+                return;
+            }
+
+            float lookAhead = environment.BoundsLookAheadTime;
+            float soft = environment.BoundsSoftThickness;
+
+            float3 future = position + velocity * lookAhead;
+
+            // Box bounds: check per-axis soft zone
             if (environment.BoundsType == FlockBoundsType.Box) {
                 float3 min = environment.BoundsCenter - environment.BoundsExtents;
                 float3 max = environment.BoundsCenter + environment.BoundsExtents;
 
-                float soft = math.max(environment.BoundsSoftThickness, 0f);
-                float lookAhead = math.max(environment.BoundsLookAheadTime, 0f);
-                float strength = math.max(environment.BoundsSlideStrength, 0f);
+                float3 minSoft = min + new float3(soft);
+                float3 maxSoft = max - new float3(soft);
 
-                // If disabled / zeroed, keep old "push in" behaviour as fallback.
-                if (soft <= 0f || strength <= 0f || lookAhead <= 0f) {
-                    float3 correctedPosition = position;
-                    bool corrected = false;
+                // X
+                float depthX = 0f;
+                if (future.x < minSoft.x) {
+                    depthX = (minSoft.x - future.x) / math.max(soft, 1e-3f);
+                    wallNormal += new float3(1f, 0f, 0f);   // interior is +X
+                } else if (future.x > maxSoft.x) {
+                    depthX = (future.x - maxSoft.x) / math.max(soft, 1e-3f);
+                    wallNormal += new float3(-1f, 0f, 0f);  // interior is -X
+                }
+                edgeFactor = math.max(edgeFactor, depthX);
 
-                    if (position.x < min.x) {
-                        correctedPosition.x = min.x;
-                        corrected = true;
-                    } else if (position.x > max.x) {
-                        correctedPosition.x = max.x;
-                        corrected = true;
-                    }
+                // Y
+                float depthY = 0f;
+                if (future.y < minSoft.y) {
+                    depthY = (minSoft.y - future.y) / math.max(soft, 1e-3f);
+                    wallNormal += new float3(0f, 1f, 0f);   // interior is +Y
+                } else if (future.y > maxSoft.y) {
+                    depthY = (future.y - maxSoft.y) / math.max(soft, 1e-3f);
+                    wallNormal += new float3(0f, -1f, 0f);  // interior is -Y
+                }
+                edgeFactor = math.max(edgeFactor, depthY);
 
-                    if (position.y < min.y) {
-                        correctedPosition.y = min.y;
-                        corrected = true;
-                    } else if (position.y > max.y) {
-                        correctedPosition.y = max.y;
-                        corrected = true;
-                    }
+                // Z
+                float depthZ = 0f;
+                if (future.z < minSoft.z) {
+                    depthZ = (minSoft.z - future.z) / math.max(soft, 1e-3f);
+                    wallNormal += new float3(1f, 0f, 0f);   // interior is +Z, but we just reuse X axis to keep cost low
+                } else if (future.z > maxSoft.z) {
+                    depthZ = (future.z - maxSoft.z) / math.max(soft, 1e-3f);
+                    wallNormal += new float3(-1f, 0f, 0f);  // interior is -Z, see note above
+                }
+                edgeFactor = math.max(edgeFactor, depthZ);
+            }
+            // Sphere bounds: simple radial soft zone
+            else if (environment.BoundsType == FlockBoundsType.Sphere) {
+                float radius = environment.BoundsRadius;
+                if (radius > 0f) {
+                    float3 offset = future - environment.BoundsCenter;
+                    float distance = math.length(offset);
+                    float innerRadius = math.max(radius - soft, 0f);
 
-                    if (position.z < min.z) {
-                        correctedPosition.z = min.z;
-                        corrected = true;
-                    } else if (position.z > max.z) {
-                        correctedPosition.z = max.z;
-                        corrected = true;
-                    }
-
-                    if (corrected) {
-                        float3 direction = math.normalizesafe(
-                            correctedPosition - position,
+                    if (distance > innerRadius) {
+                        float depth = (distance - innerRadius) / math.max(soft, 1e-3f);
+                        edgeFactor = math.saturate(depth);
+                        wallNormal = math.normalizesafe(
+                            environment.BoundsCenter - future,
                             float3.zero);
-                        velocity += direction;
                     }
-
-                    return velocity;
-                }
-
-                // Predict where we will be after some time along current velocity.
-                float3 future = position + velocity * lookAhead;
-
-                // Slide per axis: kill only the component that pushes into walls
-                velocity = ApplyAxisWallSliding(
-                    velocity, future.x, min.x, max.x, soft, strength, 0); // X
-
-                velocity = ApplyAxisWallSliding(
-                    velocity, future.y, min.y, max.y, soft, strength, 1); // Y
-
-                velocity = ApplyAxisWallSliding(
-                    velocity, future.z, min.z, max.z, soft, strength, 2); // Z
-
-                return velocity;
-            }
-
-            // Spherical bounds unchanged
-            if (environment.BoundsType == FlockBoundsType.Sphere) {
-                float3 offset = position - environment.BoundsCenter;
-                float distance = math.length(offset);
-
-                if (distance > environment.BoundsRadius) {
-                    float3 direction = -offset / math.max(distance, 0.0001f);
-                    velocity += direction;
                 }
             }
 
-            return velocity;
+            // Normalise final normal and clamp edge factor
+            if (edgeFactor > 0f && math.lengthsq(wallNormal) > 1e-6f) {
+                wallNormal = math.normalizesafe(wallNormal, float3.zero);
+                edgeFactor = math.saturate(edgeFactor);
+            } else {
+                wallNormal = float3.zero;
+                edgeFactor = 0f;
+            }
         }
 
-        // NEW: helper – per-axis wall sliding (kills only inward velocity component)
-        float3 ApplyAxisWallSliding(
+
+        // --- NEW: bounds steering = acceleration that turns velocity away from walls --- 
+        float3 ComputeBoundsSteering(
+            float3 position,
             float3 velocity,
-            float futureAxis,    // predicted position along this axis
-            float minAxis,
-            float maxAxis,
-            float softThickness,
-            float strength,
-            int axisIndex) {
+            float3 wallNormal,
+            float edgeFactor,
+            FlockEnvironmentData environment) {
 
-            float vAxis = axisIndex == 0
-                ? velocity.x
-                : (axisIndex == 1 ? velocity.y : velocity.z);
-
-            // No movement along this axis → nothing to do.
-            if (math.abs(vAxis) < 1e-5f) {
-                return velocity;
+            if (edgeFactor <= 0f
+                || environment.BoundsSlideStrength <= 0f
+                || math.lengthsq(velocity) < 1e-8f) {
+                return float3.zero;
             }
 
-            float minSoft = minAxis + softThickness;
-            float maxSoft = maxAxis - softThickness;
-
-            float blend = 0f;
-            float target = vAxis;
-
-            // Approaching MIN wall from inside?
-            if (vAxis < 0f && futureAxis < minSoft) {
-                float depth = (minSoft - futureAxis) / math.max(softThickness, 1e-3f); // 0..1
-                blend = math.saturate(depth * strength);
-                target = 0f; // kill inward component along this axis
-            }
-            // Approaching MAX wall from inside?
-            else if (vAxis > 0f && futureAxis > maxSoft) {
-                float depth = (futureAxis - maxSoft) / math.max(softThickness, 1e-3f); // 0..1
-                blend = math.saturate(depth * strength);
-                target = 0f;
+            float3 v = velocity;
+            float speedSq = math.lengthsq(v);
+            if (speedSq < 1e-8f) {
+                return float3.zero;
             }
 
-            if (blend > 0f) {
-                float newAxis = math.lerp(vAxis, target, blend);
+            float3 vDir = math.normalizesafe(
+                v,
+                new float3(0f, 0f, 1f));
 
-                if (axisIndex == 0) {
-                    velocity.x = newAxis;
-                } else if (axisIndex == 1) {
-                    velocity.y = newAxis;
-                } else {
-                    velocity.z = newAxis;
-                }
+            float3 n = math.normalizesafe(
+                wallNormal,
+                float3.zero);
+
+            if (math.lengthsq(n) < 1e-6f) {
+                return float3.zero;
             }
 
-            return velocity;
+            // Remove inward component (if any) so we don't keep ramming the wall
+            float vDotN = math.dot(vDir, n);
+            if (vDotN > 0f) {
+                vDir = math.normalizesafe(
+                    vDir - n * vDotN,
+                    vDir);
+            }
+
+            // Base tangent: adjusted velocity direction after removing inward part
+            float3 tangentDir = vDir;
+
+            // Direction back towards the interior of the volume
+            float3 centerDir = math.normalizesafe(
+                environment.BoundsCenter - position,
+                float3.zero);
+
+            // Blend tangent and center: more edgeFactor => more center bias
+            float centerBias = math.saturate(edgeFactor);
+            float tangentBias = 1f - centerBias;
+
+            float3 blendedDir = tangentDir;
+            if (math.lengthsq(centerDir) > 1e-6f) {
+                blendedDir = math.normalizesafe(
+                    tangentDir * tangentBias + centerDir * centerBias,
+                    tangentDir);
+            }
+
+            float speed = math.sqrt(speedSq);
+            if (speed < 1e-4f) {
+                speed = 1e-4f;
+            }
+
+            float3 desiredVel = blendedDir * speed;
+
+            // Bounds steering is pure acceleration; integration + maxAcceleration will clamp it
+            float3 accel =
+                (desiredVel - velocity)
+                * environment.BoundsSlideStrength
+                * edgeFactor;
+
+            return accel;
         }
-
 
         int3 GetCell(float3 position) {
             float cellSize = math.max(CellSize, 0.0001f);
