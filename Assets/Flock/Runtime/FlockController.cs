@@ -24,12 +24,6 @@ namespace Flock.Runtime {
         [Header("Movement")]
         [SerializeField] float globalDamping = 0.5f;
 
-        [Header("Bounds Avoidance")]
-        [SerializeField, Min(0f)] float boundsSoftThickness = 1.5f;
-        [SerializeField, Min(0f)] float boundsLookAheadTime = 0.6f;
-        [SerializeField, Min(0f)] float boundsSlideStrength = 2.0f;
-        [SerializeField, Range(0f, 1f)] float boundsEdgeFlowSuppression = 0.75f;
-
         [Header("Debug")]
         [SerializeField] bool debugDrawBounds = true;
         [SerializeField] bool debugDrawGrid = false;
@@ -378,12 +372,6 @@ namespace Flock.Runtime {
             environmentData.GridResolution = resolution;
             environmentData.GlobalDamping = math.max(globalDamping, 0.0f);
 
-            // NEW: bounds sliding config
-            environmentData.BoundsSoftThickness = math.max(boundsSoftThickness, 0f);
-            environmentData.BoundsLookAheadTime = math.max(boundsLookAheadTime, 0f);
-            environmentData.BoundsSlideStrength = math.max(boundsSlideStrength, 0f);
-            environmentData.BoundsEdgeFlowSuppression =
-              math.clamp(boundsEdgeFlowSuppression, 0f, 1f);
             return environmentData;
         }
 
@@ -716,40 +704,12 @@ namespace Flock.Runtime {
         void DrawBoundsGizmos(FlockEnvironmentData environmentData) {
             float3 center = environmentData.BoundsCenter;
             float3 extents = environmentData.BoundsExtents;
-            float soft = environmentData.BoundsSoftThickness;
 
-            // Outer "hard" bounds box
+            // Just draw the actual simulation bounds, nothing about "soft" zones.
             Gizmos.color = Color.green;
             Gizmos.DrawWireCube(
                 (Vector3)center,
                 (Vector3)(extents * 2f));
-
-            // If no softness – nothing more to draw.
-            if (soft <= 0f) {
-                return;
-            }
-
-            // Inner box where the soft zone starts.
-            // Soft region is basically the shell: [innerExtents .. extents].
-            float3 innerExtents = extents - new float3(soft, soft, soft);
-            innerExtents = math.max(innerExtents, new float3(0f));
-
-            // If you made softness bigger than half the box,
-            // inner box collapses – just skip drawing it.
-            if (innerExtents.x <= 0f || innerExtents.y <= 0f || innerExtents.z <= 0f) {
-                return;
-            }
-
-            Gizmos.color = new Color(1f, 0.5f, 0f, 0.9f); // orange = start of soft zone
-            Gizmos.DrawWireCube(
-                (Vector3)center,
-                (Vector3)(innerExtents * 2f));
-
-#if UNITY_EDITOR
-            UnityEditor.Handles.Label(
-                (Vector3)center + Vector3.up * (extents.y + 0.25f),
-                $"Soft thickness = {soft:0.##}");
-#endif
         }
 
         // REPLACE THIS METHOD SIGNATURE + BODY
@@ -828,16 +788,6 @@ namespace Flock.Runtime {
                 Gizmos.DrawWireSphere(
                     (Vector3)agentPosition,
                     neighbourRadius);
-            }
-
-            // Bounds look-ahead line for this agent (where bounds logic samples)
-            float lookAhead = environmentData.BoundsLookAheadTime;
-            if (lookAhead > 0f && math.lengthsq(agentVelocity) > 1e-8f) {
-                float3 predicted = agentPosition + agentVelocity * lookAhead;
-
-                Gizmos.color = new Color(0f, 1f, 0f, 0.8f); // bright green
-                Gizmos.DrawLine((Vector3)agentPosition, (Vector3)predicted);
-                Gizmos.DrawSphere((Vector3)predicted, 0.12f);
             }
 
             // Grid search radius in world units (how far in cells this type actually scans)

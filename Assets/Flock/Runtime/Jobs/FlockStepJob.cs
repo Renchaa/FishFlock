@@ -95,6 +95,11 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public NativeArray<float3> AttractionSteering;
         [ReadOnly] public NativeArray<float> BehaviourPreferredDepthEdgeFraction;
 
+        // =======================
+        // FlockStepJob – CHANGES
+        // =======================
+
+        // 1) REPLACE Execute(...) BODY WITH THIS VERSION
         public void Execute(int index) {
             // --- 1) Load per-agent + per-behaviour scalars ---
             if (!TryLoadBehaviourScalars(
@@ -245,25 +250,8 @@ namespace Flock.Runtime.Jobs {
             // NEW: apply predictive radial braking as additional steering
             steering += radialDamping;
 
-            // --- Bounds context (predictive wall proximity) ---
-            float3 boundsWallNormal;
-            float boundsEdgeFactor;
-            ComputeBoundsContext(
-                position,
-                velocity,
-                EnvironmentData,
-                out boundsWallNormal,
-                out boundsEdgeFactor);
-
             // --- Group-flow steering: push velocity toward local flock heading ---
-            // With suppression near walls so corner-huggers don't drag the world.
             float localGroupFlowWeight = groupFlowWeight;
-
-            if (EnvironmentData.BoundsEdgeFlowSuppression > 0f && boundsEdgeFactor > 0f) {
-                float suppression = math.saturate(
-                    boundsEdgeFactor * EnvironmentData.BoundsEdgeFlowSuppression);
-                localGroupFlowWeight *= (1f - suppression);
-            }
 
             if (localGroupFlowWeight > 0f
                 && leaderNeighbourCount > 0
@@ -367,16 +355,6 @@ namespace Flock.Runtime.Jobs {
             // --- 7) Attraction (no depth logic here) ---
             steering += ComputeAttraction(index);
 
-            // --- 7.x) Bounds steering (smooth turn away from walls, no speed kill) ---
-            float3 boundsAccel = ComputeBoundsSteering(
-                position,
-                velocity,
-                boundsWallNormal,
-                boundsEdgeFactor,
-                EnvironmentData);
-
-            steering += boundsAccel;
-
             // --- 8) Self-propulsion (target speed) ---
             float3 propulsion = ComputePropulsion(
                 currentVelocity: velocity,
@@ -402,7 +380,7 @@ namespace Flock.Runtime.Jobs {
             velocity = LimitVector(velocity, localMaxSpeed);
 
             // --- 11) Bounds ---
-            // Bounds are now handled via steering; no velocity hacks here.
+            // Bounds are now handled via obstacle/position logic outside this job; no velocity hacks here.
             Velocities[index] = velocity;
         }
 
@@ -1116,172 +1094,6 @@ namespace Flock.Runtime.Jobs {
             }
 
             return direction * speedError;
-        }
-
-        void ComputeBoundsContext(
-            float3 position,
-            float3 velocity,
-            FlockEnvironmentData environment,
-            out float3 wallNormal,
-            out float edgeFactor) {
-
-            wallNormal = float3.zero;
-            edgeFactor = 0f;
-
-            if (environment.BoundsSoftThickness <= 0f
-                || environment.BoundsLookAheadTime <= 0f
-                || math.lengthsq(velocity) < 1e-6f) {
-                return;
-            }
-
-            float lookAhead = environment.BoundsLookAheadTime;
-            float soft = environment.BoundsSoftThickness;
-
-            float3 future = position + velocity * lookAhead;
-
-            // Box bounds: check per-axis soft zone
-            if (environment.BoundsType == FlockBoundsType.Box) {
-                float3 min = environment.BoundsCenter - environment.BoundsExtents;
-                float3 max = environment.BoundsCenter + environment.BoundsExtents;
-
-                float3 minSoft = min + new float3(soft);
-                float3 maxSoft = max - new float3(soft);
-
-                // X
-                float depthX = 0f;
-                if (future.x < minSoft.x) {
-                    depthX = (minSoft.x - future.x) / math.max(soft, 1e-3f);
-                    wallNormal += new float3(1f, 0f, 0f);   // interior is +X
-                } else if (future.x > maxSoft.x) {
-                    depthX = (future.x - maxSoft.x) / math.max(soft, 1e-3f);
-                    wallNormal += new float3(-1f, 0f, 0f);  // interior is -X
-                }
-                edgeFactor = math.max(edgeFactor, depthX);
-
-                // Y
-                float depthY = 0f;
-                if (future.y < minSoft.y) {
-                    depthY = (minSoft.y - future.y) / math.max(soft, 1e-3f);
-                    wallNormal += new float3(0f, 1f, 0f);   // interior is +Y
-                } else if (future.y > maxSoft.y) {
-                    depthY = (future.y - maxSoft.y) / math.max(soft, 1e-3f);
-                    wallNormal += new float3(0f, -1f, 0f);  // interior is -Y
-                }
-                edgeFactor = math.max(edgeFactor, depthY);
-
-                // Z
-                float depthZ = 0f;
-                if (future.z < minSoft.z) {
-                    depthZ = (minSoft.z - future.z) / math.max(soft, 1e-3f);
-                    wallNormal += new float3(1f, 0f, 0f);   // interior is +Z, but we just reuse X axis to keep cost low
-                } else if (future.z > maxSoft.z) {
-                    depthZ = (future.z - maxSoft.z) / math.max(soft, 1e-3f);
-                    wallNormal += new float3(-1f, 0f, 0f);  // interior is -Z, see note above
-                }
-                edgeFactor = math.max(edgeFactor, depthZ);
-            }
-            // Sphere bounds: simple radial soft zone
-            else if (environment.BoundsType == FlockBoundsType.Sphere) {
-                float radius = environment.BoundsRadius;
-                if (radius > 0f) {
-                    float3 offset = future - environment.BoundsCenter;
-                    float distance = math.length(offset);
-                    float innerRadius = math.max(radius - soft, 0f);
-
-                    if (distance > innerRadius) {
-                        float depth = (distance - innerRadius) / math.max(soft, 1e-3f);
-                        edgeFactor = math.saturate(depth);
-                        wallNormal = math.normalizesafe(
-                            environment.BoundsCenter - future,
-                            float3.zero);
-                    }
-                }
-            }
-
-            // Normalise final normal and clamp edge factor
-            if (edgeFactor > 0f && math.lengthsq(wallNormal) > 1e-6f) {
-                wallNormal = math.normalizesafe(wallNormal, float3.zero);
-                edgeFactor = math.saturate(edgeFactor);
-            } else {
-                wallNormal = float3.zero;
-                edgeFactor = 0f;
-            }
-        }
-
-
-        // --- NEW: bounds steering = acceleration that turns velocity away from walls --- 
-        float3 ComputeBoundsSteering(
-            float3 position,
-            float3 velocity,
-            float3 wallNormal,
-            float edgeFactor,
-            FlockEnvironmentData environment) {
-
-            if (edgeFactor <= 0f
-                || environment.BoundsSlideStrength <= 0f
-                || math.lengthsq(velocity) < 1e-8f) {
-                return float3.zero;
-            }
-
-            float3 v = velocity;
-            float speedSq = math.lengthsq(v);
-            if (speedSq < 1e-8f) {
-                return float3.zero;
-            }
-
-            float3 vDir = math.normalizesafe(
-                v,
-                new float3(0f, 0f, 1f));
-
-            float3 n = math.normalizesafe(
-                wallNormal,
-                float3.zero);
-
-            if (math.lengthsq(n) < 1e-6f) {
-                return float3.zero;
-            }
-
-            // Remove inward component (if any) so we don't keep ramming the wall
-            float vDotN = math.dot(vDir, n);
-            if (vDotN > 0f) {
-                vDir = math.normalizesafe(
-                    vDir - n * vDotN,
-                    vDir);
-            }
-
-            // Base tangent: adjusted velocity direction after removing inward part
-            float3 tangentDir = vDir;
-
-            // Direction back towards the interior of the volume
-            float3 centerDir = math.normalizesafe(
-                environment.BoundsCenter - position,
-                float3.zero);
-
-            // Blend tangent and center: more edgeFactor => more center bias
-            float centerBias = math.saturate(edgeFactor);
-            float tangentBias = 1f - centerBias;
-
-            float3 blendedDir = tangentDir;
-            if (math.lengthsq(centerDir) > 1e-6f) {
-                blendedDir = math.normalizesafe(
-                    tangentDir * tangentBias + centerDir * centerBias,
-                    tangentDir);
-            }
-
-            float speed = math.sqrt(speedSq);
-            if (speed < 1e-4f) {
-                speed = 1e-4f;
-            }
-
-            float3 desiredVel = blendedDir * speed;
-
-            // Bounds steering is pure acceleration; integration + maxAcceleration will clamp it
-            float3 accel =
-                (desiredVel - velocity)
-                * environment.BoundsSlideStrength
-                * edgeFactor;
-
-            return accel;
         }
 
         int3 GetCell(float3 position) {

@@ -225,6 +225,7 @@ namespace Flock.Runtime {
             JobHandle obstacleHandle = assignHandle;
 
             if (useObstacleAvoidance) {
+                // Somewhere in FlockSimulation.ScheduleStepJobs (or equivalent)
                 var obstacleJob = new ObstacleAvoidanceJob {
                     Positions = positions,
                     Velocities = velocities,
@@ -242,8 +243,13 @@ namespace Flock.Runtime {
                     CellSize = environmentData.CellSize,
 
                     AvoidStrength = DefaultObstacleAvoidStrength,
+
+                    // NEW: so bounds info is available inside the job
+                    EnvironmentData = environmentData,
+
                     ObstacleSteering = obstacleSteering,
                 };
+
 
                 obstacleHandle = obstacleJob.Schedule(
                     AgentCount,

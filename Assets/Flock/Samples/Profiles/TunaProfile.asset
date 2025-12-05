@@ -25,8 +25,8 @@ MonoBehaviour:
   schoolingDeadzoneFraction: 0.5
   neighbourRadius: 5
   separationRadius: 2.3
-  alignmentWeight: 1
-  cohesionWeight: 1
+  alignmentWeight: 0.6
+  cohesionWeight: 0.4
   separationWeight: 2
   influenceWeight: 1.5
   avoidanceWeight: 1
@@ -44,7 +44,7 @@ MonoBehaviour:
   preferredDepthWeight: 5
   depthBiasStrength: 3
   depthWinsOverAttractor: 1
-  maxGroupSize: 10
+  maxGroupSize: 3
   groupRadiusMultiplier: 1
   lonerRadiusMultiplier: 2
   lonerCohesionBoost: 2.5

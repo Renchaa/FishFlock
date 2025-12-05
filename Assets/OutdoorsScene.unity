@@ -1181,10 +1181,6 @@ MonoBehaviour:
   boundsExtents: {x: 20, y: 12, z: 20}
   cellSize: 0.75
   globalDamping: 0.1
-  boundsSoftThickness: 2
-  boundsLookAheadTime: 6
-  boundsSlideStrength: 2
-  boundsEdgeFlowSuppression: 1
   debugDrawBounds: 1
   debugDrawGrid: 1
   debugDrawAgents: 1
