@@ -9,6 +9,9 @@ namespace Flock.Runtime.Data {
         public float BoundsTangentialDamping;     // how fast we kill sliding
         public float BoundsInfluenceSuppression;  // how much to gate flock rules near walls
 
+        public float MinGroupSizeWeight;
+        public float MaxGroupSizeWeight;
+
         public float NeighbourRadius;
         public float SeparationRadius;
 

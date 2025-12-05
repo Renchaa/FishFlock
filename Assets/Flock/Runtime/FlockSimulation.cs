@@ -57,6 +57,8 @@ namespace Flock.Runtime {
         NativeArray<float> behaviourGroupRadiusMultiplier;
         NativeArray<float> behaviourLonerRadiusMultiplier;
         NativeArray<float> behaviourLonerCohesionBoost;
+        NativeArray<float> behaviourMinGroupSizeWeight;
+        NativeArray<float> behaviourMaxGroupSizeWeight;
         NativeArray<byte> behaviourUsePreferredDepth;
         NativeArray<float> behaviourPreferredDepthMin;
         NativeArray<float> behaviourPreferredDepthMax;
@@ -390,6 +392,8 @@ namespace Flock.Runtime {
                 BehaviourGroupRadiusMultiplier = behaviourGroupRadiusMultiplier,
                 BehaviourLonerRadiusMultiplier = behaviourLonerRadiusMultiplier,
                 BehaviourLonerCohesionBoost = behaviourLonerCohesionBoost,
+                BehaviourMinGroupSizeWeight = behaviourMinGroupSizeWeight,
+                BehaviourMaxGroupSizeWeight = behaviourMaxGroupSizeWeight,
 
                 // Preferred depth (normalised)
                 BehaviourUsePreferredDepth = behaviourUsePreferredDepth,
@@ -524,6 +528,8 @@ namespace Flock.Runtime {
             DisposeArray(ref behaviourBodyRadius);
             DisposeArray(ref behaviourCellSearchRadius);
             DisposeArray(ref neighbourVisitStamp);
+            DisposeArray(ref behaviourMinGroupSizeWeight);   // NEW
+            DisposeArray(ref behaviourMaxGroupSizeWeight);   // NEW
 
             if (cellToAgents.IsCreated) {
                 cellToAgents.Dispose();
@@ -644,6 +650,8 @@ namespace Flock.Runtime {
             behaviourGroupRadiusMultiplier = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
             behaviourLonerRadiusMultiplier = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
             behaviourLonerCohesionBoost = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourMinGroupSizeWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourMaxGroupSizeWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
 
             // Preferred depth
             behaviourUsePreferredDepth = new NativeArray<byte>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
@@ -756,6 +764,8 @@ namespace Flock.Runtime {
                 behaviourGroupRadiusMultiplier[index] = behaviour.GroupRadiusMultiplier;
                 behaviourLonerRadiusMultiplier[index] = behaviour.LonerRadiusMultiplier;
                 behaviourLonerCohesionBoost[index] = behaviour.LonerCohesionBoost;
+                behaviourMinGroupSizeWeight[index] = behaviour.MinGroupSizeWeight;
+                behaviourMaxGroupSizeWeight[index] = behaviour.MaxGroupSizeWeight;
 
                 // Preferred depth (all normalised [0..1] against environment bounds)
                 byte useDepth = behaviour.UsePreferredDepth != 0 ? (byte)1 : (byte)0;

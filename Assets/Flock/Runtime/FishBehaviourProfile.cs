@@ -101,6 +101,14 @@ namespace Flock.Runtime {
         [SerializeField, Min(0)]
         int maxGroupSize = 0; // 0 = no upper limit
 
+        [Tooltip("How strongly loners try to reach MinGroupSize (0 = ignore min size).")]
+        [SerializeField, Range(0f, 3f)]
+        float minGroupSizeWeight = 1.0f;
+
+        [Tooltip("How strongly oversized groups are pushed apart above MaxGroupSize (0 = ignore max size).")]
+        [SerializeField, Range(0f, 3f)]
+        float maxGroupSizeWeight = 1.0f;
+
         [Header("Preferred Depth")]
         [SerializeField] bool usePreferredDepth = false;
 
@@ -178,6 +186,10 @@ namespace Flock.Runtime {
             settings.LonerRadiusMultiplier = Mathf.Max(0.1f, safeLonerMultiplier);
 
             settings.LonerCohesionBoost = Mathf.Max(0f, lonerCohesionBoost);
+
+            // NEW: strength of min / max constraints
+            settings.MinGroupSizeWeight = Mathf.Max(0f, minGroupSizeWeight);
+            settings.MaxGroupSizeWeight = Mathf.Max(0f, maxGroupSizeWeight);
 
             // === Split behaviour ===
             settings.SplitPanicThreshold = splitPanicThreshold;

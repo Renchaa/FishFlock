@@ -80,6 +80,9 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public NativeArray<float> BehaviourGroupRadiusMultiplier;
         [ReadOnly] public NativeArray<float> BehaviourLonerRadiusMultiplier;
         [ReadOnly] public NativeArray<float> BehaviourLonerCohesionBoost;
+        // NEW: how strongly min/max group constraints are enforced
+        [ReadOnly] public NativeArray<float> BehaviourMinGroupSizeWeight;
+        [ReadOnly] public NativeArray<float> BehaviourMaxGroupSizeWeight;
 
         // NEW: schooling band params per type
         [ReadOnly] public NativeArray<float> BehaviourSchoolSpacingFactor;
@@ -201,6 +204,8 @@ namespace Flock.Runtime.Jobs {
             float lonerCohesionBoost = 0.0f;
             float groupRadiusMultiplier = 1.0f;
             float lonerRadiusMultiplier = 1.0f;
+            float minGroupWeight = 1.0f;
+            float maxGroupWeight = 1.0f;
 
             if (hasGroupSettings) {
                 minGroupSize = BehaviourMinGroupSize[behaviourIndex];
@@ -225,6 +230,17 @@ namespace Flock.Runtime.Jobs {
                     maxGroupSize = minGroupSize;
                 }
 
+                if (BehaviourMinGroupSizeWeight.IsCreated &&
+                    BehaviourMinGroupSizeWeight.Length > behaviourIndex) {
+                    minGroupWeight = math.max(0f, BehaviourMinGroupSizeWeight[behaviourIndex]);
+                }
+
+                if (BehaviourMaxGroupSizeWeight.IsCreated &&
+                    BehaviourMaxGroupSizeWeight.Length > behaviourIndex) {
+                    maxGroupWeight = math.max(0f, BehaviourMaxGroupSizeWeight[behaviourIndex]);
+                }
+
+
                 bool hasFriends = friendlyNeighbourCount > 0;
                 bool isLoner = groupSize < minGroupSize;
                 bool isOvercrowded = maxGroupSize > 0 && groupSize > maxGroupSize;
@@ -232,6 +248,7 @@ namespace Flock.Runtime.Jobs {
                 if (isLoner && hasFriends) {
                     float lonerFactor = math.max(0f, lonerCohesionBoost);
                     lonerFactor *= math.max(1f, lonerRadiusMultiplier);
+                    lonerFactor *= minGroupWeight;
                     cohesionWeight *= (1.0f + lonerFactor);
                 }
 
@@ -240,6 +257,7 @@ namespace Flock.Runtime.Jobs {
                     crowdFactor = math.saturate(crowdFactor);
 
                     crowdFactor *= math.max(1f, groupRadiusMultiplier);
+                    crowdFactor *= maxGroupWeight;
 
                     separationWeight *= (1.0f + crowdFactor);
                     cohesionWeight *= (1.0f - 0.5f * crowdFactor);
