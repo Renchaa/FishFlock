@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47e0eaefa1b0f4b45b356bbb3ff14cb4, type: 3}
   m_Name: TunaProfile
   m_EditorClassIdentifier: 
-  maxSpeed: 8
-  maxAcceleration: 10
-  desiredSpeed: 6
-  groupFlowWeight: 2
+  maxSpeed: 6
+  maxAcceleration: 8
+  desiredSpeed: 4
+  groupFlowWeight: 1
   bodyRadius: 2
   schoolingSpacingFactor: 2
   schoolingOuterFactor: 2.5
@@ -28,7 +28,7 @@ MonoBehaviour:
   alignmentWeight: 0.6
   cohesionWeight: 0.4
   separationWeight: 2
-  influenceWeight: 0.2
+  influenceWeight: 5
   avoidanceWeight: 1
   neutralWeight: 1
   attractionResponse: 1
