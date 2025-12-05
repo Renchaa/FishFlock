@@ -17,6 +17,14 @@ namespace Flock.Runtime {
         NativeArray<float3> positions;
         NativeArray<float3> velocities;
         NativeArray<float3> prevVelocities; // NEW
+                                            // NEW: per-behaviour bounds response
+        NativeArray<float> behaviourBoundsWeight;               // radial push
+        NativeArray<float> behaviourBoundsTangentialDamping;    // kill sliding
+        NativeArray<float> behaviourBoundsInfluenceSuppression; // how much to mute flocking near walls
+
+        NativeArray<float3> wallDirections; // inward normal(s) near walls
+        NativeArray<float> wallDangers;     // 0..1 (or a bit >1 if outside)
+
         NativeArray<int> behaviourIds;
         NativeArray<float> behaviourMaxSpeed;
         NativeArray<float> behaviourMaxAcceleration;
@@ -216,6 +224,20 @@ namespace Flock.Runtime {
                 64,
                 inputHandle);
 
+            var boundsJob = new BoundsProbeJob {
+                Positions = positions,
+                BehaviourIds = behaviourIds,
+                BehaviourSeparationRadius = behaviourSeparationRadius,
+                EnvironmentData = environmentData,
+                WallDirections = wallDirections,
+                WallDangers = wallDangers,
+            };
+
+            JobHandle boundsHandle = boundsJob.Schedule(
+                AgentCount,
+                64,
+                inputHandle);
+
             // ---------- Obstacles ----------
             bool useObstacleAvoidance =
                 obstacleCount > 0
@@ -225,7 +247,6 @@ namespace Flock.Runtime {
             JobHandle obstacleHandle = assignHandle;
 
             if (useObstacleAvoidance) {
-                // Somewhere in FlockSimulation.ScheduleStepJobs (or equivalent)
                 var obstacleJob = new ObstacleAvoidanceJob {
                     Positions = positions,
                     Velocities = velocities,
@@ -243,13 +264,8 @@ namespace Flock.Runtime {
                     CellSize = environmentData.CellSize,
 
                     AvoidStrength = DefaultObstacleAvoidStrength,
-
-                    // NEW: so bounds info is available inside the job
-                    EnvironmentData = environmentData,
-
                     ObstacleSteering = obstacleSteering,
                 };
-
 
                 obstacleHandle = obstacleJob.Schedule(
                     AgentCount,
@@ -303,6 +319,10 @@ namespace Flock.Runtime {
 
             flockDeps = JobHandle.CombineDependencies(
                 flockDeps,
+                boundsHandle);
+
+            flockDeps = JobHandle.CombineDependencies(
+                flockDeps,
                 copyHandle);
 
             flockDeps = JobHandle.CombineDependencies(
@@ -314,6 +334,15 @@ namespace Flock.Runtime {
                 Positions = positions,
                 PrevVelocities = prevVelocities,
                 Velocities = velocities,
+
+                // NEW: bounds probe outputs (per-agent)
+                WallDirections = wallDirections,
+                WallDangers = wallDangers,
+
+                // NEW: per-behaviour bounds response
+                BehaviourBoundsWeight = behaviourBoundsWeight,
+                BehaviourBoundsTangentialDamping = behaviourBoundsTangentialDamping,
+                BehaviourBoundsInfluenceSuppression = behaviourBoundsInfluenceSuppression,
 
                 // Per-agent behaviour index
                 BehaviourIds = behaviourIds,
@@ -421,11 +450,16 @@ namespace Flock.Runtime {
             return integrateHandle;
         }
 
+        // File: Assets/Flock/Runtime/FlockSimulation.cs
+        // FIX 2: dispose bounds + wall arrays to avoid leaks
+
         public void Dispose() {
             DisposeArray(ref positions);
             DisposeArray(ref velocities);
             DisposeArray(ref prevVelocities);
             DisposeArray(ref behaviourIds);
+            DisposeArray(ref wallDirections); // NEW
+            DisposeArray(ref wallDangers);    // NEW
 
             DisposeArray(ref behaviourMaxSpeed);
             DisposeArray(ref behaviourMaxAcceleration);
@@ -439,6 +473,11 @@ namespace Flock.Runtime {
             DisposeArray(ref behaviourLeadershipWeight);
             DisposeArray(ref behaviourGroupMask);
             DisposeArray(ref behaviourGroupFlowWeight);
+
+            // Bounds behaviour – NEW
+            DisposeArray(ref behaviourBoundsWeight);
+            DisposeArray(ref behaviourBoundsTangentialDamping);
+            DisposeArray(ref behaviourBoundsInfluenceSuppression);
 
             // Relationship-related
             DisposeArray(ref behaviourAvoidanceWeight);
@@ -547,6 +586,16 @@ namespace Flock.Runtime {
                 allocator,
                 NativeArrayOptions.ClearMemory);
 
+            wallDirections = new NativeArray<float3>(
+                AgentCount,
+                allocator,
+                NativeArrayOptions.ClearMemory);
+
+            wallDangers = new NativeArray<float>(
+                AgentCount,
+                allocator,
+                NativeArrayOptions.ClearMemory);
+
             // Initialise with safe defaults (type 0) – controller will overwrite.
             for (int index = 0; index < AgentCount; index += 1) {
                 behaviourIds[index] = 0;
@@ -618,6 +667,12 @@ namespace Flock.Runtime {
             behaviourSchoolDeadzoneFraction = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
             behaviourSchoolRadialDamping = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory); // NEW
 
+            // NEW: bounds per-behaviour
+            behaviourBoundsWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourBoundsTangentialDamping = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourBoundsInfluenceSuppression = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+
+
             for (int index = 0; index < behaviourCount; index += 1) {
                 FlockBehaviourSettings behaviour = settings[index];
 
@@ -648,6 +703,15 @@ namespace Flock.Runtime {
 
                 behaviourSchoolRadialDamping[index] =
                     math.max(0f, behaviour.SchoolingRadialDamping);
+
+                behaviourBoundsWeight[index] =
+                   math.max(0f, behaviour.BoundsWeight);
+
+                behaviourBoundsTangentialDamping[index] =
+                    math.max(0f, behaviour.BoundsTangentialDamping);
+
+                behaviourBoundsInfluenceSuppression[index] =
+                    math.max(0f, behaviour.BoundsInfluenceSuppression);
 
                 // NEW: per-type cell search radius (in grid cells), derived from neighbour radius
                 float cellSize = math.max(environmentData.CellSize, 0.0001f);

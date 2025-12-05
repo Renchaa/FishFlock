@@ -28,7 +28,7 @@ MonoBehaviour:
   alignmentWeight: 0.6
   cohesionWeight: 0.4
   separationWeight: 2
-  influenceWeight: 1.5
+  influenceWeight: 0.2
   avoidanceWeight: 1
   neutralWeight: 1
   attractionResponse: 1
@@ -37,14 +37,17 @@ MonoBehaviour:
   splitLateralWeight: 0.8
   splitAccelBoost: 1
   attractionWeight: 1
+  boundsWeight: 1
+  boundsTangentialDamping: 1.5
+  boundsInfluenceSuppression: 1
   minGroupSize: 2
+  maxGroupSize: 3
   usePreferredDepth: 0
   preferredDepthMin: 0.583
   preferredDepthMax: 1
   preferredDepthWeight: 5
   depthBiasStrength: 3
   depthWinsOverAttractor: 1
-  maxGroupSize: 3
   groupRadiusMultiplier: 1
   lonerRadiusMultiplier: 2
   lonerCohesionBoost: 2.5

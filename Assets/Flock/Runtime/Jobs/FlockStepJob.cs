@@ -10,6 +10,14 @@ namespace Flock.Runtime.Jobs {
     [BurstCompile]
     public struct FlockStepJob : IJobParallelFor {
 
+        // Bounds probe outputs
+        [ReadOnly] public NativeArray<float3> WallDirections;
+        [ReadOnly] public NativeArray<float> WallDangers;
+
+        // Per-behaviour bounds response (all optional / IsCreated-guarded)
+        [ReadOnly] public NativeArray<float> BehaviourBoundsWeight;              // radial push strength
+        [ReadOnly] public NativeArray<float> BehaviourBoundsTangentialDamping;   // kill sliding
+        [ReadOnly] public NativeArray<float> BehaviourBoundsInfluenceSuppression; // how much to mute flocking near walls
 
         [NativeDisableParallelForRestriction]
         public NativeArray<int> NeighbourVisitStamp;
@@ -95,11 +103,6 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public NativeArray<float3> AttractionSteering;
         [ReadOnly] public NativeArray<float> BehaviourPreferredDepthEdgeFraction;
 
-        // =======================
-        // FlockStepJob – CHANGES
-        // =======================
-
-        // 1) REPLACE Execute(...) BODY WITH THIS VERSION
         public void Execute(int index) {
             // --- 1) Load per-agent + per-behaviour scalars ---
             if (!TryLoadBehaviourScalars(
@@ -124,6 +127,25 @@ namespace Flock.Runtime.Jobs {
                 // Behaviour index out of range – keep previous velocity.
                 Velocities[index] = PrevVelocities[index];
                 return;
+            }
+
+            float boundsWeight = 1f;
+            float boundsTangentialDamping = 0.0f;
+            float boundsInfluenceSuppression = 1.0f;
+
+            if (BehaviourBoundsWeight.IsCreated &&
+                (uint)behaviourIndex < (uint)BehaviourBoundsWeight.Length) {
+                boundsWeight = math.max(0f, BehaviourBoundsWeight[behaviourIndex]);
+            }
+
+            if (BehaviourBoundsTangentialDamping.IsCreated &&
+                (uint)behaviourIndex < (uint)BehaviourBoundsTangentialDamping.Length) {
+                boundsTangentialDamping = math.max(0f, BehaviourBoundsTangentialDamping[behaviourIndex]);
+            }
+
+            if (BehaviourBoundsInfluenceSuppression.IsCreated &&
+                (uint)behaviourIndex < (uint)BehaviourBoundsInfluenceSuppression.Length) {
+                boundsInfluenceSuppression = math.max(0f, BehaviourBoundsInfluenceSuppression[behaviourIndex]);
             }
 
             // --- 2) Neighbours: alignment / cohesion / separation / danger ---
@@ -251,6 +273,7 @@ namespace Flock.Runtime.Jobs {
             steering += radialDamping;
 
             // --- Group-flow steering: push velocity toward local flock heading ---
+            // With suppression near walls so corner-huggers don't drag the world.
             float localGroupFlowWeight = groupFlowWeight;
 
             if (localGroupFlowWeight > 0f
@@ -355,12 +378,23 @@ namespace Flock.Runtime.Jobs {
             // --- 7) Attraction (no depth logic here) ---
             steering += ComputeAttraction(index);
 
+
             // --- 8) Self-propulsion (target speed) ---
             float3 propulsion = ComputePropulsion(
                 currentVelocity: velocity,
                 desiredSpeed: desiredSpeed);
 
             steering += propulsion;
+
+            // --- 8.5) Bounds: gate non-wall steering + add radial push ---
+            steering = ApplyBoundsSteering(
+                index,
+                behaviourIndex,
+                velocity,
+                steering,
+                maxAcceleration,
+                boundsWeight,
+                boundsInfluenceSuppression);
 
             // --- 9) Integrate acceleration / velocity / damping ---
             steering = LimitVector(steering, localMaxAcceleration);
@@ -379,8 +413,15 @@ namespace Flock.Runtime.Jobs {
             // Make sure vertical correction didn’t overshoot global speed
             velocity = LimitVector(velocity, localMaxSpeed);
 
-            // --- 11) Bounds ---
-            // Bounds are now handled via obstacle/position logic outside this job; no velocity hacks here.
+            // --- 11) Bounds final velocity correction (kill sliding along wall) ---
+            velocity = ApplyBoundsVelocity(
+                index,
+                behaviourIndex,
+                velocity,
+                boundsTangentialDamping);
+
+            velocity = LimitVector(velocity, localMaxSpeed);
+
             Velocities[index] = velocity;
         }
 
@@ -666,6 +707,93 @@ namespace Flock.Runtime.Jobs {
             velocity.y = vy;
             return velocity;
         }
+
+        // =======================================================
+        // Bounds helpers – steering + velocity correction
+        // =======================================================
+
+        float3 ApplyBoundsSteering(
+            int agentIndex,
+            int behaviourIndex,
+            float3 currentVelocity,
+            float3 steering,
+            float maxAcceleration,
+            float boundsWeight,
+            float boundsInfluenceSuppression) {
+
+            if (!WallDangers.IsCreated || !WallDirections.IsCreated) {
+                return steering;
+            }
+
+            if ((uint)agentIndex >= (uint)WallDangers.Length ||
+                (uint)agentIndex >= (uint)WallDirections.Length) {
+                return steering;
+            }
+
+            float danger = WallDangers[agentIndex];
+            if (danger <= 0f) {
+                return steering;
+            }
+
+            float3 wallDir = WallDirections[agentIndex];
+            if (math.lengthsq(wallDir) < 1e-8f) {
+                return steering;
+            }
+
+            // 1) Gate non-wall steering: closer to wall → flock/attraction have less authority
+            float gate = 1f - danger * boundsInfluenceSuppression;
+            gate = math.saturate(gate);
+            steering *= gate;
+
+            // 2) Add radial push back into volume
+            float3 n = math.normalizesafe(wallDir, float3.zero);
+            float radialAccel = danger * boundsWeight * maxAcceleration;
+            steering += n * radialAccel;
+
+            return steering;
+        }
+
+        float3 ApplyBoundsVelocity(
+            int agentIndex,
+            int behaviourIndex,
+            float3 velocity,
+            float boundsTangentialDamping) {
+
+            if (!WallDangers.IsCreated || !WallDirections.IsCreated) {
+                return velocity;
+            }
+
+            if ((uint)agentIndex >= (uint)WallDangers.Length ||
+                (uint)agentIndex >= (uint)WallDirections.Length) {
+                return velocity;
+            }
+
+            float danger = WallDangers[agentIndex];
+            if (danger <= 0f || boundsTangentialDamping <= 0f) {
+                return velocity;
+            }
+
+            float3 wallDir = WallDirections[agentIndex];
+            if (math.lengthsq(wallDir) < 1e-8f) {
+                return velocity;
+            }
+
+            float3 n = math.normalizesafe(wallDir, float3.zero);
+
+            // Decompose velocity into radial + tangential components
+            float vRadial = math.dot(velocity, n);
+            float3 vRad = n * vRadial;
+            float3 vTan = velocity - vRad;
+
+            // Kill tangential component proportionally to danger
+            float kill = danger * boundsTangentialDamping * DeltaTime;
+            kill = math.saturate(kill);
+
+            vTan *= (1f - kill);
+
+            return vRad + vTan;
+        }
+
 
         // =====================================================================
         // NEW HELPER: common per-behaviour scalars
@@ -1078,23 +1206,32 @@ namespace Flock.Runtime.Jobs {
         float3 ComputePropulsion(
             float3 currentVelocity,
             float desiredSpeed) {
+
+            // No target speed → no self-propulsion.
             if (desiredSpeed <= 0.0f) {
                 return float3.zero;
             }
 
-            float currentSpeed = math.length(currentVelocity);
-            float3 direction = math.normalizesafe(
-                currentVelocity,
-                new float3(0.0f, 0.0f, 1.0f));
+            float speedSq = math.lengthsq(currentVelocity);
+
+            // If we don't really have a heading, don't invent a global one (like +Z).
+            // Let flocking / attraction / walls decide where to go instead.
+            if (speedSq < 1e-6f) {
+                return float3.zero;
+            }
+
+            float currentSpeed = math.sqrt(speedSq);
+            float3 direction = currentVelocity / currentSpeed;
 
             float speedError = desiredSpeed - currentSpeed;
-
             if (math.abs(speedError) < 1e-3f) {
                 return float3.zero;
             }
 
+            // Accelerate strictly along current heading.
             return direction * speedError;
         }
+
 
         int3 GetCell(float3 position) {
             float cellSize = math.max(CellSize, 0.0001f);

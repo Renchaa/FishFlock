@@ -5,6 +5,10 @@ namespace Flock.Runtime.Data {
         public float DesiredSpeed;
         public float GroupFlowWeight;
 
+        public float BoundsWeight;                // radial push strength
+        public float BoundsTangentialDamping;     // how fast we kill sliding
+        public float BoundsInfluenceSuppression;  // how much to gate flock rules near walls
+
         public float NeighbourRadius;
         public float SeparationRadius;
 

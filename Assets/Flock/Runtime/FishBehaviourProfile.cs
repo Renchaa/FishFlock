@@ -81,9 +81,25 @@ namespace Flock.Runtime {
         [SerializeField, Min(0f)]
         float attractionWeight = 1.0f;
 
+        [Header("Bounds")]
+        [Tooltip("Base strength of wall push back into the volume.")]
+        [SerializeField, Min(0f)]
+        float boundsWeight = 1.0f;
+
+        [Tooltip("How aggressively to kill sliding along walls (0 = no kill, 1..3 = strong).")]
+        [SerializeField, Min(0f)]
+        float boundsTangentialDamping = 1.5f;
+
+        [Tooltip("How much to suppress alignment/cohesion/attraction near walls (0 = no suppression, 1 = full at contact).")]
+        [SerializeField, Min(0f)]
+        float boundsInfluenceSuppression = 1.0f;
+
         [Header("Grouping")]
         [SerializeField, Min(1)]
         int minGroupSize = 3;
+
+        [SerializeField, Min(0)]
+        int maxGroupSize = 0; // 0 = no upper limit
 
         [Header("Preferred Depth")]
         [SerializeField] bool usePreferredDepth = false;
@@ -102,8 +118,6 @@ namespace Flock.Runtime {
         [Tooltip("If true, preferred depth wins when attraction would pull fish out of its band.")]
         [SerializeField] bool depthWinsOverAttractor = true;
 
-        [SerializeField, Min(0)]
-        int maxGroupSize = 0; // 0 = no upper limit
 
         [SerializeField, Range(0.5f, 1.5f)]
         float groupRadiusMultiplier = 1.0f;
@@ -220,6 +234,10 @@ namespace Flock.Runtime {
             settings.DepthWinsOverAttractor = (byte)(depthWinsOverAttractor ? 1 : 0);
 
             settings.PreferredDepthEdgeFraction = Mathf.Clamp(preferredDepthEdgeFraction, 0f, 0.5f);
+
+            settings.BoundsWeight = Mathf.Max(0f, boundsWeight);
+            settings.BoundsTangentialDamping = Mathf.Max(0f, boundsTangentialDamping);
+            settings.BoundsInfluenceSuppression = Mathf.Max(0f, boundsInfluenceSuppression);
 
             return settings;
         }
