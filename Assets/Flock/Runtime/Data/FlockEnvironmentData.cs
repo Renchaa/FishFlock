@@ -16,5 +16,7 @@ namespace Flock.Runtime.Data {
         public int3 GridResolution;
 
         public float GlobalDamping;
+
+        public  FlockGroupNoisePatternSettings GroupNoisePattern;
     }
 }

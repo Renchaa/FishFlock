@@ -361,6 +361,8 @@ namespace Flock.Runtime {
                     Frequency = GroupNoiseFrequency,
                     GridResolution = environmentData.GridResolution,
                     CellNoise = cellGroupNoise,
+                    // NEW: feed pattern settings from environment
+                    PatternSettings = environmentData.GroupNoisePattern,
                 };
 
                 groupNoiseHandle = groupNoiseJob.Schedule(

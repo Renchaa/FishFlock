@@ -1175,10 +1175,11 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
-  boundsCenter: {x: 50, y: 8, z: 55}
-  boundsExtents: {x: 15, y: 8, z: 15}
+  groupNoisePattern: {fileID: 11400000, guid: aa71795fa68bacb46a323fae1d6a1b7f, type: 2}
+  boundsCenter: {x: 50, y: 12, z: 55}
+  boundsExtents: {x: 12, y: 12, z: 12}
   cellSize: 1
-  globalDamping: 1
+  globalDamping: 0.1
   debugDrawBounds: 1
   debugDrawGrid: 1
   debugDrawAgents: 1

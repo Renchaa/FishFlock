@@ -14,6 +14,9 @@ namespace Flock.Runtime {
         [Header("Fish Types")]
         [SerializeField] FishTypePreset[] fishTypes;
 
+        [Header("Group Noise Pattern")]
+        [SerializeField] GroupNoisePatternProfile groupNoisePattern;
+
         [Header("Bounds (Box)")]
         [SerializeField] Vector3 boundsCenter = Vector3.zero;
         [SerializeField] Vector3 boundsExtents = new Vector3(10.0f, 10.0f, 10.0f);
@@ -371,6 +374,12 @@ namespace Flock.Runtime {
             environmentData.GridOrigin = min;
             environmentData.GridResolution = resolution;
             environmentData.GlobalDamping = math.max(globalDamping, 0.0f);
+
+            if (groupNoisePattern != null) {
+                environmentData.GroupNoisePattern = groupNoisePattern.ToSettings();
+            } else {
+                environmentData.GroupNoisePattern = FlockGroupNoisePatternSettings.Default;
+            }
 
             return environmentData;
         }
@@ -849,8 +858,6 @@ namespace Flock.Runtime {
                 }
             }
         }
-
-
 
         // ============================
         // FlockController.cs – REPLACE DrawAgentsGizmos
