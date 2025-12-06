@@ -15,6 +15,23 @@ namespace Flock.Runtime {
         [SerializeField] float maxAcceleration = 10.0f;
         [SerializeField] float desiredSpeed = 3.0f;
 
+        [Header("Noise")]
+        [Tooltip("Per-fish micro wander (0 = off). Interpreted as fraction of max accel.")]
+        [SerializeField, Min(0f)]
+        float wanderStrength = 0.0f;
+
+        [Tooltip("How fast wander direction changes (0 = almost frozen, higher = jittery).")]
+        [SerializeField, Min(0f)]
+        float wanderFrequency = 0.5f;
+
+        [Tooltip("How strongly the fish reacts to cell-level/group noise (0 = ignores).")]
+        [SerializeField, Min(0f)]
+        float groupNoiseStrength = 0.0f;
+
+        [Tooltip("How strongly this type follows external pattern steering (0 = off).")]
+        [SerializeField, Min(0f)]
+        float patternWeight = 0.0f;
+
         [Header("Group Flow")]
         [Tooltip("How strongly this type aligns to the local group flow (0 = no extra smoothing, 1+ = strong flock flow).")]
         [SerializeField, Range(0f, 2f)]
@@ -217,6 +234,14 @@ namespace Flock.Runtime {
             // === Attraction / avoid response ===
             settings.AttractionWeight = Mathf.Max(0f, attractionWeight);
             settings.AvoidResponse = Mathf.Max(0f, avoidResponse);
+
+            //Noise
+
+            settings.WanderStrength = Mathf.Max(0f, wanderStrength);
+            settings.WanderFrequency = Mathf.Max(0f, wanderFrequency);
+
+            settings.GroupNoiseStrength = Mathf.Max(0f, groupNoiseStrength);
+            settings.PatternWeight = Mathf.Max(0f, patternWeight);
 
             // === Preferred depth ===
             float min = Mathf.Clamp01(preferredDepthMin);

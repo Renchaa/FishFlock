@@ -408,7 +408,7 @@ MonoBehaviour:
   shape: 1
   sphereRadius: 2
   boxSize: {x: 3.5, y: 13.26, z: 8}
-  baseStrength: 10
+  baseStrength: 0
   falloffPower: 0.7
   attractedTypes:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
@@ -1175,8 +1175,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
-  boundsCenter: {x: 50, y: 10, z: 55}
-  boundsExtents: {x: 30, y: 10, z: 30}
+  boundsCenter: {x: 50, y: 15, z: 55}
+  boundsExtents: {x: 40, y: 15, z: 40}
   cellSize: 1
   globalDamping: 1
   debugDrawBounds: 1
@@ -2504,7 +2504,7 @@ MonoBehaviour:
   shape: 1
   sphereRadius: 2
   boxSize: {x: 3.5, y: 13.26, z: 8}
-  baseStrength: 6
+  baseStrength: 0
   falloffPower: 0.7
   attractedTypes:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}

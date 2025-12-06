@@ -101,6 +101,21 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public NativeArray<float> BehaviourPreferredDepthWeight;
         [ReadOnly] public NativeArray<float> BehaviourSchoolRadialDamping;
 
+        // NEW: noise per behaviour
+        [ReadOnly] public NativeArray<float> BehaviourWanderStrength;
+        [ReadOnly] public NativeArray<float> BehaviourWanderFrequency;
+        [ReadOnly] public NativeArray<float> BehaviourGroupNoiseStrength;
+        [ReadOnly] public NativeArray<float> BehaviourPatternWeight;
+
+        // NEW: per-agent pattern steering (optional, can be all zeros)
+        [ReadOnly] public NativeArray<float3> PatternSteering;
+
+        // NEW: globals + time for noise
+        [ReadOnly] public float NoiseTime;
+        [ReadOnly] public float GlobalWanderMultiplier;
+        [ReadOnly] public float GlobalGroupNoiseMultiplier;
+        [ReadOnly] public float GlobalPatternMultiplier;
+
         [ReadOnly] public bool UseAttraction;
         [ReadOnly] public float GlobalAttractionWeight;
         [ReadOnly] public NativeArray<float3> AttractionSteering;
@@ -404,6 +419,26 @@ namespace Flock.Runtime.Jobs {
 
             steering += propulsion;
 
+            // NEW: 8.1) Micro wander (per-fish), group noise, pattern
+            steering += ComputeWanderNoise(
+                index,
+                behaviourIndex,
+                position,
+                velocity,
+                localMaxAcceleration,
+                NoiseTime);
+
+            steering += ComputeGroupNoise(
+                behaviourIndex,
+                position,
+                localMaxAcceleration,
+                NoiseTime);
+
+            steering += ComputePatternSteering(
+                index,
+                behaviourIndex,
+                localMaxAcceleration);
+
             // --- 8.5) Bounds: gate non-wall steering + add radial push ---
             steering = ApplyBoundsSteering(
                 index,
@@ -577,6 +612,158 @@ namespace Flock.Runtime.Jobs {
             float signedStrength = force * strength;
             return -dir * signedStrength;
         }
+
+        // =======================================================
+        // 10) FlockStepJob – HELPERS: hash + noise layers
+        // Place these near your other helpers (e.g. under ComputePropulsion)
+        // File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
+        // =======================================================
+
+        static float Hash01(uint seed) {
+            seed ^= seed >> 17;
+            seed *= 0xED5AD4BBu;
+            seed ^= seed >> 11;
+            seed *= 0xAC4C1B51u;
+            seed ^= seed >> 15;
+            seed *= 0x31848BABu;
+            seed ^= seed >> 14;
+            // 24-bit mantissa to [0,1)
+            return (seed >> 8) * (1.0f / 16777216.0f);
+        }
+
+        // --------- Micro wander (per-fish, low amplitude) ----------
+        float3 ComputeWanderNoise(
+            int agentIndex,
+            int behaviourIndex,
+            float3 position,
+            float3 currentVelocity,
+            float maxAcceleration,
+            float time) {
+
+            if (!BehaviourWanderStrength.IsCreated ||
+                (uint)behaviourIndex >= (uint)BehaviourWanderStrength.Length) {
+                return float3.zero;
+            }
+
+            float strength = BehaviourWanderStrength[behaviourIndex] * GlobalWanderMultiplier;
+            if (strength <= 0f || maxAcceleration <= 0f) {
+                return float3.zero;
+            }
+
+            float frequency = 0.5f;
+            if (BehaviourWanderFrequency.IsCreated &&
+                (uint)behaviourIndex < (uint)BehaviourWanderFrequency.Length) {
+                frequency = math.max(0f, BehaviourWanderFrequency[behaviourIndex]);
+            }
+
+            // time phase
+            float t = time * frequency;
+
+            // stable per-agent base phases
+            uint baseSeed = (uint)(agentIndex * 0x9E3779B1u + 0x85EBCA6Bu);
+            float phaseX = Hash01(baseSeed ^ 0xA2C2A1EDu) * 6.2831853f;
+            float phaseY = Hash01(baseSeed ^ 0x27D4EB2Fu) * 6.2831853f;
+            float phaseZ = Hash01(baseSeed ^ 0x165667B1u) * 6.2831853f;
+
+            float3 dir = new float3(
+                math.sin(t + phaseX),
+                math.sin(t * 1.37f + phaseY),
+                math.sin(t * 1.79f + phaseZ));
+
+            dir = math.normalizesafe(dir, float3.zero);
+            if (math.lengthsq(dir) < 1e-6f) {
+                return float3.zero;
+            }
+
+            // accelerate sideways relative to current heading so it bends, not just speeds up
+            float3 forward = math.normalizesafe(currentVelocity, dir);
+            float3 side = math.normalizesafe(math.cross(forward, new float3(0, 1, 0)), dir);
+            float3 up = math.cross(forward, side);
+
+            // little cone around forward
+            float3 wanderDir = math.normalizesafe(
+                forward * 0.7f + side * 0.2f + up * 0.1f,
+                forward);
+
+            float maxWanderAccel = maxAcceleration * strength;
+            return wanderDir * maxWanderAccel;
+        }
+
+        // --------- Group noise (per-cell, shared by neighbours) ----------
+        float3 ComputeGroupNoise(
+            int behaviourIndex,
+            float3 position,
+            float maxAcceleration,
+            float time) {
+
+            if (!BehaviourGroupNoiseStrength.IsCreated ||
+                (uint)behaviourIndex >= (uint)BehaviourGroupNoiseStrength.Length) {
+                return float3.zero;
+            }
+
+            float strength = BehaviourGroupNoiseStrength[behaviourIndex] * GlobalGroupNoiseMultiplier;
+            if (strength <= 0f || maxAcceleration <= 0f) {
+                return float3.zero;
+            }
+
+            int3 cell = GetCell(position);
+
+            // hash cell coord to seed
+            uint seed = (uint)(cell.x * 73856093 ^ cell.y * 19349663 ^ cell.z * 83492791);
+            float basePhase = Hash01(seed) * 6.2831853f;
+
+            float slowTime = time * 0.3f; // group noise slower than micro wander
+
+            float3 dir = new float3(
+                math.sin(basePhase + slowTime),
+                math.sin(basePhase * 1.7f + slowTime * 0.9f),
+                math.sin(basePhase * 2.3f + slowTime * 1.3f));
+
+            dir = math.normalizesafe(dir, float3.zero);
+            if (math.lengthsq(dir) < 1e-6f) {
+                return float3.zero;
+            }
+
+            float maxGroupAccel = maxAcceleration * strength;
+            return dir * maxGroupAccel;
+        }
+
+        // --------- Pattern driver (external steering field) ----------
+        float3 ComputePatternSteering(
+            int agentIndex,
+            int behaviourIndex,
+            float maxAcceleration) {
+
+            if (!PatternSteering.IsCreated ||
+                !BehaviourPatternWeight.IsCreated) {
+                return float3.zero;
+            }
+
+            if ((uint)agentIndex >= (uint)PatternSteering.Length ||
+                (uint)behaviourIndex >= (uint)BehaviourPatternWeight.Length) {
+                return float3.zero;
+            }
+
+            float weight = BehaviourPatternWeight[behaviourIndex] * GlobalPatternMultiplier;
+            if (weight <= 0f || maxAcceleration <= 0f) {
+                return float3.zero;
+            }
+
+            float3 pattern = PatternSteering[agentIndex];
+            if (math.lengthsq(pattern) < 1e-8f) {
+                return float3.zero;
+            }
+
+            // Treat patternSteering as desired direction; clamp by maxAcceleration
+            float3 dir = math.normalizesafe(pattern, float3.zero);
+            if (math.lengthsq(dir) < 1e-8f) {
+                return float3.zero;
+            }
+
+            float3 accel = dir * maxAcceleration * weight;
+            return accel;
+        }
+
 
         float3 ComputeAttraction(int agentIndex) {
             if (!UseAttraction || !AttractionSteering.IsCreated) {

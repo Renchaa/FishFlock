@@ -15,34 +15,38 @@ MonoBehaviour:
   maxSpeed: 5
   maxAcceleration: 7
   desiredSpeed: 2.5
-  groupFlowWeight: 1.3
+  wanderStrength: 0.2
+  wanderFrequency: 0.3
+  groupNoiseStrength: 0.5
+  patternWeight: 0
+  groupFlowWeight: 2
   bodyRadius: 0.2
-  schoolingSpacingFactor: 5
+  schoolingSpacingFactor: 1.5
   schoolingOuterFactor: 2
   schoolingStrength: 1.2
   schoolingInnerSoftness: 0.3
   schoolingRadialDamping: 0.7
-  schoolingDeadzoneFraction: 0.5
-  neighbourRadius: 1.3
-  separationRadius: 0.3
-  alignmentWeight: 0.5
-  cohesionWeight: 0.3
-  separationWeight: 2
-  influenceWeight: 0.01
-  avoidanceWeight: 1
+  schoolingDeadzoneFraction: 0.3
+  neighbourRadius: 2
+  separationRadius: 0.5
+  alignmentWeight: 1.2
+  cohesionWeight: 0.8
+  separationWeight: 1
+  influenceWeight: 0.005
+  avoidanceWeight: 5
   neutralWeight: 1
-  attractionResponse: 0.5
+  attractionResponse: 1
   avoidResponse: 1.5
   splitPanicThreshold: 0.4
   splitLateralWeight: 0.8
   splitAccelBoost: 1
   attractionWeight: 1
-  boundsWeight: 3
-  boundsTangentialDamping: 3
-  boundsInfluenceSuppression: 2
-  minGroupSize: 1000
-  maxGroupSize: 3000
-  minGroupSizeWeight: 1
+  boundsWeight: 1
+  boundsTangentialDamping: 1.5
+  boundsInfluenceSuppression: 1
+  minGroupSize: 100
+  maxGroupSize: 300
+  minGroupSizeWeight: 3
   maxGroupSizeWeight: 1
   usePreferredDepth: 0
   preferredDepthMin: 0
@@ -51,6 +55,6 @@ MonoBehaviour:
   depthBiasStrength: 0.2
   depthWinsOverAttractor: 1
   groupRadiusMultiplier: 1
-  lonerRadiusMultiplier: 1
-  lonerCohesionBoost: 1.2
+  lonerRadiusMultiplier: 1.5
+  lonerCohesionBoost: 2.73
   preferredDepthEdgeFraction: 0.2

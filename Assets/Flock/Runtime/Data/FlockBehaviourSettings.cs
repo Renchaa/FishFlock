@@ -88,5 +88,13 @@ namespace Flock.Runtime.Data {
         public float PreferredDepthEdgeFraction;
 
         public float SchoolingRadialDamping;
+
+        public float WanderStrength;      // micro wander accel factor (0 = off)
+        public float WanderFrequency;     // Hz-ish scalar for wander rotation
+
+        public float GroupNoiseStrength;  // per-cell/group noise accel factor
+
+        public float PatternWeight;       // how strongly this type follows PatternSteering
+
     }
 }

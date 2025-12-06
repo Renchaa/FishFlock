@@ -12,9 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47e0eaefa1b0f4b45b356bbb3ff14cb4, type: 3}
   m_Name: TunaProfile
   m_EditorClassIdentifier: 
-  maxSpeed: 6
-  maxAcceleration: 8
-  desiredSpeed: 4
+  maxSpeed: 4
+  maxAcceleration: 6
+  desiredSpeed: 3
+  wanderStrength: 0.2
+  wanderFrequency: 0.2
+  groupNoiseStrength: 0.5
+  patternWeight: 0
   groupFlowWeight: 1
   bodyRadius: 2
   schoolingSpacingFactor: 2
@@ -23,25 +27,27 @@ MonoBehaviour:
   schoolingInnerSoftness: 0.3
   schoolingRadialDamping: 0.8
   schoolingDeadzoneFraction: 0.5
-  neighbourRadius: 5
+  neighbourRadius: 4
   separationRadius: 2.3
   alignmentWeight: 0.6
   cohesionWeight: 0.4
   separationWeight: 2
-  influenceWeight: 5
-  avoidanceWeight: 1
-  neutralWeight: 1
-  attractionResponse: 1
+  influenceWeight: 10
+  avoidanceWeight: 3
+  neutralWeight: 3
+  attractionResponse: 5
   avoidResponse: 3
   splitPanicThreshold: 0.4
   splitLateralWeight: 0.8
   splitAccelBoost: 1
-  attractionWeight: 1
+  attractionWeight: 5
   boundsWeight: 1
   boundsTangentialDamping: 1.5
   boundsInfluenceSuppression: 1
   minGroupSize: 2
   maxGroupSize: 3
+  minGroupSizeWeight: 1
+  maxGroupSizeWeight: 1
   usePreferredDepth: 0
   preferredDepthMin: 0.583
   preferredDepthMax: 1
