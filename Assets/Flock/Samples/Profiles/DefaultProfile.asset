@@ -15,13 +15,15 @@ MonoBehaviour:
   maxSpeed: 5
   maxAcceleration: 7
   desiredSpeed: 2.5
-  wanderStrength: 0.2
-  wanderFrequency: 0.3
-  groupNoiseStrength: 0.5
-  patternWeight: 0
-  groupFlowWeight: 2
+  wanderStrength: 0.1
+  wanderFrequency: 0.2
+  groupNoiseStrength: 0.2
+  groupNoiseDirectionRate: 0.3
+  groupNoiseSpeedWeight: 0.2
+  patternWeight: 1
+  groupFlowWeight: 0.6
   bodyRadius: 0.2
-  schoolingSpacingFactor: 1.5
+  schoolingSpacingFactor: 1.6
   schoolingOuterFactor: 2
   schoolingStrength: 1.2
   schoolingInnerSoftness: 0.3

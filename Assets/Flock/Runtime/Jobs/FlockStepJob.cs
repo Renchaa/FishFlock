@@ -1,7 +1,6 @@
 ﻿// File: Assets/Flock/Runtime/Jobs/FlockStepJob.cs
 namespace Flock.Runtime.Jobs {
     using Flock.Runtime.Data;
-    using System;
     using Unity.Burst;
     using Unity.Collections;
     using Unity.Jobs;
@@ -101,16 +100,14 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public NativeArray<float> BehaviourPreferredDepthWeight;
         [ReadOnly] public NativeArray<float> BehaviourSchoolRadialDamping;
 
-        // NEW: noise per behaviour
         [ReadOnly] public NativeArray<float> BehaviourWanderStrength;
         [ReadOnly] public NativeArray<float> BehaviourWanderFrequency;
         [ReadOnly] public NativeArray<float> BehaviourGroupNoiseStrength;
         [ReadOnly] public NativeArray<float> BehaviourPatternWeight;
 
-        // NEW: per-agent pattern steering (optional, can be all zeros)
         [ReadOnly] public NativeArray<float3> PatternSteering;
+        [ReadOnly] public NativeArray<float3> CellGroupNoise;
 
-        // NEW: globals + time for noise
         [ReadOnly] public float NoiseTime;
         [ReadOnly] public float GlobalWanderMultiplier;
         [ReadOnly] public float GlobalGroupNoiseMultiplier;
@@ -120,6 +117,13 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public float GlobalAttractionWeight;
         [ReadOnly] public NativeArray<float3> AttractionSteering;
         [ReadOnly] public NativeArray<float> BehaviourPreferredDepthEdgeFraction;
+
+        [NativeDisableParallelForRestriction]
+        public NativeArray<float3> AgentGroupNoiseDir;
+
+        // NEW: how fast dir changes, how much it hits speed
+        [ReadOnly] public NativeArray<float> BehaviourGroupNoiseDirectionRate;
+        [ReadOnly] public NativeArray<float> BehaviourGroupNoiseSpeedWeight;
 
         public void Execute(int index) {
             // --- 1) Load per-agent + per-behaviour scalars ---
@@ -428,11 +432,13 @@ namespace Flock.Runtime.Jobs {
                 localMaxAcceleration,
                 NoiseTime);
 
+            // NEW SIG: pass agentIndex + current velocity
             steering += ComputeGroupNoise(
-                behaviourIndex,
-                position,
-                localMaxAcceleration,
-                NoiseTime);
+                agentIndex: index,
+                behaviourIndex: behaviourIndex,
+                position: position,
+                currentVelocity: velocity,
+                maxAcceleration: localMaxAcceleration);
 
             steering += ComputePatternSteering(
                 index,
@@ -690,42 +696,103 @@ namespace Flock.Runtime.Jobs {
         }
 
         // --------- Group noise (per-cell, shared by neighbours) ----------
+        // =====================================
+        // FlockStepJob.cs – ComputeGroupNoise()
+        // REPLACED to use 2 knobs: direction rate + speed weight
+        // =====================================
         float3 ComputeGroupNoise(
-            int behaviourIndex,
-            float3 position,
-            float maxAcceleration,
-            float time) {
+                   int agentIndex,
+                   int behaviourIndex,
+                   float3 position,
+                   float3 currentVelocity,
+                   float maxAcceleration) {
 
             if (!BehaviourGroupNoiseStrength.IsCreated ||
+                !CellGroupNoise.IsCreated ||
                 (uint)behaviourIndex >= (uint)BehaviourGroupNoiseStrength.Length) {
                 return float3.zero;
             }
 
-            float strength = BehaviourGroupNoiseStrength[behaviourIndex] * GlobalGroupNoiseMultiplier;
-            if (strength <= 0f || maxAcceleration <= 0f) {
+            float baseStrength =
+                BehaviourGroupNoiseStrength[behaviourIndex] * GlobalGroupNoiseMultiplier;
+
+            if (baseStrength <= 0f || maxAcceleration <= 0f) {
                 return float3.zero;
+            }
+
+            // Per-group knob: how "strong / snappy" the group reacts to the field
+            float directionRate = 1f;
+            if (BehaviourGroupNoiseDirectionRate.IsCreated &&
+                (uint)behaviourIndex < (uint)BehaviourGroupNoiseDirectionRate.Length) {
+                directionRate = math.max(0f, BehaviourGroupNoiseDirectionRate[behaviourIndex]);
+            }
+
+            // Per-group knob: how much of noise goes into speed vs turning
+            float speedWeight = 0f;
+            if (BehaviourGroupNoiseSpeedWeight.IsCreated &&
+                (uint)behaviourIndex < (uint)BehaviourGroupNoiseSpeedWeight.Length) {
+                speedWeight = math.saturate(BehaviourGroupNoiseSpeedWeight[behaviourIndex]);
             }
 
             int3 cell = GetCell(position);
-
-            // hash cell coord to seed
-            uint seed = (uint)(cell.x * 73856093 ^ cell.y * 19349663 ^ cell.z * 83492791);
-            float basePhase = Hash01(seed) * 6.2831853f;
-
-            float slowTime = time * 0.3f; // group noise slower than micro wander
-
-            float3 dir = new float3(
-                math.sin(basePhase + slowTime),
-                math.sin(basePhase * 1.7f + slowTime * 0.9f),
-                math.sin(basePhase * 2.3f + slowTime * 1.3f));
-
-            dir = math.normalizesafe(dir, float3.zero);
-            if (math.lengthsq(dir) < 1e-6f) {
+            int cellId = GetCellId(cell);
+            if ((uint)cellId >= (uint)CellGroupNoise.Length) {
                 return float3.zero;
             }
 
-            float maxGroupAccel = maxAcceleration * strength;
-            return dir * maxGroupAccel;
+            // PURE per-cell direction: all agents in this cell see the same vector
+            float3 noiseDir = CellGroupNoise[cellId];
+            if (math.lengthsq(noiseDir) < 1e-6f) {
+                return float3.zero;
+            }
+
+            noiseDir = math.normalizesafe(noiseDir, float3.zero);
+            if (math.lengthsq(noiseDir) < 1e-6f) {
+                return float3.zero;
+            }
+
+            // Optional: keep it for debugging / visualisation, but it no longer drives logic.
+            if (AgentGroupNoiseDir.IsCreated &&
+                (uint)agentIndex < (uint)AgentGroupNoiseDir.Length) {
+                AgentGroupNoiseDir[agentIndex] = noiseDir;
+            }
+
+            float3 forward = math.normalizesafe(currentVelocity, noiseDir);
+
+            float proj = math.dot(noiseDir, forward);
+            float3 along = forward * proj;
+            float3 lateral = noiseDir - along;
+
+            float lateralLenSq = math.lengthsq(lateral);
+            float3 lateralDir = lateralLenSq > 1e-8f
+                ? lateral * math.rsqrt(lateralLenSq)
+                : float3.zero;
+
+            // Strength now is strictly per-behaviour (group), not per-agent state
+            float strength = baseStrength * directionRate;
+            if (strength <= 0f) {
+                return float3.zero;
+            }
+
+            float maxNoiseAccel = maxAcceleration * strength;
+
+            float wSpeed = math.saturate(speedWeight);
+            float lateralAccelMag = maxNoiseAccel * (1f - wSpeed); // turning
+            float speedAccelMag = maxNoiseAccel * wSpeed;        // speed jitter
+
+            float3 result = float3.zero;
+
+            if (math.lengthsq(lateralDir) > 1e-8f && lateralAccelMag > 0f) {
+                result += lateralDir * lateralAccelMag;
+            }
+
+            if (speedAccelMag > 0f && math.lengthsq(forward) > 1e-8f) {
+                // proj ∈ [-1,1] gives forward/back bias from noise field
+                float3 speedAccel = forward * (speedAccelMag * proj);
+                result += speedAccel;
+            }
+
+            return result;
         }
 
         // --------- Pattern driver (external steering field) ----------

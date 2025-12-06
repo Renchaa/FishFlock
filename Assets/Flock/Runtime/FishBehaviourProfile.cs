@@ -28,6 +28,14 @@ namespace Flock.Runtime {
         [SerializeField, Min(0f)]
         float groupNoiseStrength = 0.0f;
 
+        [Tooltip("How quickly this species follows changes in the group noise field (0 = sluggish, higher = snappier).")]
+        [SerializeField, Min(0f)]
+        float groupNoiseDirectionRate = 1.0f;
+
+        [Tooltip("How much group noise affects speed along forward (0 = pure turning, 1 = strong speed jitter).")]
+        [SerializeField, Range(0f, 1f)]
+        float groupNoiseSpeedWeight = 0.0f;
+
         [Tooltip("How strongly this type follows external pattern steering (0 = off).")]
         [SerializeField, Min(0f)]
         float patternWeight = 0.0f;
@@ -176,8 +184,8 @@ namespace Flock.Runtime {
             settings.BodyRadius = Mathf.Max(0.01f, baseBodyRadius);
 
             // Relationship-related defaults – will be overridden by interaction matrix
-            settings.AvoidanceWeight = 1.0f;
-            settings.NeutralWeight = 1.0f;
+            settings.AvoidanceWeight = Mathf.Max(0f, avoidanceWeight);
+            settings.NeutralWeight = Mathf.Max(0f, neutralWeight);
 
             settings.AvoidMask = 0u;
             settings.NeutralMask = 0u;
@@ -235,13 +243,15 @@ namespace Flock.Runtime {
             settings.AttractionWeight = Mathf.Max(0f, attractionWeight);
             settings.AvoidResponse = Mathf.Max(0f, avoidResponse);
 
-            //Noise
-
+            // Noise
             settings.WanderStrength = Mathf.Max(0f, wanderStrength);
             settings.WanderFrequency = Mathf.Max(0f, wanderFrequency);
 
             settings.GroupNoiseStrength = Mathf.Max(0f, groupNoiseStrength);
             settings.PatternWeight = Mathf.Max(0f, patternWeight);
+
+            settings.GroupNoiseDirectionRate = Mathf.Max(0f, groupNoiseDirectionRate);
+            settings.GroupNoiseSpeedWeight = Mathf.Clamp01(groupNoiseSpeedWeight);
 
             // === Preferred depth ===
             float min = Mathf.Clamp01(preferredDepthMin);
@@ -275,6 +285,7 @@ namespace Flock.Runtime {
             settings.BoundsWeight = Mathf.Max(0f, boundsWeight);
             settings.BoundsTangentialDamping = Mathf.Max(0f, boundsTangentialDamping);
             settings.BoundsInfluenceSuppression = Mathf.Max(0f, boundsInfluenceSuppression);
+
 
             return settings;
         }

@@ -32,6 +32,13 @@ namespace Flock.Runtime {
         NativeArray<float> behaviourGroupNoiseStrength;
         NativeArray<float> behaviourPatternWeight;
         NativeArray<float3> patternSteering;
+
+        // NEW: per-agent smoothed group-noise direction
+        NativeArray<float3> agentGroupNoiseDir;
+
+        // ADD:
+        NativeArray<float3> cellGroupNoise;  // NEW: per-cell group noise direction
+
         float simulationTime; // NEW: accumulated sim time for noise
 
         NativeArray<int> behaviourIds;
@@ -87,6 +94,10 @@ namespace Flock.Runtime {
         NativeArray<float> behaviourSchoolDeadzoneFraction;
         NativeArray<float> behaviourSchoolRadialDamping;   // NEW
 
+        // NEW: per-behaviour group-noise tuning
+        NativeArray<float> behaviourGroupNoiseDirectionRate;
+        NativeArray<float> behaviourGroupNoiseSpeedWeight;
+
         NativeParallelMultiHashMap<int, int> cellToAgents;
         NativeParallelMultiHashMap<int, int> cellToObstacles;
 
@@ -116,6 +127,7 @@ namespace Flock.Runtime {
         public float GlobalWanderMultiplier { get; set; } = 1.0f;
         public float GlobalGroupNoiseMultiplier { get; set; } = 1.0f;
         public float GlobalPatternMultiplier { get; set; } = 1.0f;
+        public float GroupNoiseFrequency { get; set; } = 0.3f;
 
         public void Initialize(
             int agentCount,
@@ -172,6 +184,8 @@ namespace Flock.Runtime {
             }
         }
 
+        // File: Assets/Flock/Runtime/FlockSimulation.cs
+
         public JobHandle ScheduleStepJobs(
             float deltaTime,
             JobHandle inputHandle = default) {
@@ -185,7 +199,7 @@ namespace Flock.Runtime {
                 return inputHandle;
             }
 
-            // NEW: accumulate simulation time for noise
+            // Accumulate simulation time for noise / patterns
             simulationTime += deltaTime;
 
             if (!cellToAgents.IsCreated) {
@@ -205,7 +219,7 @@ namespace Flock.Runtime {
 
             cellToAgents.Clear();
 
-            // Snapshot previous velocities.
+            // ---------- Copy previous velocities ----------
             var copyJob = new CopyVelocitiesJob {
                 Source = velocities,
                 Destination = prevVelocities,
@@ -216,6 +230,7 @@ namespace Flock.Runtime {
                 64,
                 inputHandle);
 
+            // ---------- Clear neighbour stamps ----------
             var clearStampsJob = new ClearIntArrayJob {
                 Array = neighbourVisitStamp,
             };
@@ -225,6 +240,7 @@ namespace Flock.Runtime {
                 64,
                 inputHandle);
 
+            // ---------- Assign agents to grid ----------
             var assignJob = new AssignToGridJob {
                 Positions = positions,
                 BehaviourIds = behaviourIds,
@@ -242,6 +258,7 @@ namespace Flock.Runtime {
                 64,
                 inputHandle);
 
+            // ---------- Bounds probe ----------
             var boundsJob = new BoundsProbeJob {
                 Positions = positions,
                 BehaviourIds = behaviourIds,
@@ -330,7 +347,29 @@ namespace Flock.Runtime {
                     assignHandle);
             }
 
-            // Flock job waits for obstacle + attraction + velocity copy.
+            // ---------- NEW: Per-cell group noise field ----------
+            bool useGroupNoiseField =
+                cellGroupNoise.IsCreated &&
+                gridCellCount > 0 &&
+                behaviourGroupNoiseStrength.IsCreated;
+
+            JobHandle groupNoiseHandle = inputHandle;
+
+            if (useGroupNoiseField) {
+                var groupNoiseJob = new GroupNoiseFieldJob {
+                    Time = simulationTime,
+                    Frequency = GroupNoiseFrequency,
+                    GridResolution = environmentData.GridResolution,
+                    CellNoise = cellGroupNoise,
+                };
+
+                groupNoiseHandle = groupNoiseJob.Schedule(
+                    gridCellCount,
+                    64,
+                    inputHandle);
+            }
+
+            // ---------- Combine dependencies for flock job ----------
             JobHandle flockDeps = JobHandle.CombineDependencies(
                 obstacleHandle,
                 attractionHandle);
@@ -347,20 +386,24 @@ namespace Flock.Runtime {
                 flockDeps,
                 clearStampsHandle);
 
-            // File: Assets/Flock/Runtime/FlockSimulation.cs
-            // Inside ScheduleStepJobs, when constructing flockJob:
+            if (useGroupNoiseField) {
+                flockDeps = JobHandle.CombineDependencies(
+                    flockDeps,
+                    groupNoiseHandle);
+            }
 
+            // ---------- Main flock step ----------
             var flockJob = new FlockStepJob {
                 // Core agent data
                 Positions = positions,
                 PrevVelocities = prevVelocities,
                 Velocities = velocities,
 
-                // NEW: bounds probe outputs (per-agent)
+                // Bounds probe outputs (per-agent)
                 WallDirections = wallDirections,
                 WallDangers = wallDangers,
 
-                // NEW: per-behaviour bounds response
+                // Per-behaviour bounds response
                 BehaviourBoundsWeight = behaviourBoundsWeight,
                 BehaviourBoundsTangentialDamping = behaviourBoundsTangentialDamping,
                 BehaviourBoundsInfluenceSuppression = behaviourBoundsInfluenceSuppression,
@@ -424,19 +467,21 @@ namespace Flock.Runtime {
                 BehaviourPreferredDepthMaxNorm = behaviourPreferredDepthMaxNorm,
                 BehaviourPreferredDepthWeight = behaviourPreferredDepthWeight,
                 BehaviourPreferredDepthEdgeFraction = behaviourPreferredDepthEdgeFraction,
-                BehaviourSchoolRadialDamping = behaviourSchoolRadialDamping, // NEW
+                BehaviourSchoolRadialDamping = behaviourSchoolRadialDamping,
 
-                // 🔽🔽🔽 ADD THIS BLOCK (noise arrays) RIGHT AFTER THE LINE ABOVE 🔽🔽🔽
+                // Noise per behaviour
                 BehaviourWanderStrength = behaviourWanderStrength,
                 BehaviourWanderFrequency = behaviourWanderFrequency,
                 BehaviourGroupNoiseStrength = behaviourGroupNoiseStrength,
                 BehaviourPatternWeight = behaviourPatternWeight,
-                // 🔼🔼🔼 END OF NEW BLOCK 🔼🔼🔼
 
-                // NEW: per-type neighbour cell search radius
+                // NEW: direction-change rate + speed influence
+                BehaviourGroupNoiseDirectionRate = behaviourGroupNoiseDirectionRate,
+                BehaviourGroupNoiseSpeedWeight = behaviourGroupNoiseSpeedWeight,
+                AgentGroupNoiseDir = agentGroupNoiseDir,
+
+                // Neighbour search + dedup
                 BehaviourCellSearchRadius = behaviourCellSearchRadius,
-
-                // NEW: per-agent dedup stamp so big fish in many cells are counted once
                 NeighbourVisitStamp = neighbourVisitStamp,
 
                 // Spatial grid
@@ -449,14 +494,14 @@ namespace Flock.Runtime {
                 EnvironmentData = environmentData,
                 DeltaTime = deltaTime,
 
-                // NEW: noise globals
+                // Noise globals + pattern steering
                 NoiseTime = simulationTime,
                 GlobalWanderMultiplier = GlobalWanderMultiplier,
                 GlobalGroupNoiseMultiplier = GlobalGroupNoiseMultiplier,
                 GlobalPatternMultiplier = GlobalPatternMultiplier,
 
-                // NEW: pattern steering (optional)
                 PatternSteering = patternSteering,
+                CellGroupNoise = cellGroupNoise,
 
                 // Obstacles
                 UseObstacleAvoidance = useObstacleAvoidance,
@@ -474,6 +519,7 @@ namespace Flock.Runtime {
                 64,
                 flockDeps);
 
+            // ---------- Integrate positions ----------
             var integrateJob = new IntegrateJob {
                 Positions = positions,
                 Velocities = velocities,
@@ -592,6 +638,11 @@ namespace Flock.Runtime {
             DisposeArray(ref cellToGroupAttractor);
             DisposeArray(ref cellIndividualPriority);
             DisposeArray(ref cellGroupPriority);
+            DisposeArray(ref cellGroupNoise);
+
+            DisposeArray(ref behaviourGroupNoiseDirectionRate); // NEW
+            DisposeArray(ref behaviourGroupNoiseSpeedWeight);   // NEW
+            DisposeArray(ref agentGroupNoiseDir);               // NEW
 
             AgentCount = 0;
         }
@@ -610,6 +661,10 @@ namespace Flock.Runtime {
             obstacles[index] = data;
         }
 
+        // =====================================
+        // FlockSimulation.cs – AllocateAgentArrays
+        // ADD agentGroupNoiseDir allocation
+        // =====================================
         void AllocateAgentArrays(Allocator allocator) {
             positions = new NativeArray<float3>(
                 AgentCount,
@@ -651,11 +706,17 @@ namespace Flock.Runtime {
                 allocator,
                 NativeArrayOptions.ClearMemory);
 
-            // Initialise with safe defaults (type 0) – controller will overwrite.
+            // NEW: per-agent smoothed group noise direction
+            agentGroupNoiseDir = new NativeArray<float3>(
+                AgentCount,
+                allocator,
+                NativeArrayOptions.ClearMemory);
+
             for (int index = 0; index < AgentCount; index += 1) {
                 behaviourIds[index] = 0;
             }
         }
+
 
         // =======================================================
         // 5) FlockSimulation.AllocateBehaviourArrays – REPLACE BODY
@@ -729,6 +790,10 @@ namespace Flock.Runtime {
             behaviourGroupNoiseStrength = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
             behaviourPatternWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
 
+            // NEW: group noise tuning
+            behaviourGroupNoiseDirectionRate = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourGroupNoiseSpeedWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+
             // NEW: bounds per-behaviour
             behaviourBoundsWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
             behaviourBoundsTangentialDamping = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
@@ -742,10 +807,6 @@ namespace Flock.Runtime {
                 behaviourMaxAcceleration[index] = behaviour.MaxAcceleration;
                 behaviourDesiredSpeed[index] = behaviour.DesiredSpeed;
 
-                behaviourNeighbourRadius[index] = behaviour.NeighbourRadius;
-                behaviourSeparationRadius[index] = behaviour.SeparationRadius;
-
-                // NEW: body radius for occupancy
                 behaviourBodyRadius[index] = math.max(0f, behaviour.BodyRadius);
 
                 behaviourSchoolSpacingFactor[index] =
@@ -784,10 +845,14 @@ namespace Flock.Runtime {
                 behaviourGroupNoiseStrength[index] =
                     math.max(0f, behaviour.GroupNoiseStrength);
 
+                behaviourGroupNoiseDirectionRate[index] = 
+                    math.max(0f, behaviour.GroupNoiseDirectionRate);
+                behaviourGroupNoiseSpeedWeight[index] = 
+                    math.max(0f, behaviour.GroupNoiseSpeedWeight);
+
                 behaviourPatternWeight[index] =
                     math.max(0f, behaviour.PatternWeight);
 
-                // NEW: per-type cell search radius (in grid cells), derived from neighbour radius
                 float cellSize = math.max(environmentData.CellSize, 0.0001f);
                 float viewRadius = math.max(0f, behaviour.NeighbourRadius);
 
@@ -942,10 +1007,24 @@ namespace Flock.Runtime {
             attractors[index] = data;
         }
 
+        // =====================================
+        // 2) FlockSimulation.cs – AllocateGrid
+        // REPLACE BODY with the one below
+        // =====================================
         void AllocateGrid(Allocator allocator) {
             gridCellCount = environmentData.GridResolution.x
                             * environmentData.GridResolution.y
                             * environmentData.GridResolution.z;
+
+            // NEW: allocate per-cell group noise field
+            if (gridCellCount > 0) {
+                cellGroupNoise = new NativeArray<float3>(
+                    gridCellCount,
+                    allocator,
+                    NativeArrayOptions.ClearMemory);
+            } else {
+                cellGroupNoise = default;
+            }
 
             int capacity = math.max(
                 AgentCount * DefaultGridCapacityMultiplier,

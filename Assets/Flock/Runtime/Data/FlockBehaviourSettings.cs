@@ -96,5 +96,8 @@ namespace Flock.Runtime.Data {
 
         public float PatternWeight;       // how strongly this type follows PatternSteering
 
+        // FlockBehaviourSettings (struct or class)
+        public float GroupNoiseDirectionRate;   // NEW – how fast species follows cell noise (0..1-ish)
+        public float GroupNoiseSpeedWeight;     // NEW – how much group noise affects speed
     }
 }

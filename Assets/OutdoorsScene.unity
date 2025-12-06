@@ -1175,8 +1175,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
-  boundsCenter: {x: 50, y: 15, z: 55}
-  boundsExtents: {x: 40, y: 15, z: 40}
+  boundsCenter: {x: 50, y: 8, z: 55}
+  boundsExtents: {x: 15, y: 8, z: 15}
   cellSize: 1
   globalDamping: 1
   debugDrawBounds: 1
