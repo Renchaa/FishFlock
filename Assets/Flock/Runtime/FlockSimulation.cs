@@ -129,6 +129,11 @@ namespace Flock.Runtime {
         public float GlobalPatternMultiplier { get; set; } = 1.0f;
         public float GroupNoiseFrequency { get; set; } = 0.3f;
 
+        float3 patternSphereCenter;
+        float patternSphereRadius;
+        float patternSphereThickness;
+        float patternSphereStrength;
+
         public void Initialize(
             int agentCount,
             FlockEnvironmentData environment,
@@ -142,6 +147,11 @@ namespace Flock.Runtime {
 
             AgentCount = agentCount;
             environmentData = environment;
+
+            patternSphereCenter = environmentData.BoundsCenter;
+            patternSphereRadius = 0f;
+            patternSphereThickness = 0f;
+            patternSphereStrength = 0f;
 
             AllocateAgentArrays(allocator);
             AllocateBehaviourArrays(behaviourSettings, allocator);
@@ -361,12 +371,35 @@ namespace Flock.Runtime {
                     Frequency = GroupNoiseFrequency,
                     GridResolution = environmentData.GridResolution,
                     CellNoise = cellGroupNoise,
-                    // NEW: feed pattern settings from environment
                     PatternSettings = environmentData.GroupNoisePattern,
                 };
 
                 groupNoiseHandle = groupNoiseJob.Schedule(
                     gridCellCount,
+                    64,
+                    inputHandle);
+            }
+
+            // ---------- NEW: Layer-3 pattern sphere (per-agent) ----------
+            bool usePatternSphere =
+                patternSteering.IsCreated &&
+                patternSphereRadius > 0f &&
+                patternSphereStrength > 0f;
+
+            JobHandle patternHandle = inputHandle;
+
+            if (usePatternSphere) {
+                var patternJob = new PatternSphereJob {
+                    Positions = positions,
+                    PatternSteering = patternSteering,
+                    Center = patternSphereCenter,
+                    Radius = patternSphereRadius,
+                    Thickness = patternSphereThickness,
+                    Strength = patternSphereStrength,
+                };
+
+                patternHandle = patternJob.Schedule(
+                    AgentCount,
                     64,
                     inputHandle);
             }
@@ -392,6 +425,12 @@ namespace Flock.Runtime {
                 flockDeps = JobHandle.CombineDependencies(
                     flockDeps,
                     groupNoiseHandle);
+            }
+
+            if (usePatternSphere) {
+                flockDeps = JobHandle.CombineDependencies(
+                    flockDeps,
+                    patternHandle);
             }
 
             // ---------- Main flock step ----------
@@ -647,6 +686,36 @@ namespace Flock.Runtime {
             DisposeArray(ref agentGroupNoiseDir);               // NEW
 
             AgentCount = 0;
+        }
+
+        /// <summary>
+        /// Enable or update the pattern sphere that layer-3 patterns steer towards.
+        /// Only behaviours with PatternWeight > 0 will react to this.
+        /// </summary>
+        public void SetPatternSphereTarget(
+            float3 center,
+            float radius,
+            float thickness = -1f,
+            float strength = 1f) {
+
+            patternSphereCenter = center;
+            patternSphereRadius = math.max(0f, radius);
+            patternSphereStrength = math.max(0f, strength);
+
+            if (thickness <= 0f) {
+                patternSphereThickness = patternSphereRadius * 0.25f;
+            } else {
+                patternSphereThickness = math.max(0.001f, thickness);
+            }
+        }
+
+        /// <summary>
+        /// Disable the pattern sphere influence completely.
+        /// </summary>
+        public void ClearPatternSphere() {
+            patternSphereRadius = 0f;
+            patternSphereStrength = 0f;
+            patternSphereThickness = 0f;
         }
 
         public void SetObstacleData(

@@ -115,6 +115,39 @@ namespace Flock.Runtime {
             }
         }
 
+        /// <summary>
+        /// Sets / updates the layer-3 pattern sphere center in world space.
+        /// Call this when your bubble center moves (for a moving object, usually each frame).
+        /// Only fish whose behaviour has PatternWeight > 0 will react.
+        /// </summary>
+        public void SetPatternBubbleCenter(
+            Vector3 worldPosition,
+            float radius,
+            float thickness = -1f,
+            float strength = 1f) {
+
+            if (simulation == null || !simulation.IsCreated) {
+                return;
+            }
+
+            simulation.SetPatternSphereTarget(
+                new float3(worldPosition.x, worldPosition.y, worldPosition.z),
+                radius,
+                thickness,
+                strength);
+        }
+
+        /// <summary>
+        /// Disables the pattern bubble influence.
+        /// </summary>
+        public void ClearPatternBubble() {
+            if (simulation == null || !simulation.IsCreated) {
+                return;
+            }
+
+            simulation.ClearPatternSphere();
+        }
+
         void CreateBehaviourSettingsArray() {
             if (fishTypes == null || fishTypes.Length == 0) {
                 FlockLog.Error(
