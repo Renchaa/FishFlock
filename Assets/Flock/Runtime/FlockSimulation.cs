@@ -16,7 +16,7 @@ namespace Flock.Runtime {
 
         NativeArray<float3> positions;
         NativeArray<float3> velocities;
-        NativeArray<float3> prevVelocities; // NEW
+        NativeArray<float3> prevVelocities; 
                                             // NEW: per-behaviour bounds response
 
         NativeArray<float> behaviourBoundsWeight;               // radial push
@@ -26,20 +26,18 @@ namespace Flock.Runtime {
         NativeArray<float3> wallDirections; // inward normal(s) near walls
         NativeArray<float> wallDangers;     // 0..1 (or a bit >1 if outside)
 
-        // NEW: per-behaviour noise settings
         NativeArray<float> behaviourWanderStrength;
         NativeArray<float> behaviourWanderFrequency;
         NativeArray<float> behaviourGroupNoiseStrength;
         NativeArray<float> behaviourPatternWeight;
         NativeArray<float3> patternSteering;
 
-        // NEW: per-agent smoothed group-noise direction
         NativeArray<float3> agentGroupNoiseDir;
 
-        // ADD:
         NativeArray<float3> cellGroupNoise;  // NEW: per-cell group noise direction
 
         float simulationTime; // NEW: accumulated sim time for noise
+        int layer3PatternCount;
 
         NativeArray<int> behaviourIds;
         NativeArray<float> behaviourMaxSpeed;
@@ -133,6 +131,7 @@ namespace Flock.Runtime {
         float patternSphereRadius;
         float patternSphereThickness;
         float patternSphereStrength;
+        uint patternSphereBehaviourMask;
 
         public void Initialize(
             int agentCount,
@@ -152,6 +151,10 @@ namespace Flock.Runtime {
             patternSphereRadius = 0f;
             patternSphereThickness = 0f;
             patternSphereStrength = 0f;
+            patternSphereBehaviourMask = uint.MaxValue; // NEW: by default affect all behaviours
+
+
+            layer3PatternCount = 0;
 
             AllocateAgentArrays(allocator);
             AllocateBehaviourArrays(behaviourSettings, allocator);
@@ -196,6 +199,8 @@ namespace Flock.Runtime {
 
         // File: Assets/Flock/Runtime/FlockSimulation.cs
 
+        // File: Assets/Flock/Runtime/FlockSimulation.cs
+        // FULL ScheduleStepJobs – updated for stacking multiple layer-3 patterns into patternSteering
         public JobHandle ScheduleStepJobs(
             float deltaTime,
             JobHandle inputHandle = default) {
@@ -211,6 +216,14 @@ namespace Flock.Runtime {
 
             // Accumulate simulation time for noise / patterns
             simulationTime += deltaTime;
+
+            // IMPORTANT: clear patternSteering ONCE per frame,
+            // then let all layer-3 jobs accumulate with +=.
+            if (patternSteering.IsCreated) {
+                for (int i = 0; i < AgentCount; i += 1) {
+                    patternSteering[i] = float3.zero;
+                }
+            }
 
             if (!cellToAgents.IsCreated) {
                 FlockLog.Error(
@@ -357,7 +370,7 @@ namespace Flock.Runtime {
                     assignHandle);
             }
 
-            // ---------- NEW: Per-cell group noise field ----------
+            // ---------- Per-cell group noise field ----------
             bool useGroupNoiseField =
                 cellGroupNoise.IsCreated &&
                 gridCellCount > 0 &&
@@ -380,7 +393,7 @@ namespace Flock.Runtime {
                     inputHandle);
             }
 
-            // ---------- NEW: Layer-3 pattern sphere (per-agent) ----------
+            // ---------- Layer-3 pattern sphere (per-agent) ----------
             bool usePatternSphere =
                 patternSteering.IsCreated &&
                 patternSphereRadius > 0f &&
@@ -390,17 +403,20 @@ namespace Flock.Runtime {
 
             if (usePatternSphere) {
                 var patternJob = new PatternSphereJob {
-                    Positions = positions,
-                    PatternSteering = patternSteering,
                     Center = patternSphereCenter,
                     Radius = patternSphereRadius,
                     Thickness = patternSphereThickness,
-                    Strength = patternSphereStrength,
+                    // Strength + arrays + BehaviourMask are set in ScheduleLayer3PatternJob via IFlockLayer3PatternJob
                 };
 
-                patternHandle = patternJob.Schedule(
+                patternHandle = ScheduleLayer3PatternJob(
+                    ref patternJob,
+                    positions,
+                    behaviourIds,
+                    patternSteering,
+                    patternSphereBehaviourMask,
+                    patternSphereStrength,
                     AgentCount,
-                    64,
                     inputHandle);
             }
 
@@ -516,7 +532,7 @@ namespace Flock.Runtime {
                 BehaviourGroupNoiseStrength = behaviourGroupNoiseStrength,
                 BehaviourPatternWeight = behaviourPatternWeight,
 
-                // NEW: direction-change rate + speed influence
+                // Group noise extra
                 BehaviourGroupNoiseDirectionRate = behaviourGroupNoiseDirectionRate,
                 BehaviourGroupNoiseSpeedWeight = behaviourGroupNoiseSpeedWeight,
                 AgentGroupNoiseDir = agentGroupNoiseDir,
@@ -575,6 +591,7 @@ namespace Flock.Runtime {
 
             return integrateHandle;
         }
+
 
         // File: Assets/Flock/Runtime/FlockSimulation.cs
         // FIX 2: dispose bounds + wall arrays to avoid leaks
@@ -696,11 +713,13 @@ namespace Flock.Runtime {
             float3 center,
             float radius,
             float thickness = -1f,
-            float strength = 1f) {
+            float strength = 1f,
+            uint behaviourMask = uint.MaxValue) {
 
             patternSphereCenter = center;
             patternSphereRadius = math.max(0f, radius);
             patternSphereStrength = math.max(0f, strength);
+            patternSphereBehaviourMask = behaviourMask;
 
             if (thickness <= 0f) {
                 patternSphereThickness = patternSphereRadius * 0.25f;
@@ -708,6 +727,28 @@ namespace Flock.Runtime {
                 patternSphereThickness = math.max(0.001f, thickness);
             }
         }
+
+        static JobHandle ScheduleLayer3PatternJob<T>(
+            ref T job,
+            NativeArray<float3> positions,
+            NativeArray<int> behaviourIds,
+            NativeArray<float3> patternSteering,
+            uint behaviourMask,
+            float strength,
+            int agentCount,
+            JobHandle inputHandle)
+            where T : struct, IJobParallelFor, IFlockLayer3PatternJob {
+
+            job.SetCommonData(
+                positions,
+                behaviourIds,
+                patternSteering,
+                behaviourMask,
+                strength);
+
+            return job.Schedule(agentCount, 64, inputHandle);
+        }
+
 
         /// <summary>
         /// Disable the pattern sphere influence completely.

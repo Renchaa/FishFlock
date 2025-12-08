@@ -21,7 +21,7 @@ MonoBehaviour:
   groupNoiseDirectionRate: 1
   groupNoiseSpeedWeight: 0
   patternWeight: 1
-  groupFlowWeight: 1.448
+  groupFlowWeight: 0
   bodyRadius: 0.1
   schoolingSpacingFactor: 1.5
   schoolingOuterFactor: 1.2

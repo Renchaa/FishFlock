@@ -124,8 +124,8 @@ namespace Flock.Runtime {
             Vector3 worldPosition,
             float radius,
             float thickness = -1f,
-            float strength = 1f) {
-
+            float strength = 1f,
+            uint behaviourMask = uint.MaxValue) {
             if (simulation == null || !simulation.IsCreated) {
                 return;
             }
@@ -134,7 +134,74 @@ namespace Flock.Runtime {
                 new float3(worldPosition.x, worldPosition.y, worldPosition.z),
                 radius,
                 thickness,
-                strength);
+                strength,
+                behaviourMask);
+        }
+
+        // 2) ADD THIS OVERLOAD RIGHT AFTER THE ONE ABOVE
+        //    → this is the one you’ll use from gameplay code
+
+        /// <summary>
+        /// Same as SetPatternBubbleCenter(..., behaviourMask) but takes a list of FishTypePreset.
+        /// Controller builds the bitmask based on its own fishTypes array.
+        /// </summary>
+        public void SetPatternBubbleCenter(
+            Vector3 worldPosition,
+            float radius,
+            float thickness,
+            float strength,
+            FishTypePreset[] affectedTypes) {
+            if (simulation == null || !simulation.IsCreated) {
+                return;
+            }
+
+            uint mask = BuildPatternMaskFromTypes(affectedTypes);
+
+            simulation.SetPatternSphereTarget(
+                new float3(worldPosition.x, worldPosition.y, worldPosition.z),
+                radius,
+                thickness,
+                strength,
+                mask);
+        }
+
+        // 3) ADD THIS PRIVATE HELPER SOMEWHERE NEAR ComputeAttractorMask
+
+        uint BuildPatternMaskFromTypes(FishTypePreset[] targetTypes) {
+            if (fishTypes == null || fishTypes.Length == 0) {
+                // No fish types configured → treat as "everyone"
+                return uint.MaxValue;
+            }
+
+            if (targetTypes == null) {
+                // Null → caller didn't try to filter → affect all types
+                return uint.MaxValue;
+            }
+
+            // Empty array → explicit "no behaviours"
+            uint mask = 0u;
+
+            for (int t = 0; t < targetTypes.Length; t += 1) {
+                FishTypePreset target = targetTypes[t];
+                if (target == null) {
+                    continue;
+                }
+
+                for (int i = 0; i < fishTypes.Length && i < 32; i += 1) {
+                    if (fishTypes[i] == target) {
+                        mask |= (1u << i);
+                        break;
+                    }
+                }
+            }
+
+            // Non-empty list but nothing matched → fallback "everyone"
+            if (mask == 0u && targetTypes.Length > 0) {
+                return uint.MaxValue;
+            }
+
+            // Either empty list (mask == 0) or subset bits.
+            return mask;
         }
 
         /// <summary>

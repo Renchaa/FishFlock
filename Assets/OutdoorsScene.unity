@@ -411,7 +411,7 @@ MonoBehaviour:
   baseStrength: 0
   falloffPower: 0.7
   attractedTypes:
-  - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
+  - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
   usage: 1
   cellPriority: 3
 --- !u!23 &235993013
@@ -1748,7 +1748,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1572445300
 Transform:
   m_ObjectHideFlags: 0
@@ -1779,6 +1779,8 @@ MonoBehaviour:
   flock: {fileID: 731534109}
   target: {fileID: 1572445300}
   bubbleRadius: 4
+  bubbleThickness: 1
+  bubbleStrength: 100
 --- !u!135 &1572445302
 SphereCollider:
   m_ObjectHideFlags: 0

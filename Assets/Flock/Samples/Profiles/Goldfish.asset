@@ -15,4 +15,4 @@ MonoBehaviour:
   displayName: Goldfish
   behaviourProfile: {fileID: 11400000, guid: 779c888ac58ed6c47ba9790d09f0028a, type: 2}
   prefab: {fileID: 1072815883396493587, guid: e76bbb7a7acdb2d4e87341115f0eec1b, type: 3}
-  spawnCount: 5000
+  spawnCount: 1000
