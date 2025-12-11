@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d59300b464625d448a9c155b5011f9d, type: 3}
+  m_Name: FlockSetup
+  m_EditorClassIdentifier: 
+  Species:
+  - {fileID: 11400000, guid: f8f2b761d31cbe64cb0044c706d1ced5, type: 2}
+  - {fileID: 0}
+  - {fileID: 0}
+  InteractionMatrix: {fileID: 11400000, guid: f1437cb311dc321438e13eab5952ac74, type: 2}
+  GroupNoiseSettings: {fileID: 11400000, guid: 5db971d17ac9bec4388a58f9b56f0a70, type: 2}
+  PatternAssets: []

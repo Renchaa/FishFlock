@@ -1,5 +1,4 @@
 // File: Assets/Flock/Runtime/FishTypePreset.cs
-
 namespace Flock.Runtime {
     using Flock.Runtime.Data;
     using UnityEngine;
@@ -17,13 +16,9 @@ namespace Flock.Runtime {
         [Header("Visuals")]
         [SerializeField] GameObject prefab;
 
-        [Header("Spawning")]
-        [SerializeField, Min(0)] int spawnCount = 0;
-
         public string DisplayName => displayName;
         public FishBehaviourProfile BehaviourProfile => behaviourProfile;
         public GameObject Prefab => prefab;
-        public int SpawnCount => spawnCount;
 
         public FlockBehaviourSettings ToSettings() {
             return behaviourProfile != null

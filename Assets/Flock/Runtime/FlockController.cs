@@ -14,6 +14,9 @@ namespace Flock.Runtime {
         [Header("Fish Types")]
         [SerializeField] FishTypePreset[] fishTypes;
 
+        [Header("Spawning")]
+        [SerializeField] FlockMainSpawner mainSpawner;
+
         [Header("Group Noise Pattern")]
         [SerializeField] GroupNoisePatternProfile groupNoisePattern;
 
@@ -65,6 +68,7 @@ namespace Flock.Runtime {
 
         public FlockLogLevel EnabledLevels => enabledLogLevels;
         public FlockLogCategory EnabledCategories => enabledLogCategories;
+
 
         FlockSimulation simulation;
         NativeArray<FlockBehaviourSettings> behaviourSettingsArray;
@@ -253,8 +257,6 @@ namespace Flock.Runtime {
                 out compiledAvoidMasks,
                 out compiledNeutralMasks);
 
-            totalAgentCount = 0;
-
             for (int i = 0; i < behaviourCount; i += 1) {
                 FishTypePreset preset = fishTypes[i];
                 if (preset == null) {
@@ -304,63 +306,19 @@ namespace Flock.Runtime {
                     : 0u;
 
                 behaviourSettingsArray[i] = settings;
-
-                int count = Mathf.Max(0, preset.SpawnCount);
-                totalAgentCount += count;
-            }
-
-            if (totalAgentCount <= 0) {
-                FlockLog.Warning(
-                    this,
-                    FlockLogCategory.Controller,
-                    $"TotalAgentCount computed from FishTypes on '{name}' is <= 0. No agents will be spawned.",
-                    this);
-                agentBehaviourIds = null;
-                return;
-            }
-
-            agentBehaviourIds = new int[totalAgentCount];
-            int writeIndex = 0;
-
-            for (int typeIndex = 0; typeIndex < fishTypes.Length; typeIndex += 1) {
-                FishTypePreset preset = fishTypes[typeIndex];
-                if (preset == null) {
-                    continue;
-                }
-
-                int count = Mathf.Max(0, preset.SpawnCount);
-                for (int j = 0; j < count && writeIndex < totalAgentCount; j += 1) {
-                    agentBehaviourIds[writeIndex] = typeIndex;
-                    writeIndex += 1;
-                }
-            }
-
-            if (writeIndex < totalAgentCount) {
-                int lastType = Mathf.Clamp(fishTypes.Length - 1, 0, fishTypes.Length - 1);
-                for (; writeIndex < totalAgentCount; writeIndex += 1) {
-                    agentBehaviourIds[writeIndex] = lastType;
-                }
             }
 
             FlockLog.Info(
                 this,
                 FlockLogCategory.Controller,
-                $"Created behaviour settings for {behaviourCount} fish types and planned {totalAgentCount} agents on '{name}'.",
+                $"Created behaviour settings for {behaviourCount} fish types on '{name}'.",
                 this);
         }
 
         // REPLACE CreateSimulation IN FlockController.cs
+        // REPLACE CreateSimulation IN FlockController.cs
         void CreateSimulation() {
             CreateBehaviourSettingsArray();
-
-            if (agentBehaviourIds == null || agentBehaviourIds.Length == 0) {
-                FlockLog.Warning(
-                    this,
-                    FlockLogCategory.Controller,
-                    $"CreateSimulation on '{name}' aborted: no agents planned from FishTypes.",
-                    this);
-                return;
-            }
 
             if (!behaviourSettingsArray.IsCreated || behaviourSettingsArray.Length == 0) {
                 FlockLog.Error(
@@ -370,6 +328,29 @@ namespace Flock.Runtime {
                     this);
                 return;
             }
+
+            if (mainSpawner == null) {
+                FlockLog.Error(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"FlockController '{name}' has no FlockMainSpawner assigned.",
+                    this);
+                return;
+            }
+
+            // Build agent behaviour IDs from spawner (all counts live there now)
+            agentBehaviourIds = mainSpawner.BuildAgentBehaviourIds(fishTypes);
+
+            if (agentBehaviourIds == null || agentBehaviourIds.Length == 0) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"CreateSimulation on '{name}' aborted: spawner returned no agents.",
+                    this);
+                return;
+            }
+
+            totalAgentCount = agentBehaviourIds.Length;
 
             FlockEnvironmentData environmentData = BuildEnvironmentData();
             FlockObstacleData[] obstacleData = BuildObstacleData();
@@ -387,6 +368,13 @@ namespace Flock.Runtime {
                 this);
 
             simulation.SetAgentBehaviourIds(agentBehaviourIds);
+
+            // Let the spawner write initial positions into the simulation
+            mainSpawner.AssignInitialPositions(
+                environmentData,
+                fishTypes,
+                agentBehaviourIds,
+                simulation.Positions);
 
             FlockLog.Info(
                 this,

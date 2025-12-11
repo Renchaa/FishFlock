@@ -23,7 +23,7 @@ MonoBehaviour:
   vortexCenterNorm: {x: 0.5, y: 0.5, z: 0.5}
   vortexRadius: 0
   vortexTightness: 0
-  sphereRadius: 5
+  sphereRadius: 2
   sphereThickness: 0.1
-  sphereSwirlStrength: 10
+  sphereSwirlStrength: 100
   sphereCenterNorm: {x: 0.5, y: 0.5, z: 0.5}
