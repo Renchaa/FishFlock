@@ -18,21 +18,21 @@ namespace Flock.Runtime {
 
         [System.Serializable]
         public struct TypeCountEntry {
-            public FishTypePreset preset;
+            public FishTypePreset preset;   // visible, selectable in inspector
             [Min(0)] public int count;
         }
 
         [System.Serializable]
         public sealed class PointSpawnConfig {
             public FlockSpawnPoint point;
-            public TypeCountEntry[] types;
+            public TypeCountEntry[] types;  // visible list of (preset + count)
         }
 
         [System.Serializable]
         public sealed class SeedSpawnConfig {
             [Tooltip("Base seed for this global scatter batch. 0 will be remapped to a non-zero seed.")]
             public uint seed;
-            public TypeCountEntry[] types;
+            public TypeCountEntry[] types;  // visible list of (preset + count)
         }
 
         [Header("Point Spawns (spawn in regions)")]

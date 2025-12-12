@@ -1268,8 +1268,7 @@ MonoBehaviour:
   fishTypes:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
-  - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
-  mainSpawner: {fileID: 745878724}
+  mainSpawner: {fileID: 0}
   groupNoisePattern: {fileID: 11400000, guid: 5db971d17ac9bec4388a58f9b56f0a70, type: 2}
   boundsCenter: {x: 50, y: 11, z: 55}
   boundsExtents: {x: 31, y: 11, z: 25}
@@ -1503,16 +1502,10 @@ MonoBehaviour:
   - point: {fileID: 2685116}
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 1000
-    - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
-      count: 1
-  - point: {fileID: 499848434}
-    types:
-    - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
-      count: 10
-  seedSpawns:
-  - seed: 0
-    types: []
+      count: 0
+    - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
+      count: 0
+  seedSpawns: []
   globalSeed: 1
 --- !u!1 &1363958399
 GameObject:

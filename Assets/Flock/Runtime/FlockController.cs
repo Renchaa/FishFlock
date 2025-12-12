@@ -11,7 +11,7 @@ namespace Flock.Runtime {
     public sealed class FlockController : MonoBehaviour, IFlockLogger {
 
 
-        [Header("Fish Types")]
+        [Header("Fish Types"),HideInInspector]
         [SerializeField] FishTypePreset[] fishTypes;
 
         [Header("Spawning")]
@@ -68,7 +68,8 @@ namespace Flock.Runtime {
 
         public FlockLogLevel EnabledLevels => enabledLogLevels;
         public FlockLogCategory EnabledCategories => enabledLogCategories;
-
+        public FishTypePreset[] FishTypes => fishTypes;
+        public FlockMainSpawner MainSpawner => mainSpawner;
 
         FlockSimulation simulation;
         NativeArray<FlockBehaviourSettings> behaviourSettingsArray;

@@ -165,8 +165,6 @@ namespace Flock.Runtime {
         [SerializeField, Range(0f, 0.5f)]
         float preferredDepthEdgeFraction = 0.25f;
 
-
-
         // File: Assets/Flock/Runtime/FishBehaviourProfile.cs
         // File: Assets/Flock/Runtime/FishBehaviourProfile.cs
         // UPDATED ToSettings – now correctly wires preferred-depth settings

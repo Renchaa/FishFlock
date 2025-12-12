@@ -1,4 +1,4 @@
-// ==========================================
+﻿// ==========================================
 // FishInteractionMatrix.cs (Runtime)
 // ==========================================
 namespace Flock.Runtime {
@@ -325,6 +325,143 @@ namespace Flock.Runtime {
             neutralWeights[typeIndex] = Mathf.Max(0f, weight);
         }
 
+        // Drive matrix fishTypes from an external list (e.g. FlockSetup.Species.TypePreset).
+        // Preserves data by matching FishTypePreset references where possible.
+        public void SyncFishTypesFrom(FishTypePreset[] newFishTypes) {
+            if (newFishTypes == null) {
+                newFishTypes = Array.Empty<FishTypePreset>();
+            }
+
+            FishTypePreset[] oldTypes = fishTypes ?? Array.Empty<FishTypePreset>();
+            int oldTypeCount = oldTypes.Length;
+
+            bool[] oldFlags = interactionFlags;
+            FishRelationType[] oldRelations = relationTypes;
+            float[] oldLeadership = leadershipWeights;
+            float[] oldAvoidance = avoidanceWeights;
+            float[] oldNeutral = neutralWeights;
+
+            int oldMatrixN = 0;
+            if (oldFlags != null && oldFlags.Length > 0) {
+                oldMatrixN = Mathf.RoundToInt(Mathf.Sqrt(oldFlags.Length));
+            } else if (oldRelations != null && oldRelations.Length > 0) {
+                oldMatrixN = Mathf.RoundToInt(Mathf.Sqrt(oldRelations.Length));
+            }
+
+            int newN = newFishTypes.Length;
+            int newMatrixSize = newN * newN;
+
+            bool[] newFlags = newN > 0 ? new bool[newMatrixSize] : Array.Empty<bool>();
+            FishRelationType[] newRelations =
+                newN > 0 ? new FishRelationType[newMatrixSize] : Array.Empty<FishRelationType>();
+
+            float[] newLeadership = newN > 0 ? new float[newN] : Array.Empty<float>();
+            float[] newAvoidance = newN > 0 ? new float[newN] : Array.Empty<float>();
+            float[] newNeutral = newN > 0 ? new float[newN] : Array.Empty<float>();
+
+            // newIndex -> oldIndex mapping by preset reference
+            int[] newToOld = new int[newN];
+
+            for (int i = 0; i < newN; i++) {
+                FishTypePreset preset = newFishTypes[i];
+                int oldIndex = -1;
+
+                if (preset != null && oldTypeCount > 0) {
+                    for (int j = 0; j < oldTypeCount; j++) {
+                        if (oldTypes[j] == preset) {
+                            oldIndex = j;
+                            break;
+                        }
+                    }
+                }
+
+                newToOld[i] = oldIndex;
+
+                float leader = defaultLeadershipWeight;
+                float avoid = defaultAvoidanceWeight;
+                float neutral = defaultNeutralWeight;
+
+                if (oldIndex >= 0) {
+                    if (oldLeadership != null &&
+                        oldIndex < oldLeadership.Length &&
+                        oldLeadership[oldIndex] > 0f) {
+                        leader = oldLeadership[oldIndex];
+                    }
+
+                    if (oldAvoidance != null &&
+                        oldIndex < oldAvoidance.Length &&
+                        oldAvoidance[oldIndex] > 0f) {
+                        avoid = oldAvoidance[oldIndex];
+                    }
+
+                    if (oldNeutral != null &&
+                        oldIndex < oldNeutral.Length &&
+                        oldNeutral[oldIndex] > 0f) {
+                        neutral = oldNeutral[oldIndex];
+                    }
+                }
+
+                newLeadership[i] = leader;
+                newAvoidance[i] = avoid;
+                newNeutral[i] = neutral;
+            }
+
+            // Matrix copy
+            for (int a = 0; a < newN; a++) {
+                int oldA = newToOld[a];
+
+                for (int b = 0; b < newN; b++) {
+                    int oldB = newToOld[b];
+                    int newIdx = a * newN + b;
+
+                    if (oldA >= 0 && oldB >= 0 && oldMatrixN > 0) {
+                        int oldIdx = oldA * oldMatrixN + oldB;
+
+                        if (oldFlags != null &&
+                            oldIdx >= 0 &&
+                            oldIdx < oldFlags.Length) {
+                            newFlags[newIdx] = oldFlags[oldIdx];
+                        } else {
+                            newFlags[newIdx] = false;
+                        }
+
+                        if (oldRelations != null &&
+                            oldIdx >= 0 &&
+                            oldIdx < oldRelations.Length) {
+                            newRelations[newIdx] = oldRelations[oldIdx];
+                        } else {
+                            newRelations[newIdx] = FishRelationType.Neutral;
+                        }
+                    } else {
+                        newFlags[newIdx] = false;
+                        newRelations[newIdx] = FishRelationType.Neutral;
+                    }
+                }
+            }
+
+            // Commit
+            fishTypes = (FishTypePreset[])newFishTypes.Clone();
+            interactionFlags = newFlags;
+            relationTypes = newRelations;
+            leadershipWeights = newLeadership;
+            avoidanceWeights = newAvoidance;
+            neutralWeights = newNeutral;
+
+            int n = Count;
+            for (int i = 0; i < n; i++) {
+                if (leadershipWeights[i] <= 0f) {
+                    leadershipWeights[i] = defaultLeadershipWeight;
+                }
+
+                if (avoidanceWeights[i] <= 0f) {
+                    avoidanceWeights[i] = defaultAvoidanceWeight;
+                }
+
+                if (neutralWeights[i] <= 0f) {
+                    neutralWeights[i] = defaultNeutralWeight;
+                }
+            }
+        }
 
 #if UNITY_EDITOR
         void OnValidate() {

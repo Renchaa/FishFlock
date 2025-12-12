@@ -12,10 +12,10 @@ namespace Flock.Runtime {
         menuName = "Flock/Flock Setup",
         order = 0)]
     public sealed class FlockSetup : ScriptableObject {
-        [Header("Species / Behaviour Profiles")]
-        [Tooltip("All fish behaviour profiles used by this flock setup. " +
-                 "Index here should match behaviour indices in your runtime arrays.")]
-        public List<FishBehaviourProfile> Species = new();
+        [Header("Fish Types / Presets")]
+        [Tooltip("Canonical list of FishTypePreset assets used by this setup. " +
+                 "Index here defines behaviour ids for controller, matrix, spawner, etc.")]
+        public List<FishTypePreset> FishTypes = new();
 
         [Header("Interaction / Relationships (Phase 2)")]
         [Tooltip("Interaction matrix asset (avoid / neutral / attract, leadership, etc.).")]
