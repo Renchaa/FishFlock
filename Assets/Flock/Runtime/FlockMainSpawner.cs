@@ -25,13 +25,24 @@ namespace Flock.Runtime {
         [System.Serializable]
         public sealed class PointSpawnConfig {
             public FlockSpawnPoint point;
+
+            [Tooltip("If enabled, overrides the global seed for this point spawn.")]
+            public bool useSeed;
+
+            [Tooltip("Explicit seed for this point spawn. Ignored when Use Seed is disabled or seed is 0.")]
+            public uint seed;
+
             public TypeCountEntry[] types;  // visible list of (preset + count)
         }
 
         [System.Serializable]
         public sealed class SeedSpawnConfig {
-            [Tooltip("Base seed for this global scatter batch. 0 will be remapped to a non-zero seed.")]
+            [Tooltip("If enabled, overrides the global seed for this scatter batch.")]
+            public bool useSeed;
+
+            [Tooltip("Base seed for this global scatter batch. When Use Seed is disabled or seed is 0, a seed is derived from the Global Seed.")]
             public uint seed;
+
             public TypeCountEntry[] types;  // visible list of (preset + count)
         }
 
@@ -255,9 +266,17 @@ namespace Flock.Runtime {
                         continue;
                     }
 
-                    // Derive a stable per-config seed from globalSeed + index
-                    uint seed = DeriveSeed(globalSeed, (uint)(cfgIndex + 1), 0x9E3779B9u);
+                    // Seed: explicit when UseSeed is enabled, otherwise derive from globalSeed
+                    uint seed = (cfg.useSeed && cfg.seed != 0u)
+                        ? cfg.seed
+                        : DeriveSeed(globalSeed, (uint)(cfgIndex + 1), 0x9E3779B9u);
+
+                    if (seed == 0u) {
+                        seed = 1u; // Random cannot take 0
+                    }
+
                     Random rng = new Random(seed);
+
 
                     for (int t = 0; t < cfg.types.Length; t += 1) {
                         TypeCountEntry entry = cfg.types[t];
@@ -305,7 +324,7 @@ namespace Flock.Runtime {
                         continue;
                     }
 
-                    uint baseSeed = cfg.seed != 0u
+                    uint baseSeed = (cfg.useSeed && cfg.seed != 0u)
                         ? cfg.seed
                         : DeriveSeed(globalSeed, (uint)(cfgIndex + 1), 0xBB67AE85u);
 

@@ -1268,7 +1268,7 @@ MonoBehaviour:
   fishTypes:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
-  mainSpawner: {fileID: 0}
+  mainSpawner: {fileID: 745878724}
   groupNoisePattern: {fileID: 11400000, guid: 5db971d17ac9bec4388a58f9b56f0a70, type: 2}
   boundsCenter: {x: 50, y: 11, z: 55}
   boundsExtents: {x: 31, y: 11, z: 25}
@@ -1500,11 +1500,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   pointSpawns:
   - point: {fileID: 2685116}
+    useSeed: 0
+    seed: 0
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 0
-    - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 0
+      count: 500
+  - point: {fileID: 2685116}
+    useSeed: 0
+    seed: 0
+    types: []
   seedSpawns: []
   globalSeed: 1
 --- !u!1 &1363958399

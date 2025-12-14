@@ -46,7 +46,7 @@ namespace Flock.Runtime {
         [SerializeField] float sphereRadius = 8.0f;
         [SerializeField] float sphereThickness = 2.0f;
         [SerializeField] float sphereSwirlStrength = 1.0f;
-        [SerializeField, Range(0f, 1f)]
+        [SerializeField]
         Vector3 sphereCenterNorm = new Vector3(0.5f, 0.5f, 0.5f);
 
         public FlockGroupNoisePatternSettings ToSettings() {

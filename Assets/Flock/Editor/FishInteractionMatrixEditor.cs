@@ -26,6 +26,14 @@ namespace Flock.Editor {
         // NEW: which fish row is currently selected in the relations panel
         int selectedFishIndex = -1;
 
+        // Section foldout states
+        bool typesExpanded = true;
+        bool matrixExpanded = true;
+        bool relationsExpanded = true;
+        bool leadershipExpanded = true;
+        bool avoidanceExpanded = false; // usually less-used → start collapsed
+        bool neutralExpanded = false;
+
         void OnEnable() {
             matrix = (FishInteractionMatrix)target;
 
@@ -57,39 +65,70 @@ namespace Flock.Editor {
 
             serializedObject.Update();
 
-            SerializedProperty fishTypesProp = serializedObject.FindProperty("fishTypes");
-            EditorGUILayout.PropertyField(fishTypesProp, new GUIContent("Fish Types"), true);
+            // ------------------------------------------------------------------
+            // Fish types + default weights
+            // ------------------------------------------------------------------
+            if (FlockEditorGUI.BeginSection("Fish Types & Defaults", ref typesExpanded)) {
+                SerializedProperty fishTypesProp = serializedObject.FindProperty("fishTypes");
+                EditorGUILayout.PropertyField(fishTypesProp, new GUIContent("Fish Types"), true);
 
-            SerializedProperty defaultLeaderProp =
-                serializedObject.FindProperty("defaultLeadershipWeight");
-            EditorGUILayout.PropertyField(defaultLeaderProp, new GUIContent("Default Leadership Weight"));
+                SerializedProperty defaultLeaderProp =
+                    serializedObject.FindProperty("defaultLeadershipWeight");
+                EditorGUILayout.PropertyField(defaultLeaderProp, new GUIContent("Default Leadership Weight"));
 
-            SerializedProperty defaultAvoidProp =
-                serializedObject.FindProperty("defaultAvoidanceWeight");
-            EditorGUILayout.PropertyField(defaultAvoidProp, new GUIContent("Default Avoidance Weight"));
+                SerializedProperty defaultAvoidProp =
+                    serializedObject.FindProperty("defaultAvoidanceWeight");
+                EditorGUILayout.PropertyField(defaultAvoidProp, new GUIContent("Default Avoidance Weight"));
 
-            SerializedProperty defaultNeutralProp =
-                 serializedObject.FindProperty("defaultNeutralWeight");
-            EditorGUILayout.PropertyField(defaultNeutralProp, new GUIContent("Default Neutral Weight"));
+                SerializedProperty defaultNeutralProp =
+                     serializedObject.FindProperty("defaultNeutralWeight");
+                EditorGUILayout.PropertyField(defaultNeutralProp, new GUIContent("Default Neutral Weight"));
+
+                FlockEditorGUI.EndSection();
+            }
 
             serializedObject.ApplyModifiedProperties();
-
             matrix.SyncSizeWithFishTypes();
 
-            EditorGUILayout.Space(8f);
-            DrawInteractionMatrix();
+            EditorGUILayout.Space(4f);
 
-            EditorGUILayout.Space(6f);
-            DrawRelationsInspector();
+            // ------------------------------------------------------------------
+            // Matrix
+            // ------------------------------------------------------------------
+            if (FlockEditorGUI.BeginSection("Interaction Matrix", ref matrixExpanded)) {
+                DrawInteractionMatrix();
+                FlockEditorGUI.EndSection();
+            }
 
-            EditorGUILayout.Space(8f);
-            DrawLeadershipWeights();
+            EditorGUILayout.Space(2f);
 
-            EditorGUILayout.Space(8f);
-            DrawAvoidanceWeights();
+            // ------------------------------------------------------------------
+            // Relationships
+            // ------------------------------------------------------------------
+            if (FlockEditorGUI.BeginSection("Relationships", ref relationsExpanded)) {
+                DrawRelationsInspector();
+                FlockEditorGUI.EndSection();
+            }
 
-            EditorGUILayout.Space(8f);
-            DrawNeutralWeights();
+            EditorGUILayout.Space(2f);
+
+            // ------------------------------------------------------------------
+            // Weights
+            // ------------------------------------------------------------------
+            if (FlockEditorGUI.BeginSection("Leadership Weights", ref leadershipExpanded)) {
+                DrawLeadershipWeights();
+                FlockEditorGUI.EndSection();
+            }
+
+            if (FlockEditorGUI.BeginSection("Avoidance Weights", ref avoidanceExpanded)) {
+                DrawAvoidanceWeights();
+                FlockEditorGUI.EndSection();
+            }
+
+            if (FlockEditorGUI.BeginSection("Neutral Weights", ref neutralExpanded)) {
+                DrawNeutralWeights();
+                FlockEditorGUI.EndSection();
+            }
         }
 
         // ===== existing matrix drawing (unchanged) =====
@@ -103,8 +142,6 @@ namespace Flock.Editor {
                     MessageType.Info);
                 return;
             }
-
-            EditorGUILayout.LabelField("Interaction Matrix", EditorStyles.boldLabel);
 
             // column headers
             EditorGUILayout.BeginHorizontal();
@@ -165,9 +202,6 @@ namespace Flock.Editor {
             if (count == 0 || types == null) {
                 return;
             }
-
-            EditorGUILayout.LabelField("Relationships", EditorStyles.boldLabel);
-
             // build popup list for selecting which fish row we are editing
             string[] names = new string[count];
             for (int i = 0; i < count; i++) {
@@ -257,7 +291,6 @@ namespace Flock.Editor {
                 return;
             }
 
-            EditorGUILayout.LabelField("Leadership Weights", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
 
             for (int i = 0; i < count; i++) {
@@ -285,7 +318,6 @@ namespace Flock.Editor {
                 return;
             }
 
-            EditorGUILayout.LabelField("Avoidance Weights", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
 
             for (int i = 0; i < count; i++) {
@@ -312,7 +344,6 @@ namespace Flock.Editor {
                 return;
             }
 
-            EditorGUILayout.LabelField("Neutral Weights", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
 
             for (int i = 0; i < count; i++) {

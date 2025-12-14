@@ -15,14 +15,20 @@ namespace Flock.Editor {
         [SerializeField] private FlockSetup _setup;
         [SerializeField] private int _selectedTab = 0; // 0 = Species, 1 = Interactions, 2 = Noise/Patterns
         [SerializeField] private FlockController sceneController;
+        [SerializeField] private int _selectedSpeciesIndex = -1;
+        [SerializeField] private int _speciesInspectorMode = 0;
+        [SerializeField] private int _selectedNoiseIndex = -1; // -1 = Group Noise Pattern, >=0 = PatternAssets[i]
 
         private Vector2 _speciesListScroll;
         private Vector2 _detailScroll;
+        private Vector2 _noiseListScroll;
+        private Vector2 _noiseDetailScroll;
         private Vector2 _interactionsScroll;
-        private int _selectedSpeciesIndex = -1;
 
-        private UnityEditor.Editor _speciesEditor;
+        private UnityEditor.Editor _presetEditor;      // FishTypePreset inspector
+        private UnityEditor.Editor _behaviourEditor;   // FishBehaviourProfile inspector
         private UnityEditor.Editor _interactionMatrixEditor;
+        private UnityEditor.Editor _patternAssetEditor; 
         UnityEditor.Editor groupNoiseEditor;
 
         FishInteractionMatrix cachedMatrix;
@@ -66,7 +72,10 @@ namespace Flock.Editor {
                     break;
 
                 case 2: // Noise / Patterns (Phase 3)
-                    DrawNoisePatternsPanel();
+                    using (new EditorGUILayout.HorizontalScope()) {
+                        DrawNoiseListPanel();
+                        DrawNoiseDetailPanel();
+                    }
                     break;
 
                 case 3: // Scene / Simulation (Phase 4 wiring)
@@ -357,10 +366,12 @@ namespace Flock.Editor {
                 false);
             if (EditorGUI.EndChangeCheck()) {
                 _selectedSpeciesIndex = -1;
+                _selectedNoiseIndex = -1; // reset noise selection
                 _selectedTab = 0;
                 DestroySpeciesEditor();
                 DestroyInteractionMatrixEditor();
                 DestroyGroupNoiseEditor();
+                DestroyPatternAssetEditor(); // also clear pattern inspector
             }
 
             using (new EditorGUILayout.HorizontalScope()) {
@@ -394,12 +405,16 @@ namespace Flock.Editor {
             AssetDatabase.Refresh();
 
             _setup = asset;
+            _setup.PatternAssets = new List<ScriptableObject>(); // ensure list exists
+            _selectedNoiseIndex = -1;
+            EditorUtility.SetDirty(_setup);
             _selectedSpeciesIndex = -1;
             _selectedTab = 0;
 
             DestroySpeciesEditor();
             DestroyInteractionMatrixEditor();
             DestroyGroupNoiseEditor();
+            DestroyPatternAssetEditor();
 
             EditorGUIUtility.PingObject(asset);
         }
@@ -550,14 +565,73 @@ namespace Flock.Editor {
                     return;
                 }
 
-                if (_speciesEditor == null || _speciesEditor.target != preset) {
+                // Ensure editors are up-to-date with current preset + behaviour
+                bool needRebuild = false;
+
+                if (_presetEditor == null || _presetEditor.target != preset) {
+                    needRebuild = true;
+                } else {
+                    var profile = preset.BehaviourProfile;
+                    if (profile == null) {
+                        if (_behaviourEditor != null && _behaviourEditor.target != null) {
+                            needRebuild = true;
+                        }
+                    } else {
+                        if (_behaviourEditor == null || _behaviourEditor.target != profile) {
+                            needRebuild = true;
+                        }
+                    }
+                }
+
+                if (needRebuild) {
                     RebuildSpeciesEditor();
                 }
 
+                // -----------------------------------------------------------------
+                // Toggle which inspector we are looking at: Preset vs Behaviour
+                // -----------------------------------------------------------------
+                var behaviourProfile = preset.BehaviourProfile;
+
+                EditorGUILayout.Space();
+
+                using (new EditorGUILayout.HorizontalScope()) {
+                    GUILayout.FlexibleSpace();
+
+                    string[] modeLabels = { "Preset", "Behaviour" };
+                    _speciesInspectorMode = Mathf.Clamp(_speciesInspectorMode, 0, 1);
+                    _speciesInspectorMode = GUILayout.Toolbar(
+                        _speciesInspectorMode,
+                        modeLabels,
+                        GUILayout.Width(200f));
+
+                    // If there is no behaviour profile, force back to Preset view
+                    if (behaviourProfile == null && _speciesInspectorMode == 1) {
+                        _speciesInspectorMode = 0;
+                    }
+                }
+
+                EditorGUILayout.Space();
+
+                // -----------------------------------------------------------------
+                // Actual inspector content
+                // -----------------------------------------------------------------
                 _detailScroll = EditorGUILayout.BeginScrollView(_detailScroll);
 
-                if (_speciesEditor != null) {
-                    _speciesEditor.OnInspectorGUI();
+                if (_speciesInspectorMode == 0) {
+                    // FishTypePreset inspector
+                    if (_presetEditor != null) {
+                        _presetEditor.OnInspectorGUI();
+                    }
+                } else {
+                    // FishBehaviourProfile inspector
+                    if (behaviourProfile == null) {
+                        EditorGUILayout.HelpBox(
+                            "This FishTypePreset has no BehaviourProfile assigned.\n" +
+                            "Assign one in the Preset view first.",
+                            MessageType.Info);
+                    } else if (_behaviourEditor != null) {
+                        _behaviourEditor.OnInspectorGUI();
+                    }
                 }
 
                 EditorGUILayout.EndScrollView();
@@ -582,7 +656,9 @@ namespace Flock.Editor {
             _setup.GroupNoiseSettings = asset;
             EditorUtility.SetDirty(_setup);
 
-            RebuildGroupNoiseEditor();
+            _selectedNoiseIndex = -1;       // select the main pattern
+            RebuildNoiseEditors();
+
             EditorGUIUtility.PingObject(asset);
         }
 
@@ -645,7 +721,6 @@ namespace Flock.Editor {
             }
         }
 
-
         private void RebuildSpeciesEditor() {
             DestroySpeciesEditor();
 
@@ -657,17 +732,29 @@ namespace Flock.Editor {
             }
 
             var preset = _setup.FishTypes[_selectedSpeciesIndex];
-            if (preset == null)
+            if (preset == null) {
                 return;
+            }
 
-            // We inspect the FishTypePreset – it exposes BehaviourProfile + Prefab
-            _speciesEditor = UnityEditor.Editor.CreateEditor(preset);
+            // Main: FishTypePreset inspector
+            _presetEditor = UnityEditor.Editor.CreateEditor(preset);
+
+            // Secondary: BehaviourProfile inspector (optional)
+            var profile = preset.BehaviourProfile;
+            if (profile != null) {
+                _behaviourEditor = UnityEditor.Editor.CreateEditor(profile);
+            }
         }
 
         private void DestroySpeciesEditor() {
-            if (_speciesEditor != null) {
-                DestroyImmediate(_speciesEditor);
-                _speciesEditor = null;
+            if (_presetEditor != null) {
+                DestroyImmediate(_presetEditor);
+                _presetEditor = null;
+            }
+
+            if (_behaviourEditor != null) {
+                DestroyImmediate(_behaviourEditor);
+                _behaviourEditor = null;
             }
         }
 
@@ -675,101 +762,177 @@ namespace Flock.Editor {
             DestroySpeciesEditor();
             DestroyInteractionMatrixEditor();
             DestroyGroupNoiseEditor();
+            DestroyPatternAssetEditor();    // add this line
             DestroySceneControllerEditor();
         }
 
-        private void DrawNoisePatternsPanel() {
-            EditorGUILayout.LabelField("Noise & Patterns", EditorStyles.boldLabel);
-            EditorGUILayout.Space();
+        // LEFT COLUMN: group pattern + pattern asset list
+        // LEFT COLUMN: group pattern + pattern asset list
+        // LEFT COLUMN: group pattern + pattern asset list
+        void DrawNoiseListPanel() {
+            using (new EditorGUILayout.VerticalScope(GUILayout.Width(320f))) {
+                _noiseListScroll = EditorGUILayout.BeginScrollView(_noiseListScroll);
 
-            // ------------------------------------------------------------
-            // Group noise pattern profile (strongly typed)
-            // ------------------------------------------------------------
-            EditorGUILayout.LabelField("Group Noise Pattern", EditorStyles.miniBoldLabel);
+                // ---------------- Group Noise Pattern ----------------
+                EditorGUILayout.LabelField("Group Noise Pattern", EditorStyles.boldLabel);
 
-            GroupNoisePatternProfile currentProfile =
-                _setup.GroupNoiseSettings as GroupNoisePatternProfile;
+                GroupNoisePatternProfile currentProfile =
+                    _setup.GroupNoiseSettings as GroupNoisePatternProfile;
 
-            EditorGUI.BeginChangeCheck();
-            currentProfile = (GroupNoisePatternProfile)EditorGUILayout.ObjectField(
-                "Profile Asset",
-                currentProfile,
-                typeof(GroupNoisePatternProfile),
-                false);
-            if (EditorGUI.EndChangeCheck()) {
-                _setup.GroupNoiseSettings = currentProfile;
-                EditorUtility.SetDirty(_setup);
-                RebuildGroupNoiseEditor();
-            }
-
-            using (new EditorGUILayout.HorizontalScope()) {
-                using (new EditorGUI.DisabledScope(_setup == null)) {
-                    if (GUILayout.Button("Create Pattern Asset", GUILayout.Width(160f))) {
-                        CreateGroupNoisePatternAsset();
-                    }
-                }
-
-                using (new EditorGUI.DisabledScope(currentProfile == null)) {
-                    if (GUILayout.Button("Ping", GUILayout.Width(60f))) {
-                        EditorGUIUtility.PingObject(currentProfile);
-                    }
-                }
-            }
-
-            if (currentProfile == null) {
-                EditorGUILayout.HelpBox(
-                    "Assign or create a GroupNoisePatternProfile asset.\n" +
-                    "This drives the per-cell group noise field used by the simulation.",
-                    MessageType.Info);
-            } else {
-                if (groupNoiseEditor == null || groupNoiseEditor.target != currentProfile) {
-                    RebuildGroupNoiseEditor();
-                }
-
-                EditorGUILayout.Space();
-                EditorGUILayout.LabelField("Profile Settings", EditorStyles.miniBoldLabel);
-
-                EditorGUI.indentLevel++;
-                if (groupNoiseEditor != null) {
-                    groupNoiseEditor.OnInspectorGUI();
-                }
-                EditorGUI.indentLevel--;
-            }
-
-            EditorGUILayout.Space();
-
-            // ------------------------------------------------------------
-            // Generic pattern assets list for future layer-3 patterns
-            // ------------------------------------------------------------
-            EditorGUILayout.LabelField("Pattern Assets", EditorStyles.miniBoldLabel);
-
-            if (_setup.PatternAssets == null) {
-                _setup.PatternAssets = new List<ScriptableObject>();
-            }
-
-            int removeIndex = -1;
-            for (int i = 0; i < _setup.PatternAssets.Count; i++) {
                 using (new EditorGUILayout.HorizontalScope()) {
-                    _setup.PatternAssets[i] = (ScriptableObject)EditorGUILayout.ObjectField(
-                        $"Pattern {i}",
-                        _setup.PatternAssets[i],
-                        typeof(ScriptableObject),
-                        false);
+                    // Select row
+                    GUIStyle selectStyle = (_selectedNoiseIndex == -1)
+                        ? EditorStyles.miniButtonMid
+                        : EditorStyles.miniButton;
 
-                    if (GUILayout.Button("X", GUILayout.Width(20f))) {
-                        removeIndex = i;
+                    string label = currentProfile != null ? currentProfile.name : "<None>";
+                    if (GUILayout.Button(label, selectStyle, GUILayout.Width(130f))) {
+                        _selectedNoiseIndex = -1;
+                        RebuildNoiseEditors();
+                    }
+
+                    // Asset field (leave room for built-in object field "X")
+                    EditorGUI.BeginChangeCheck();
+                    currentProfile = (GroupNoisePatternProfile)EditorGUILayout.ObjectField(
+                        GUIContent.none,
+                        currentProfile,
+                        typeof(GroupNoisePatternProfile),
+                        false,
+                        GUILayout.Width(170f)); // 130 + 170 = 300 < 320 incl. padding
+                    if (EditorGUI.EndChangeCheck()) {
+                        _setup.GroupNoiseSettings = currentProfile;
+                        EditorUtility.SetDirty(_setup);
+                        RebuildNoiseEditors();
+                    }
+                }
+
+                EditorGUILayout.Space(8f);
+
+                // ---------------- Pattern Assets list ----------------
+                EditorGUILayout.LabelField("Pattern Assets", EditorStyles.boldLabel);
+
+                if (_setup.PatternAssets == null) {
+                    _setup.PatternAssets = new List<ScriptableObject>();
+                    EditorUtility.SetDirty(_setup);
+                }
+
+                var patterns = _setup.PatternAssets;
+                int removeIndex = -1;
+
+                for (int i = 0; i < patterns.Count; i++) {
+                    using (new EditorGUILayout.HorizontalScope()) {
+                        ScriptableObject asset = patterns[i];
+
+                        GUIStyle rowStyle = (_selectedNoiseIndex == i)
+                            ? EditorStyles.miniButtonMid
+                            : EditorStyles.miniButton;
+
+                        string name = asset != null ? asset.name : "<Empty Slot>";
+                        if (GUILayout.Button(name, rowStyle, GUILayout.Width(130f))) {
+                            _selectedNoiseIndex = i;
+                            RebuildNoiseEditors();
+                        }
+
+                        EditorGUI.BeginChangeCheck();
+                        asset = (ScriptableObject)EditorGUILayout.ObjectField(
+                            GUIContent.none,
+                            asset,
+                            typeof(ScriptableObject),
+                            false,
+                            GUILayout.Width(150f)); // 130 + 150 + 20 = 300
+                        if (EditorGUI.EndChangeCheck()) {
+                            patterns[i] = asset;
+                            EditorUtility.SetDirty(_setup);
+                            if (_selectedNoiseIndex == i) {
+                                RebuildNoiseEditors();
+                            }
+                        }
+
+                        if (GUILayout.Button("X", EditorStyles.miniButton, GUILayout.Width(20f))) {
+                            removeIndex = i;
+                        }
+                    }
+                }
+
+                if (removeIndex >= 0 && removeIndex < patterns.Count) {
+                    patterns.RemoveAt(removeIndex);
+                    EditorUtility.SetDirty(_setup);
+
+                    if (_selectedNoiseIndex == removeIndex) {
+                        _selectedNoiseIndex = -1;
+                        RebuildNoiseEditors();
+                    } else if (_selectedNoiseIndex > removeIndex) {
+                        _selectedNoiseIndex--;
+                    }
+                }
+
+                EditorGUILayout.EndScrollView();
+
+                EditorGUILayout.Space(2f);
+
+                // Bottom buttons – same idea as Species tab:
+                using (new EditorGUILayout.HorizontalScope()) {
+                    using (new EditorGUI.DisabledScope(_setup == null)) {
+                        if (GUILayout.Button("Create Group Pattern", GUILayout.Width(160f))) {
+                            CreateGroupNoisePatternAsset();
+                        }
+                    }
+
+                    if (GUILayout.Button("Add Pattern Slot", GUILayout.Width(140f))) {
+                        patterns.Add(null);
+                        _selectedNoiseIndex = patterns.Count - 1;
+                        EditorUtility.SetDirty(_setup);
+                        RebuildNoiseEditors();
                     }
                 }
             }
+        }
 
-            if (removeIndex >= 0) {
-                _setup.PatternAssets.RemoveAt(removeIndex);
-                EditorUtility.SetDirty(_setup);
-            }
+        // RIGHT COLUMN: inspector for currently selected noise / pattern
+        void DrawNoiseDetailPanel() {
+            using (new EditorGUILayout.VerticalScope()) {
+                EditorGUILayout.LabelField("Selected Noise / Pattern", EditorStyles.boldLabel);
 
-            if (GUILayout.Button("Add Pattern Slot", GUILayout.Width(150f))) {
-                _setup.PatternAssets.Add(null);
-                EditorUtility.SetDirty(_setup);
+                Object targetAsset = null;
+                var groupProfile = _setup.GroupNoiseSettings as GroupNoisePatternProfile;
+
+                if (_selectedNoiseIndex < 0) {
+                    targetAsset = groupProfile;
+                } else if (_setup.PatternAssets != null &&
+                           _selectedNoiseIndex >= 0 &&
+                           _selectedNoiseIndex < _setup.PatternAssets.Count) {
+                    targetAsset = _setup.PatternAssets[_selectedNoiseIndex];
+                }
+
+                if (targetAsset == null) {
+                    EditorGUILayout.HelpBox(
+                        "Select a group noise pattern or pattern asset on the left to edit its settings.\n" +
+                        "Use 'New' to create a Group Noise Pattern asset or 'Add Pattern Slot' " +
+                        "to register additional pattern assets.",
+                        MessageType.Info);
+                    return;
+                }
+
+                UnityEditor.Editor activeEditor = null;
+
+                if (targetAsset == groupProfile) {
+                    if (groupNoiseEditor == null || groupNoiseEditor.target != targetAsset) {
+                        RebuildGroupNoiseEditor();
+                    }
+                    activeEditor = groupNoiseEditor;
+                } else {
+                    if (_patternAssetEditor == null || _patternAssetEditor.target != targetAsset) {
+                        DestroyPatternAssetEditor();
+                        _patternAssetEditor = UnityEditor.Editor.CreateEditor(targetAsset);
+                    }
+                    activeEditor = _patternAssetEditor;
+                }
+
+                _noiseDetailScroll = EditorGUILayout.BeginScrollView(_noiseDetailScroll);
+                if (activeEditor != null) {
+                    activeEditor.OnInspectorGUI();
+                }
+                EditorGUILayout.EndScrollView();
             }
         }
 
@@ -800,6 +963,33 @@ namespace Flock.Editor {
             EditorUtility.SetDirty(spawner);
         }
 
+        private void RebuildNoiseEditors() {
+            // main group noise editor
+            RebuildGroupNoiseEditor();
+
+            // pattern asset inspector
+            DestroyPatternAssetEditor();
+
+            if (_setup == null || _setup.PatternAssets == null) {
+                return;
+            }
+
+            if (_selectedNoiseIndex >= 0 &&
+                _selectedNoiseIndex < _setup.PatternAssets.Count) {
+
+                var asset = _setup.PatternAssets[_selectedNoiseIndex];
+                if (asset != null) {
+                    _patternAssetEditor = UnityEditor.Editor.CreateEditor(asset);
+                }
+            }
+        }
+
+        private void DestroyPatternAssetEditor() {
+            if (_patternAssetEditor != null) {
+                DestroyImmediate(_patternAssetEditor);
+                _patternAssetEditor = null;
+            }
+        }
 
     }
 }

@@ -85,45 +85,28 @@ namespace Flock.Editor {
             SerializedProperty pointSpawnsProp = serializedObject.FindProperty("pointSpawns");
             SerializedProperty seedSpawnsProp = serializedObject.FindProperty("seedSpawns");
 
-            DrawSpawnConfigs(pointSpawnsProp, true);   // Point spawns
+            DrawSpawnConfigs(pointSpawnsProp);   // Point spawns
             EditorGUILayout.Space();
-            DrawSpawnConfigs(seedSpawnsProp, false);  // Seed spawns
+            DrawSpawnConfigs(seedSpawnsProp);  // Seed spawns
         }
 
 
-        void DrawSpawnConfigs(SerializedProperty arrayProp, bool isPoint) {
-            if (arrayProp == null) {
+        void DrawSpawnConfigs(SerializedProperty arrayProp) {
+            if (!arrayProp.isArray) {
+                EditorGUILayout.PropertyField(arrayProp, true);
                 return;
             }
 
-            string header = isPoint ? "Point Spawns" : "Seed Spawns";
-            EditorGUILayout.LabelField(header, EditorStyles.boldLabel);
+            bool isPoint = arrayProp.name == "pointSpawns";
+            string label = isPoint ? "Point Spawns" : "Seed Spawns";
 
+            // Simple section header (no foldout anymore)
+            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
-
-            // Add / Clear row
-            using (new EditorGUILayout.HorizontalScope()) {
-                if (GUILayout.Button($"Add {(isPoint ? "Point" : "Seed")} Spawn")) {
-                    int newIndex = arrayProp.arraySize;
-                    arrayProp.InsertArrayElementAtIndex(newIndex);
-
-                    SerializedProperty cfg = arrayProp.GetArrayElementAtIndex(newIndex);
-                    // ensure the types array starts empty
-                    SerializedProperty typesProp = cfg.FindPropertyRelative("types");
-                    if (typesProp != null) {
-                        typesProp.arraySize = 0;
-                    }
-                }
-
-                if (arrayProp.arraySize > 0) {
-                    if (GUILayout.Button("Clear All", GUILayout.Width(80f))) {
-                        arrayProp.arraySize = 0;
-                    }
-                }
-            }
 
             int removeIndex = -1;
 
+            // Draw existing spawn configs
             for (int i = 0; i < arrayProp.arraySize; i++) {
                 SerializedProperty cfgProp = arrayProp.GetArrayElementAtIndex(i);
                 if (cfgProp == null) {
@@ -132,27 +115,39 @@ namespace Flock.Editor {
 
                 EditorGUILayout.BeginVertical(GUI.skin.box);
 
-                // small header + remove button
+                // Row header + small remove button on the right
                 using (new EditorGUILayout.HorizontalScope()) {
                     EditorGUILayout.LabelField(
                         $"{(isPoint ? "Point" : "Seed")} Spawn [{i}]",
-                        EditorStyles.miniBoldLabel);
+                        EditorStyles.boldLabel);
 
-                    if (GUILayout.Button("X", GUILayout.Width(20f))) {
+                    GUILayout.FlexibleSpace();
+
+                    if (GUILayout.Button("X", EditorStyles.miniButton, GUILayout.Width(20f))) {
                         removeIndex = i;
                     }
                 }
 
-                // Draw fields of PointSpawnConfig / SeedSpawnConfig
+                // Draw all fields of the config except 'types' (handled separately)
                 SerializedProperty cfgIter = cfgProp.Copy();
                 SerializedProperty cfgEnd = cfgProp.GetEndProperty();
                 bool enterChildren = true;
 
-                while (cfgIter.NextVisible(enterChildren) && !SerializedProperty.EqualContents(cfgIter, cfgEnd)) {
+                while (cfgIter.NextVisible(enterChildren) &&
+                       !SerializedProperty.EqualContents(cfgIter, cfgEnd)) {
                     enterChildren = false;
 
                     if (cfgIter.name == "types") {
-                        DrawTypeCounts(cfgIter);        // our custom per-type UI
+                        // Custom drawer for per-type (preset + count)
+                        DrawTypeCounts(cfgIter);
+                    } else if (cfgIter.name == "seed") {
+                        // Gray out seed when useSeed is false
+                        SerializedProperty useSeedProp = cfgProp.FindPropertyRelative("useSeed");
+                        bool disable = useSeedProp != null && !useSeedProp.boolValue;
+
+                        using (new EditorGUI.DisabledScope(disable)) {
+                            EditorGUILayout.PropertyField(cfgIter, true);
+                        }
                     } else {
                         EditorGUILayout.PropertyField(cfgIter, true);
                     }
@@ -163,6 +158,36 @@ namespace Flock.Editor {
 
             if (removeIndex >= 0 && removeIndex < arrayProp.arraySize) {
                 arrayProp.DeleteArrayElementAtIndex(removeIndex);
+            }
+
+            // Bottom-right Add / Clear buttons (small)
+            EditorGUILayout.Space(2f);
+            using (new EditorGUILayout.HorizontalScope()) {
+                GUILayout.FlexibleSpace();
+
+                const float addWidth = 140f;
+                const float clearWidth = 70f;
+
+                if (GUILayout.Button(
+                        isPoint ? "Add Point Spawn" : "Add Seed Spawn",
+                        EditorStyles.miniButton,
+                        GUILayout.Width(addWidth))) {
+
+                    int newIndex = arrayProp.arraySize;
+                    arrayProp.InsertArrayElementAtIndex(newIndex);
+
+                    SerializedProperty cfg = arrayProp.GetArrayElementAtIndex(newIndex);
+                    SerializedProperty typesProp = cfg.FindPropertyRelative("types");
+                    if (typesProp != null) {
+                        typesProp.arraySize = 0;
+                    }
+                }
+
+                if (arrayProp.arraySize > 0) {
+                    if (GUILayout.Button("Clear", EditorStyles.miniButton, GUILayout.Width(clearWidth))) {
+                        arrayProp.arraySize = 0;
+                    }
+                }
             }
 
             EditorGUI.indentLevel--;
@@ -201,9 +226,79 @@ namespace Flock.Editor {
                 }
             }
 
-            // Add / Clear buttons
+            int removeIndex = -1;
+
+            // One row per entry
+            for (int i = 0; i < typesProp.arraySize; i++) {
+                SerializedProperty entryProp = typesProp.GetArrayElementAtIndex(i);
+                if (entryProp == null) {
+                    continue;
+                }
+
+                SerializedProperty presetProp = entryProp.FindPropertyRelative("preset");
+                SerializedProperty countProp = entryProp.FindPropertyRelative("count");
+
+                // Resolve current index for popup
+                int currentIndex = 0;
+                FishTypePreset currentPreset = presetProp != null
+                    ? presetProp.objectReferenceValue as FishTypePreset
+                    : null;
+
+                if (currentPreset != null) {
+                    for (int j = 0; j < fishTypes.Length; j++) {
+                        if (fishTypes[j] == currentPreset) {
+                            currentIndex = j;
+                            break;
+                        }
+                    }
+                }
+
+                EditorGUILayout.BeginHorizontal();
+
+                // Push everything to the right
+                GUILayout.FlexibleSpace();
+
+                const float popupWidth = 140f;
+                const float countWidth = 60f;
+
+                // Smaller, right-aligned popup
+                int newIndex = EditorGUILayout.Popup(
+                    currentIndex,
+                    names,
+                    EditorStyles.popup,
+                    GUILayout.Width(popupWidth));
+
+                if (presetProp != null &&
+                    newIndex >= 0 &&
+                    newIndex < fishTypes.Length) {
+                    presetProp.objectReferenceValue = fishTypes[newIndex];
+                }
+
+                // Count field
+                if (countProp != null) {
+                    EditorGUILayout.PropertyField(
+                        countProp,
+                        GUIContent.none,
+                        GUILayout.Width(countWidth));
+                }
+
+                if (GUILayout.Button("X", EditorStyles.miniButton, GUILayout.Width(18f))) {
+                    removeIndex = i;
+                }
+
+                EditorGUILayout.EndHorizontal();
+            }
+
+            if (removeIndex >= 0 && removeIndex < typesProp.arraySize) {
+                typesProp.DeleteArrayElementAtIndex(removeIndex);
+            }
+
+            // Bottom-right Add / Clear for types
+            EditorGUILayout.Space(2f);
             using (new EditorGUILayout.HorizontalScope()) {
-                if (GUILayout.Button("Add Type")) {
+                GUILayout.FlexibleSpace();
+
+                if (GUILayout.Button("Add Type", EditorStyles.miniButton, GUILayout.Width(90f))) {
                     int newIndex = typesProp.arraySize;
                     typesProp.InsertArrayElementAtIndex(newIndex);
 
@@ -221,61 +316,10 @@ namespace Flock.Editor {
                 }
 
                 if (typesProp.arraySize > 0) {
-                    if (GUILayout.Button("Clear", GUILayout.Width(60f))) {
+                    if (GUILayout.Button("Clear", EditorStyles.miniButton, GUILayout.Width(70f))) {
                         typesProp.arraySize = 0;
                     }
                 }
-            }
-
-            int removeIndex = -1;
-
-            // One row per entry
-            for (int i = 0; i < typesProp.arraySize; i++) {
-                SerializedProperty entryProp = typesProp.GetArrayElementAtIndex(i);
-                if (entryProp == null) {
-                    continue;
-                }
-
-                SerializedProperty presetProp = entryProp.FindPropertyRelative("preset");
-                SerializedProperty countProp = entryProp.FindPropertyRelative("count");
-
-                EditorGUILayout.BeginHorizontal();
-
-                // Resolve current index
-                int currentIndex = 0;
-                FishTypePreset currentPreset = presetProp != null
-                    ? presetProp.objectReferenceValue as FishTypePreset
-                    : null;
-
-                if (currentPreset != null) {
-                    for (int j = 0; j < fishTypes.Length; j++) {
-                        if (fishTypes[j] == currentPreset) {
-                            currentIndex = j;
-                            break;
-                        }
-                    }
-                }
-
-                // Dropdown for FishTypePreset
-                int newIndex = EditorGUILayout.Popup(currentIndex, names);
-                if (presetProp != null && newIndex >= 0 && newIndex < fishTypes.Length) {
-                    presetProp.objectReferenceValue = fishTypes[newIndex];
-                }
-
-                // Count field
-                if (countProp != null) {
-                    EditorGUILayout.PropertyField(countProp, GUIContent.none, GUILayout.Width(80f));
-                }
-
-                if (GUILayout.Button("X", GUILayout.Width(20f))) {
-                    removeIndex = i;
-                }
-
-                EditorGUILayout.EndHorizontal();
-            }
-
-            if (removeIndex >= 0 && removeIndex < typesProp.arraySize) {
-                typesProp.DeleteArrayElementAtIndex(removeIndex);
             }
 
             EditorGUI.indentLevel--;
