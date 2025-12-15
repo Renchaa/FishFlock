@@ -19,4 +19,10 @@ MonoBehaviour:
   InteractionMatrix: {fileID: 11400000, guid: f1437cb311dc321438e13eab5952ac74, type: 2}
   GroupNoiseSettings: {fileID: 11400000, guid: aa71795fa68bacb46a323fae1d6a1b7f, type: 2}
   PatternAssets:
-  - {fileID: 11400000, guid: 0cf9db20c6ef69a40aba5e2a14a83848, type: 2}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}

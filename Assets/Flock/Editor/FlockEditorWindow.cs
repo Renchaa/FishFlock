@@ -31,12 +31,8 @@ namespace Flock.Editor {
         private UnityEditor.Editor _patternAssetEditor; 
         UnityEditor.Editor groupNoiseEditor;
 
-        FishInteractionMatrix cachedMatrix;
-        UnityEditor.Editor interactionMatrixEditor; // reuse existing inspector layout logic if needed
-        int selectedRelationFishIndex = -1;        // row selector inside matrix UI
         private UnityEditor.Editor sceneControllerEditor;
         private Vector2 sceneScroll;
-        Vector2 interactionScroll;                // scroll view for big matrices
 
         [MenuItem("Window/Flock/Flock Editor")]
         public static void Open() {
@@ -405,7 +401,7 @@ namespace Flock.Editor {
             AssetDatabase.Refresh();
 
             _setup = asset;
-            _setup.PatternAssets = new List<ScriptableObject>(); // ensure list exists
+            _setup.PatternAssets = new List<FlockLayer3PatternProfile>();
             _selectedNoiseIndex = -1;
             EditorUtility.SetDirty(_setup);
             _selectedSpeciesIndex = -1;
@@ -812,7 +808,7 @@ namespace Flock.Editor {
                 EditorGUILayout.LabelField("Pattern Assets", EditorStyles.boldLabel);
 
                 if (_setup.PatternAssets == null) {
-                    _setup.PatternAssets = new List<ScriptableObject>();
+                    _setup.PatternAssets = new List<FlockLayer3PatternProfile>();
                     EditorUtility.SetDirty(_setup);
                 }
 
@@ -821,7 +817,7 @@ namespace Flock.Editor {
 
                 for (int i = 0; i < patterns.Count; i++) {
                     using (new EditorGUILayout.HorizontalScope()) {
-                        ScriptableObject asset = patterns[i];
+                        FlockLayer3PatternProfile asset = patterns[i];
 
                         GUIStyle rowStyle = (_selectedNoiseIndex == i)
                             ? EditorStyles.miniButtonMid
@@ -834,12 +830,12 @@ namespace Flock.Editor {
                         }
 
                         EditorGUI.BeginChangeCheck();
-                        asset = (ScriptableObject)EditorGUILayout.ObjectField(
+                        asset = (FlockLayer3PatternProfile)EditorGUILayout.ObjectField(
                             GUIContent.none,
                             asset,
-                            typeof(ScriptableObject),
+                            typeof(FlockLayer3PatternProfile),
                             false,
-                            GUILayout.Width(150f)); // 130 + 150 + 20 = 300
+                            GUILayout.Width(150f));
                         if (EditorGUI.EndChangeCheck()) {
                             patterns[i] = asset;
                             EditorUtility.SetDirty(_setup);

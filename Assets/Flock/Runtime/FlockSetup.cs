@@ -27,6 +27,6 @@ namespace Flock.Runtime {
         public GroupNoisePatternProfile GroupNoiseSettings;
 
         [Tooltip("Optional additional pattern assets for layer-3 pattern jobs (sphere, vortex, etc.).")]
-        public List<ScriptableObject> PatternAssets = new();
+        public List<FlockLayer3PatternProfile> PatternAssets = new();
     }
 }

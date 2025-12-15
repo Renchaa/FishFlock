@@ -4,6 +4,7 @@ namespace Flock.Runtime {
     using Flock.Runtime.Jobs;
     using Flock.Runtime.Logging;
     using System;
+    using System.Collections.Generic;
     using Unity.Collections;
     using Unity.Jobs;
     using Unity.Mathematics;
@@ -37,7 +38,31 @@ namespace Flock.Runtime {
         NativeArray<float3> cellGroupNoise;  // NEW: per-cell group noise direction
 
         float simulationTime; // NEW: accumulated sim time for noise
-        int layer3PatternCount;
+        FlockLayer3PatternCommand[] layer3PatternCommands = Array.Empty<FlockLayer3PatternCommand>();
+        FlockLayer3PatternSphereShell[] layer3SphereShells = Array.Empty<FlockLayer3PatternSphereShell>();
+
+        // ==============================
+        // Runtime-instanced Layer-3 patterns (start/stop by handle)
+        // ==============================
+        struct RuntimeLayer3PatternInstance {
+            public int Generation;          // increments on Stop() to invalidate stale handles
+            public byte Active;             // 1 = active, 0 = inactive
+            public int ActiveListIndex;     // index inside runtimeLayer3Active for O(1) removal
+
+            public FlockLayer3PatternKind Kind;
+            public int PayloadIndex;        // index into the kind-specific runtime payload list
+            public float Strength;
+            public uint BehaviourMask;
+        }
+
+        readonly List<RuntimeLayer3PatternInstance> runtimeLayer3Patterns = new List<RuntimeLayer3PatternInstance>(16);
+        readonly List<int> runtimeLayer3Active = new List<int>(16);
+        readonly Stack<int> runtimeLayer3Free = new Stack<int>(16);
+
+        // Runtime payload storage per-kind (add more lists/stacks here when you add new kinds)
+        readonly List<FlockLayer3PatternSphereShell> runtimeSphereShells = new List<FlockLayer3PatternSphereShell>(16);
+        readonly Stack<int> runtimeSphereShellFree = new Stack<int>(16);
+
 
         NativeArray<int> behaviourIds;
         NativeArray<float> behaviourMaxSpeed;
@@ -153,9 +178,6 @@ namespace Flock.Runtime {
             patternSphereStrength = 0f;
             patternSphereBehaviourMask = uint.MaxValue; // NEW: by default affect all behaviours
 
-
-            layer3PatternCount = 0;
-
             AllocateAgentArrays(allocator);
             AllocateBehaviourArrays(behaviourSettings, allocator);
             AllocateGrid(allocator);
@@ -195,6 +217,14 @@ namespace Flock.Runtime {
                         null);
                 }
             }
+        }
+
+        public void SetLayer3Patterns(
+    FlockLayer3PatternCommand[] commands,
+    FlockLayer3PatternSphereShell[] sphereShellPayloads) {
+
+            layer3PatternCommands = commands ?? Array.Empty<FlockLayer3PatternCommand>();
+            layer3SphereShells = sphereShellPayloads ?? Array.Empty<FlockLayer3PatternSphereShell>();
         }
 
         // File: Assets/Flock/Runtime/FlockSimulation.cs
@@ -393,31 +423,131 @@ namespace Flock.Runtime {
                     inputHandle);
             }
 
-            // ---------- Layer-3 pattern sphere (per-agent) ----------
-            bool usePatternSphere =
+            // ---------- Layer-3 patterns (stacked into patternSteering) ----------
+            JobHandle patternHandle = inputHandle;
+            bool anyPattern = false;
+
+            // 1) Baked patterns from SOs
+            if (layer3PatternCommands != null && layer3PatternCommands.Length > 0) {
+                for (int i = 0; i < layer3PatternCommands.Length; i += 1) {
+                    FlockLayer3PatternCommand cmd = layer3PatternCommands[i];
+
+                    if (cmd.Strength <= 0f) {
+                        continue;
+                    }
+
+                    switch (cmd.Kind) {
+                        case FlockLayer3PatternKind.SphereShell: {
+                                if (layer3SphereShells == null
+                                    || (uint)cmd.PayloadIndex >= (uint)layer3SphereShells.Length) {
+                                    continue;
+                                }
+
+                                FlockLayer3PatternSphereShell s = layer3SphereShells[cmd.PayloadIndex];
+
+                                if (s.Radius <= 0f || s.Thickness <= 0f) {
+                                    continue;
+                                }
+
+                                var job = new PatternSphereJob {
+                                    Center = s.Center,
+                                    Radius = s.Radius,
+                                    Thickness = s.Thickness,
+                                };
+
+                                patternHandle = ScheduleLayer3PatternJob(
+                                    ref job,
+                                    positions,
+                                    behaviourIds,
+                                    patternSteering,
+                                    cmd.BehaviourMask,
+                                    cmd.Strength,
+                                    AgentCount,
+                                    patternHandle);
+
+                                anyPattern = true;
+                                break;
+                            }
+                    }
+                }
+            }
+
+            // 2) Runtime-instanced patterns (start/stop by handle, multiple at once)
+            if (runtimeLayer3Active.Count > 0) {
+                for (int a = 0; a < runtimeLayer3Active.Count; a += 1) {
+                    int patternIndex = runtimeLayer3Active[a];
+
+                    if ((uint)patternIndex >= (uint)runtimeLayer3Patterns.Count) {
+                        continue;
+                    }
+
+                    RuntimeLayer3PatternInstance inst = runtimeLayer3Patterns[patternIndex];
+
+                    if (inst.Active == 0 || inst.Strength <= 0f) {
+                        continue;
+                    }
+
+                    switch (inst.Kind) {
+                        case FlockLayer3PatternKind.SphereShell: {
+                                int payloadIndex = inst.PayloadIndex;
+
+                                if ((uint)payloadIndex >= (uint)runtimeSphereShells.Count) {
+                                    continue;
+                                }
+
+                                FlockLayer3PatternSphereShell s = runtimeSphereShells[payloadIndex];
+
+                                if (s.Radius <= 0f || s.Thickness <= 0f) {
+                                    continue;
+                                }
+
+                                var job = new PatternSphereJob {
+                                    Center = s.Center,
+                                    Radius = s.Radius,
+                                    Thickness = s.Thickness,
+                                };
+
+                                patternHandle = ScheduleLayer3PatternJob(
+                                    ref job,
+                                    positions,
+                                    behaviourIds,
+                                    patternSteering,
+                                    inst.BehaviourMask,
+                                    inst.Strength,
+                                    AgentCount,
+                                    patternHandle);
+
+                                anyPattern = true;
+                                break;
+                            }
+                    }
+                }
+            }
+
+            // 2) Dynamic runtime sphere (your existing SetPatternSphereTarget API)
+            bool useDynamicSphere =
                 patternSteering.IsCreated &&
                 patternSphereRadius > 0f &&
                 patternSphereStrength > 0f;
 
-            JobHandle patternHandle = inputHandle;
-
-            if (usePatternSphere) {
-                var patternJob = new PatternSphereJob {
+            if (useDynamicSphere) {
+                var dynJob = new PatternSphereJob {
                     Center = patternSphereCenter,
                     Radius = patternSphereRadius,
                     Thickness = patternSphereThickness,
-                    // Strength + arrays + BehaviourMask are set in ScheduleLayer3PatternJob via IFlockLayer3PatternJob
                 };
 
                 patternHandle = ScheduleLayer3PatternJob(
-                    ref patternJob,
+                    ref dynJob,
                     positions,
                     behaviourIds,
                     patternSteering,
                     patternSphereBehaviourMask,
                     patternSphereStrength,
                     AgentCount,
-                    inputHandle);
+                    patternHandle);
+
+                anyPattern = true;
             }
 
             // ---------- Combine dependencies for flock job ----------
@@ -443,7 +573,7 @@ namespace Flock.Runtime {
                     groupNoiseHandle);
             }
 
-            if (usePatternSphere) {
+            if (anyPattern) {
                 flockDeps = JobHandle.CombineDependencies(
                     flockDeps,
                     patternHandle);
@@ -771,6 +901,227 @@ namespace Flock.Runtime {
             }
 
             obstacles[index] = data;
+        }
+
+        bool TryGetRuntimePattern(
+    FlockLayer3PatternHandle handle,
+    out RuntimeLayer3PatternInstance inst) {
+
+            inst = default;
+
+            if (!handle.IsValid) {
+                return false;
+            }
+
+            int index = handle.Index;
+
+            if ((uint)index >= (uint)runtimeLayer3Patterns.Count) {
+                return false;
+            }
+
+            inst = runtimeLayer3Patterns[index];
+
+            if (inst.Generation != handle.Generation) {
+                return false; // stale handle
+            }
+
+            return true;
+        }
+
+        int AcquireRuntimePatternSlot() {
+            if (runtimeLayer3Free.Count > 0) {
+                return runtimeLayer3Free.Pop();
+            }
+
+            runtimeLayer3Patterns.Add(new RuntimeLayer3PatternInstance {
+                Generation = 0,
+                Active = 0,
+                ActiveListIndex = -1,
+                Kind = 0,
+                PayloadIndex = -1,
+                Strength = 0f,
+                BehaviourMask = 0u,
+            });
+
+            return runtimeLayer3Patterns.Count - 1;
+        }
+
+        int AcquireSphereShellPayloadSlot() {
+            if (runtimeSphereShellFree.Count > 0) {
+                return runtimeSphereShellFree.Pop();
+            }
+
+            runtimeSphereShells.Add(default);
+            return runtimeSphereShells.Count - 1;
+        }
+
+        void RemoveFromActiveList(int patternIndex, ref RuntimeLayer3PatternInstance inst) {
+            int listIndex = inst.ActiveListIndex;
+
+            if (listIndex < 0 || listIndex >= runtimeLayer3Active.Count) {
+                inst.ActiveListIndex = -1;
+                return;
+            }
+
+            int last = runtimeLayer3Active.Count - 1;
+            int movedPatternIndex = runtimeLayer3Active[last];
+
+            runtimeLayer3Active[listIndex] = movedPatternIndex;
+            runtimeLayer3Active.RemoveAt(last);
+
+            // Update the moved pattern's ActiveListIndex
+            if (movedPatternIndex != patternIndex) {
+                RuntimeLayer3PatternInstance moved = runtimeLayer3Patterns[movedPatternIndex];
+                moved.ActiveListIndex = listIndex;
+                runtimeLayer3Patterns[movedPatternIndex] = moved;
+            }
+
+            inst.ActiveListIndex = -1;
+        }
+
+        /// <summary>
+        /// Start a runtime SphereShell pattern instance and get a handle you can Update/Stop.
+        /// No per-frame allocations; safe to call occasionally from gameplay code.
+        /// </summary>
+        public FlockLayer3PatternHandle StartPatternSphereShell(
+            float3 center,
+            float radius,
+            float thickness = -1f,
+            float strength = 1f,
+            uint behaviourMask = uint.MaxValue) {
+
+            if (!IsCreated) {
+                return FlockLayer3PatternHandle.Invalid;
+            }
+
+            radius = math.max(0f, radius);
+            strength = math.max(0f, strength);
+
+            if (radius <= 0f || strength <= 0f) {
+                return FlockLayer3PatternHandle.Invalid;
+            }
+
+            float t = thickness <= 0f ? (radius * 0.25f) : thickness;
+            t = math.max(0.001f, t);
+
+            int payloadIndex = AcquireSphereShellPayloadSlot();
+            runtimeSphereShells[payloadIndex] = new FlockLayer3PatternSphereShell {
+                Center = center,
+                Radius = radius,
+                Thickness = t,
+            };
+
+            int patternIndex = AcquireRuntimePatternSlot();
+            RuntimeLayer3PatternInstance inst = runtimeLayer3Patterns[patternIndex];
+
+            inst.Active = 1;
+            inst.Kind = FlockLayer3PatternKind.SphereShell;
+            inst.PayloadIndex = payloadIndex;
+            inst.Strength = strength;
+            inst.BehaviourMask = behaviourMask;
+
+            inst.ActiveListIndex = runtimeLayer3Active.Count;
+            runtimeLayer3Active.Add(patternIndex);
+
+            runtimeLayer3Patterns[patternIndex] = inst;
+
+            return new FlockLayer3PatternHandle {
+                Index = patternIndex,
+                Generation = inst.Generation,
+            };
+        }
+
+        /// <summary>
+        /// Update a running runtime SphereShell pattern by handle (ideal for moving bubbles).
+        /// No allocations; call every frame if needed.
+        /// </summary>
+        public bool UpdatePatternSphereShell(
+            FlockLayer3PatternHandle handle,
+            float3 center,
+            float radius,
+            float thickness = -1f,
+            float strength = 1f,
+            uint behaviourMask = uint.MaxValue) {
+
+            if (!IsCreated) {
+                return false;
+            }
+
+            if (!TryGetRuntimePattern(handle, out RuntimeLayer3PatternInstance inst)) {
+                return false;
+            }
+
+            if (inst.Active == 0 || inst.Kind != FlockLayer3PatternKind.SphereShell) {
+                return false;
+            }
+
+            int payloadIndex = inst.PayloadIndex;
+            if ((uint)payloadIndex >= (uint)runtimeSphereShells.Count) {
+                return false;
+            }
+
+            radius = math.max(0f, radius);
+            strength = math.max(0f, strength);
+
+            float t = thickness <= 0f ? (radius * 0.25f) : thickness;
+            t = math.max(0.001f, t);
+
+            runtimeSphereShells[payloadIndex] = new FlockLayer3PatternSphereShell {
+                Center = center,
+                Radius = radius,
+                Thickness = t,
+            };
+
+            inst.Strength = strength;
+            inst.BehaviourMask = behaviourMask;
+
+            runtimeLayer3Patterns[handle.Index] = inst;
+            return true;
+        }
+
+        /// <summary>
+        /// Stop a runtime Layer-3 pattern instance by handle (only that one stops).
+        /// </summary>
+        public bool StopLayer3Pattern(FlockLayer3PatternHandle handle) {
+            if (!IsCreated) {
+                return false;
+            }
+
+            if (!TryGetRuntimePattern(handle, out RuntimeLayer3PatternInstance inst)) {
+                return false;
+            }
+
+            if (inst.Active == 0) {
+                return false;
+            }
+
+            int patternIndex = handle.Index;
+
+            // Remove from active list (O(1))
+            RemoveFromActiveList(patternIndex, ref inst);
+
+            // Free payload slot per-kind
+            switch (inst.Kind) {
+                case FlockLayer3PatternKind.SphereShell: {
+                        if (inst.PayloadIndex >= 0) {
+                            runtimeSphereShellFree.Push(inst.PayloadIndex);
+                        }
+                        break;
+                    }
+            }
+
+            inst.Active = 0;
+            inst.PayloadIndex = -1;
+            inst.Strength = 0f;
+            inst.BehaviourMask = 0u;
+
+            // Invalidate existing handle
+            inst.Generation += 1;
+
+            runtimeLayer3Patterns[patternIndex] = inst;
+            runtimeLayer3Free.Push(patternIndex);
+
+            return true;
         }
 
         // =====================================

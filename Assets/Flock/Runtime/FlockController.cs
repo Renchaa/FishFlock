@@ -2,6 +2,7 @@
 namespace Flock.Runtime {
     using Flock.Runtime.Data;
     using Flock.Runtime.Logging;
+    using System;
     using System.Collections.Generic;
     using Unity.Collections;
     using Unity.Jobs;
@@ -11,7 +12,7 @@ namespace Flock.Runtime {
     public sealed class FlockController : MonoBehaviour, IFlockLogger {
 
 
-        [Header("Fish Types"),HideInInspector]
+        [Header("Fish Types"), HideInInspector]
         [SerializeField] FishTypePreset[] fishTypes;
 
         [Header("Spawning")]
@@ -64,6 +65,9 @@ namespace Flock.Runtime {
         [SerializeField] FlockAttractorArea[] staticAttractors;
         [SerializeField] FlockAttractorArea[] dynamicAttractors;
 
+        [Header("Layer-3 Patterns")]
+        [SerializeField] FlockLayer3PatternProfile[] layer3Patterns;
+
         int[] dynamicAttractorIndices;
 
         public FlockLogLevel EnabledLevels => enabledLogLevels;
@@ -77,6 +81,10 @@ namespace Flock.Runtime {
         int totalAgentCount;
 
         readonly List<Transform> agentTransforms = new List<Transform>();
+        // Runtime Layer-3 start/update scratch (reused to avoid allocations)
+        readonly List<FlockLayer3PatternCommand> runtimeL3CmdScratch = new List<FlockLayer3PatternCommand>(4);
+        readonly List<FlockLayer3PatternSphereShell> runtimeL3SphereScratch = new List<FlockLayer3PatternSphereShell>(4);
+        readonly List<FlockLayer3PatternHandle> runtimeL3HandleScratch = new List<FlockLayer3PatternHandle>(4);
 
         void Awake() {
             FlockLog.Info(
@@ -121,103 +129,221 @@ namespace Flock.Runtime {
         }
 
         /// <summary>
-        /// Sets / updates the layer-3 pattern sphere center in world space.
-        /// Call this when your bubble center moves (for a moving object, usually each frame).
-        /// Only fish whose behaviour has PatternWeight > 0 will react.
+        /// Starts a runtime Layer-3 pattern instance from a ScriptableObject profile.
+        /// Returns a ScriptableObject token you keep to Update/Stop later.
         /// </summary>
-        public void SetPatternBubbleCenter(
-            Vector3 worldPosition,
-            float radius,
-            float thickness = -1f,
-            float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
+        public FlockLayer3PatternToken StartLayer3Pattern(FlockLayer3PatternProfile profile) {
             if (simulation == null || !simulation.IsCreated) {
-                return;
+                return null;
             }
 
-            simulation.SetPatternSphereTarget(
-                new float3(worldPosition.x, worldPosition.y, worldPosition.z),
-                radius,
-                thickness,
-                strength,
-                behaviourMask);
-        }
+            if (profile == null) {
+                return null;
+            }
 
-        // 2) ADD THIS OVERLOAD RIGHT AFTER THE ONE ABOVE
-        //    → this is the one you’ll use from gameplay code
+            runtimeL3HandleScratch.Clear();
+
+            if (!TryBuildRuntimeLayer3FromProfile(profile, runtimeL3HandleScratch)) {
+                return null;
+            }
+
+            var token = ScriptableObject.CreateInstance<FlockLayer3PatternToken>();
+            token.hideFlags = HideFlags.DontSave;
+            token.SetHandles(runtimeL3HandleScratch);
+
+            return token;
+        }
 
         /// <summary>
-        /// Same as SetPatternBubbleCenter(..., behaviourMask) but takes a list of FishTypePreset.
-        /// Controller builds the bitmask based on its own fishTypes array.
+        /// Updates a previously started runtime Layer-3 pattern token from a ScriptableObject profile.
+        /// If handle count mismatches (profile bakes different commands), this will Stop+Recreate into the same token.
         /// </summary>
-        public void SetPatternBubbleCenter(
-            Vector3 worldPosition,
-            float radius,
-            float thickness,
-            float strength,
-            FishTypePreset[] affectedTypes) {
+        public bool UpdateLayer3Pattern(FlockLayer3PatternToken token, FlockLayer3PatternProfile profile) {
             if (simulation == null || !simulation.IsCreated) {
-                return;
+                return false;
             }
 
-            uint mask = BuildPatternMaskFromTypes(affectedTypes);
-
-            simulation.SetPatternSphereTarget(
-                new float3(worldPosition.x, worldPosition.y, worldPosition.z),
-                radius,
-                thickness,
-                strength,
-                mask);
-        }
-
-        // 3) ADD THIS PRIVATE HELPER SOMEWHERE NEAR ComputeAttractorMask
-
-        uint BuildPatternMaskFromTypes(FishTypePreset[] targetTypes) {
-            if (fishTypes == null || fishTypes.Length == 0) {
-                // No fish types configured → treat as "everyone"
-                return uint.MaxValue;
+            if (token == null || profile == null) {
+                return false;
             }
 
-            if (targetTypes == null) {
-                // Null → caller didn't try to filter → affect all types
-                return uint.MaxValue;
+            // Bake fresh commands/payloads from the profile
+            FlockEnvironmentData env = BuildEnvironmentData();
+
+            runtimeL3CmdScratch.Clear();
+            runtimeL3SphereScratch.Clear();
+
+            profile.Bake(env, fishTypes, runtimeL3CmdScratch, runtimeL3SphereScratch);
+
+            // If profile currently bakes nothing -> stop whatever was running
+            if (runtimeL3CmdScratch.Count == 0) {
+                StopLayer3Pattern(token);
+                return true;
             }
 
-            // Empty array → explicit "no behaviours"
-            uint mask = 0u;
+            // If the token doesn't match the baked command count, rebuild the token in-place
+            if (token.HandleCount != runtimeL3CmdScratch.Count) {
+                StopLayer3Pattern(token);
 
-            for (int t = 0; t < targetTypes.Length; t += 1) {
-                FishTypePreset target = targetTypes[t];
-                if (target == null) {
+                runtimeL3HandleScratch.Clear();
+                if (!TryBuildRuntimeLayer3FromProfile(profile, runtimeL3HandleScratch)) {
+                    return false;
+                }
+
+                token.SetHandles(runtimeL3HandleScratch);
+                return true;
+            }
+
+            bool allOk = true;
+
+            // Update each handle using the baked command list order
+            for (int i = 0; i < runtimeL3CmdScratch.Count; i += 1) {
+                FlockLayer3PatternCommand cmd = runtimeL3CmdScratch[i];
+                FlockLayer3PatternHandle handle = token.GetHandle(i);
+
+                if (cmd.Strength <= 0f) {
+                    // If command bakes but strength is 0, stop this one and invalidate via restart
+                    simulation.StopLayer3Pattern(handle);
+                    allOk = false;
                     continue;
                 }
 
-                for (int i = 0; i < fishTypes.Length && i < 32; i += 1) {
-                    if (fishTypes[i] == target) {
-                        mask |= (1u << i);
-                        break;
-                    }
+                switch (cmd.Kind) {
+                    case FlockLayer3PatternKind.SphereShell: {
+                            if ((uint)cmd.PayloadIndex >= (uint)runtimeL3SphereScratch.Count) {
+                                allOk = false;
+                                continue;
+                            }
+
+                            FlockLayer3PatternSphereShell s = runtimeL3SphereScratch[cmd.PayloadIndex];
+
+                            bool ok = simulation.UpdatePatternSphereShell(
+                                handle,
+                                s.Center,
+                                s.Radius,
+                                s.Thickness,
+                                cmd.Strength,
+                                cmd.BehaviourMask);
+
+                            if (!ok) {
+                                // stale/invalid handle -> restart just this entry
+                                simulation.StopLayer3Pattern(handle);
+
+                                FlockLayer3PatternHandle newHandle = simulation.StartPatternSphereShell(
+                                    s.Center,
+                                    s.Radius,
+                                    s.Thickness,
+                                    cmd.Strength,
+                                    cmd.BehaviourMask);
+
+                                if (!newHandle.IsValid) {
+                                    allOk = false;
+                                    continue;
+                                }
+
+                                token.ReplaceHandle(i, newHandle);
+                            }
+
+                            break;
+                        }
+
+                    default: {
+                            // Unsupported runtime kind -> treat as failure
+                            allOk = false;
+                            break;
+                        }
                 }
             }
 
-            // Non-empty list but nothing matched → fallback "everyone"
-            if (mask == 0u && targetTypes.Length > 0) {
-                return uint.MaxValue;
-            }
-
-            // Either empty list (mask == 0) or subset bits.
-            return mask;
+            return allOk;
         }
 
         /// <summary>
-        /// Disables the pattern bubble influence.
+        /// Stops all runtime handles owned by this token (ScriptableObject-only control).
         /// </summary>
-        public void ClearPatternBubble() {
+        public bool StopLayer3Pattern(FlockLayer3PatternToken token) {
             if (simulation == null || !simulation.IsCreated) {
-                return;
+                return false;
             }
 
-            simulation.ClearPatternSphere();
+            if (token == null || !token.IsValid) {
+                return false;
+            }
+
+            bool anyStopped = false;
+
+            int count = token.HandleCount;
+            for (int i = 0; i < count; i += 1) {
+                anyStopped |= simulation.StopLayer3Pattern(token.GetHandle(i));
+            }
+
+            token.Invalidate();
+            return anyStopped;
+        }
+
+        // ----------------------------------------------------------------------
+        // Private helper: bakes a profile and starts the corresponding runtime handles.
+        // This is where you add new kinds later (switch on cmd.Kind).
+        // ----------------------------------------------------------------------
+        bool TryBuildRuntimeLayer3FromProfile(
+            FlockLayer3PatternProfile profile,
+            List<FlockLayer3PatternHandle> outHandles) {
+
+            outHandles.Clear();
+
+            FlockEnvironmentData env = BuildEnvironmentData();
+
+            runtimeL3CmdScratch.Clear();
+            runtimeL3SphereScratch.Clear();
+
+            profile.Bake(env, fishTypes, runtimeL3CmdScratch, runtimeL3SphereScratch);
+
+            if (runtimeL3CmdScratch.Count == 0) {
+                return false;
+            }
+
+            for (int i = 0; i < runtimeL3CmdScratch.Count; i += 1) {
+                FlockLayer3PatternCommand cmd = runtimeL3CmdScratch[i];
+
+                if (cmd.Strength <= 0f) {
+                    continue;
+                }
+
+                switch (cmd.Kind) {
+                    case FlockLayer3PatternKind.SphereShell: {
+                            if ((uint)cmd.PayloadIndex >= (uint)runtimeL3SphereScratch.Count) {
+                                continue;
+                            }
+
+                            FlockLayer3PatternSphereShell s = runtimeL3SphereScratch[cmd.PayloadIndex];
+
+                            FlockLayer3PatternHandle handle = simulation.StartPatternSphereShell(
+                                s.Center,
+                                s.Radius,
+                                s.Thickness,
+                                cmd.Strength,
+                                cmd.BehaviourMask);
+
+                            if (handle.IsValid) {
+                                outHandles.Add(handle);
+                            }
+
+                            break;
+                        }
+
+                    default: {
+                            // Not supported at runtime yet
+                            FlockLog.Warning(
+                                this,
+                                FlockLogCategory.Controller,
+                                $"StartLayer3Pattern: runtime kind '{cmd.Kind}' is not implemented in controller yet.",
+                                this);
+                            break;
+                        }
+                }
+            }
+
+            return outHandles.Count > 0;
         }
 
         void CreateBehaviourSettingsArray() {
@@ -369,6 +495,16 @@ namespace Flock.Runtime {
                 this);
 
             simulation.SetAgentBehaviourIds(agentBehaviourIds);
+
+            BuildLayer3PatternRuntime(
+    environmentData,
+    out var layer3Commands,
+    out var layer3SphereShells);
+
+            simulation.SetLayer3Patterns(
+                layer3Commands,
+                layer3SphereShells);
+
 
             // Let the spawner write initial positions into the simulation
             mainSpawner.AssignInitialPositions(
@@ -757,6 +893,38 @@ namespace Flock.Runtime {
                 simulation.RebuildAttractorGrid();
             }
         }
+
+        void BuildLayer3PatternRuntime(
+    in FlockEnvironmentData env,
+    out FlockLayer3PatternCommand[] commands,
+    out FlockLayer3PatternSphereShell[] sphereShells) {
+
+            if (layer3Patterns == null || layer3Patterns.Length == 0) {
+                commands = Array.Empty<FlockLayer3PatternCommand>();
+                sphereShells = Array.Empty<FlockLayer3PatternSphereShell>();
+                return;
+            }
+
+            var cmdList = new List<FlockLayer3PatternCommand>(layer3Patterns.Length);
+            var sphereList = new List<FlockLayer3PatternSphereShell>(layer3Patterns.Length);
+
+            for (int i = 0; i < layer3Patterns.Length; i += 1) {
+                var profile = layer3Patterns[i];
+                if (profile == null) {
+                    continue;
+                }
+
+                profile.Bake(
+                    env,
+                    fishTypes,
+                    cmdList,
+                    sphereList);
+            }
+
+            commands = cmdList.Count > 0 ? cmdList.ToArray() : Array.Empty<FlockLayer3PatternCommand>();
+            sphereShells = sphereList.Count > 0 ? sphereList.ToArray() : Array.Empty<FlockLayer3PatternSphereShell>();
+        }
+
 
         #region Debug
 

@@ -1301,6 +1301,7 @@ MonoBehaviour:
   - {fileID: 235993011}
   - {fileID: 1995455351}
   dynamicAttractors: []
+  layer3Patterns: []
 --- !u!4 &731534110
 Transform:
   m_ObjectHideFlags: 0
@@ -1931,11 +1932,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   flock: {fileID: 731534109}
-  target: {fileID: 1572445300}
-  bubbleRadius: 4
-  bubbleThickness: 1
-  bubbleStrength: 100
-  affectedTypes: []
+  sphereShellProfile: {fileID: 11400000, guid: 9745b17c156e9af4fb1f8ad0f4b1423d, type: 2}
+  toggleKey: 32
 --- !u!135 &1572445302
 SphereCollider:
   m_ObjectHideFlags: 0

@@ -1,45 +1,31 @@
-﻿using UnityEngine;
+﻿// File: Assets/BubbleFollower.cs
+using UnityEngine;
 using Flock.Runtime;
+using Flock.Runtime.Data;
+using Flock.Runtime.Patterns;
 
-public class BubbleFollower : MonoBehaviour {
+public sealed class BubbleFollower : MonoBehaviour {
     [SerializeField] FlockController flock;
-    [SerializeField] Transform target;
+    [SerializeField] Layer3SphereShellPatternProfile sphereShellProfile;
+    [SerializeField] KeyCode toggleKey = KeyCode.Space;
 
-    [Header("Bubble Settings")]
-    [SerializeField] float bubbleRadius = 8f;
-    [SerializeField] float bubbleThickness = 1f;
-    [SerializeField] float bubbleStrength = 100f;
-
-    [Header("Affected Fish Types (optional)")]
-    [SerializeField] FishTypePreset[] affectedTypes;
+    FlockLayer3PatternToken token;
 
     void Update() {
-        if (flock == null || target == null) {
-            return;
-        }
-
-        // If specific types are assigned → build bitmask from them.
-        // If not → controller will use "all types" mask.
-        if (affectedTypes != null) {
-            flock.SetPatternBubbleCenter(
-                target.position,
-                bubbleRadius,
-                bubbleThickness,
-                bubbleStrength,
-                affectedTypes);
-        } else {
-            flock.SetPatternBubbleCenter(
-                target.position,
-                bubbleRadius,
-                bubbleThickness,
-                bubbleStrength);
+        if (Input.GetKeyDown(toggleKey)) {
+            if (token != null && token.IsValid) {
+                flock.StopLayer3Pattern(token);
+                token = null;
+            } else {
+                token = flock.StartLayer3Pattern(sphereShellProfile);
+            }
         }
     }
 
     void OnDisable() {
-        // Make sure bubble is not left active when this follower is turned off.
-        if (flock != null) {
-            flock.ClearPatternBubble();
+        if (token != null && token.IsValid && flock != null) {
+            flock.StopLayer3Pattern(token);
         }
+        token = null;
     }
 }
