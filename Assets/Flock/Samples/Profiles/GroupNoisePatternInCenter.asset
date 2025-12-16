@@ -12,14 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3826b696077b4b24f9b5f4be623db280, type: 3}
   m_Name: GroupNoisePatternInCenter
   m_EditorClassIdentifier: 
-  baseFrequency: 1
+  baseFrequency: 100
   timeScale: {x: 1, y: 1, z: 1}
   phaseOffset: {x: 0, y: 0, z: 0}
-  worldScale: 100
-  seed: 1234567
-  patternType: 2
-  swirlStrength: 0
+  worldScale: 1
+  seed: 0
+  patternType: 0
+  swirlStrength: 1000
   verticalBias: 0.15
   vortexCenterNorm: {x: 0.5, y: 0.5, z: 0.5}
   vortexRadius: 14
   vortexTightness: 1
+  sphereRadius: 4
+  sphereThickness: 2
+  sphereSwirlStrength: 10
+  sphereCenterNorm: {x: 0.5, y: 0.5, z: 0.5}

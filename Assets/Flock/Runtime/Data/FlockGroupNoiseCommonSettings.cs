@@ -1,0 +1,21 @@
+namespace Flock.Runtime.Data {
+    using System;
+    using Unity.Mathematics;
+
+    [Serializable]
+    public struct FlockGroupNoiseCommonSettings {
+        public float BaseFrequency;
+        public float3 TimeScale;
+        public float3 PhaseOffset;
+        public float WorldScale;
+        public uint Seed;
+
+        public static FlockGroupNoiseCommonSettings Default => new FlockGroupNoiseCommonSettings {
+            BaseFrequency = 1.0f,
+            TimeScale = new float3(1.0f, 1.1f, 1.3f),
+            PhaseOffset = float3.zero,
+            WorldScale = 10.0f,
+            Seed = 1234567u,
+        };
+    }
+}

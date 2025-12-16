@@ -33,7 +33,7 @@ namespace Flock.Editor {
             if (controller == null) {
                 EditorGUILayout.HelpBox(
                     "No FlockController found on this GameObject or its parents.\n" +
-                    "Type lists cannot be synced from FlockSetup.",
+                    "Type lists will be driven by whatever the controller currently has.",
                     MessageType.Warning);
                 return;
             }
@@ -45,13 +45,6 @@ namespace Flock.Editor {
                     "Configure fish types in FlockSetup and apply to the controller.",
                     MessageType.Warning);
                 return;
-            }
-
-            EditorGUILayout.LabelField("Fish Types Source: FlockSetup → FlockController", EditorStyles.miniBoldLabel);
-
-            if (GUILayout.Button("Sync All Spawn Type Lists From Controller")) {
-                spawner.EditorSyncTypesFrom(fishTypes);
-                EditorUtility.SetDirty(spawner);
             }
         }
 
@@ -98,15 +91,13 @@ namespace Flock.Editor {
             }
 
             bool isPoint = arrayProp.name == "pointSpawns";
-            string label = isPoint ? "Point Spawns" : "Seed Spawns";
+            string label = isPoint ? "Spawn Points" : "Spawn Seed";
 
-            // Simple section header (no foldout anymore)
             EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
 
             int removeIndex = -1;
 
-            // Draw existing spawn configs
             for (int i = 0; i < arrayProp.arraySize; i++) {
                 SerializedProperty cfgProp = arrayProp.GetArrayElementAtIndex(i);
                 if (cfgProp == null) {
@@ -115,11 +106,14 @@ namespace Flock.Editor {
 
                 EditorGUILayout.BeginVertical(GUI.skin.box);
 
-                // Row header + small remove button on the right
                 using (new EditorGUILayout.HorizontalScope()) {
-                    EditorGUILayout.LabelField(
-                        $"{(isPoint ? "Point" : "Seed")} Spawn [{i}]",
-                        EditorStyles.boldLabel);
+                    // Title = referenced spawn GO name (if present), else fallback label
+                    UnityEngine.Object src = TryGetSpawnSourceObject(cfgProp);
+                    string title = (src != null)
+                        ? src.name
+                        : $"{(isPoint ? "Point" : "Seed")} Spawn [{i}]";
+
+                    EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
 
                     GUILayout.FlexibleSpace();
 
@@ -128,7 +122,6 @@ namespace Flock.Editor {
                     }
                 }
 
-                // Draw all fields of the config except 'types' (handled separately)
                 SerializedProperty cfgIter = cfgProp.Copy();
                 SerializedProperty cfgEnd = cfgProp.GetEndProperty();
                 bool enterChildren = true;
@@ -138,10 +131,8 @@ namespace Flock.Editor {
                     enterChildren = false;
 
                     if (cfgIter.name == "types") {
-                        // Custom drawer for per-type (preset + count)
                         DrawTypeCounts(cfgIter);
                     } else if (cfgIter.name == "seed") {
-                        // Gray out seed when useSeed is false
                         SerializedProperty useSeedProp = cfgProp.FindPropertyRelative("useSeed");
                         bool disable = useSeedProp != null && !useSeedProp.boolValue;
 
@@ -160,7 +151,6 @@ namespace Flock.Editor {
                 arrayProp.DeleteArrayElementAtIndex(removeIndex);
             }
 
-            // Bottom-right Add / Clear buttons (small)
             EditorGUILayout.Space(2f);
             using (new EditorGUILayout.HorizontalScope()) {
                 GUILayout.FlexibleSpace();
@@ -184,9 +174,11 @@ namespace Flock.Editor {
                 }
 
                 if (arrayProp.arraySize > 0) {
-                    if (GUILayout.Button("Clear", EditorStyles.miniButton, GUILayout.Width(clearWidth))) {
-                        arrayProp.arraySize = 0;
-                    }
+                    WithRedBackground(() => {
+                        if (GUILayout.Button("Clear", EditorStyles.miniButton, GUILayout.Width(clearWidth))) {
+                            arrayProp.arraySize = 0;
+                        }
+                    });
                 }
             }
 
@@ -201,7 +193,7 @@ namespace Flock.Editor {
             // Source list – canonical fish types from controller / setup
             FishTypePreset[] fishTypes = controller != null ? controller.FishTypes : null;
 
-            EditorGUILayout.LabelField("Type Counts", EditorStyles.miniBoldLabel);
+            EditorGUILayout.LabelField("Types", EditorStyles.label);
             EditorGUI.indentLevel++;
 
             if (fishTypes == null || fishTypes.Length == 0) {
@@ -316,14 +308,45 @@ namespace Flock.Editor {
                 }
 
                 if (typesProp.arraySize > 0) {
-                    if (GUILayout.Button("Clear", EditorStyles.miniButton, GUILayout.Width(70f))) {
-                        typesProp.arraySize = 0;
-                    }
+                    WithRedBackground(() => {
+                        if (GUILayout.Button("Clear", EditorStyles.miniButton, GUILayout.Width(70f))) {
+                            typesProp.arraySize = 0;
+                        }
+                    });
                 }
             }
 
             EditorGUI.indentLevel--;
         }
+
+        static UnityEngine.Object TryGetSpawnSourceObject(SerializedProperty cfgProp) {
+            // Try the most likely field names first; safe if they don't exist.
+            SerializedProperty p;
+
+            p = cfgProp.FindPropertyRelative("spawnPoint");
+            if (p != null && p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue != null) return p.objectReferenceValue;
+
+            p = cfgProp.FindPropertyRelative("point");
+            if (p != null && p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue != null) return p.objectReferenceValue;
+
+            p = cfgProp.FindPropertyRelative("transform");
+            if (p != null && p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue != null) return p.objectReferenceValue;
+
+            p = cfgProp.FindPropertyRelative("spawnTransform");
+            if (p != null && p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue != null) return p.objectReferenceValue;
+
+            p = cfgProp.FindPropertyRelative("spawn");
+            if (p != null && p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue != null) return p.objectReferenceValue;
+
+            return null;
+        }
+
+        static void WithRedBackground(System.Action draw) {
+            Color prev = GUI.backgroundColor;
+            GUI.backgroundColor = new Color(1.0f, 0.55f, 0.55f, 1.0f); // reddish
+            try { draw?.Invoke(); } finally { GUI.backgroundColor = prev; }
+        }
+
     }
 }
 #endif

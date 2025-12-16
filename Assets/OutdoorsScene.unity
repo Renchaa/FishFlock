@@ -130,7 +130,7 @@ GameObject:
   - component: {fileID: 2685115}
   - component: {fileID: 2685116}
   m_Layer: 0
-  m_Name: SpawnPoint
+  m_Name: SpawnPointOfEnderDragon
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -163,7 +163,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9cb305353033a8640a971025e22c3cd7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  shape: 2
+  shape: 0
   radius: 1
   halfExtents: {x: 3, y: 3, z: 3}
 --- !u!1 &157207112
@@ -452,7 +452,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3176ea580578d894b89e7277388f19b1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  shape: 1
+  shape: 0
   sphereRadius: 2
   boxSize: {x: 3.5, y: 13.26, z: 8}
   baseStrength: 0
@@ -1016,7 +1016,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9cb305353033a8640a971025e22c3cd7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  shape: 1
+  shape: 0
   radius: 3
   halfExtents: {x: 3, y: 3, z: 3}
 --- !u!1 &558505368
@@ -1269,20 +1269,20 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   mainSpawner: {fileID: 745878724}
-  groupNoisePattern: {fileID: 11400000, guid: 5db971d17ac9bec4388a58f9b56f0a70, type: 2}
-  boundsCenter: {x: 50, y: 11, z: 55}
+  groupNoisePattern: {fileID: 11400000, guid: e983a20677f6f284eb5a30e3c4de18a6, type: 2}
+  boundsCenter: {x: 50, y: 11, z: 50}
   boundsExtents: {x: 31, y: 11, z: 25}
   cellSize: 1
   globalDamping: 0.1
-  debugDrawBounds: 1
-  debugDrawGrid: 1
-  debugDrawAgents: 1
-  debugDrawNeighbourhood: 1
+  debugDrawBounds: 0
+  debugDrawGrid: 0
+  debugDrawAgents: 0
+  debugDrawNeighbourhood: 0
   debugAgentIndex: 0
-  debugDrawBodyRadius: 1
-  debugDrawSeparationRadius: 1
+  debugDrawBodyRadius: 0
+  debugDrawSeparationRadius: 0
   debugDrawNeighbourRadiusSphere: 0
-  debugDrawGridSearchRadiusSphere: 1
+  debugDrawGridSearchRadiusSphere: 0
   staticObstacles:
   - {fileID: 1372069534}
   - {fileID: 416360085}
@@ -1301,7 +1301,8 @@ MonoBehaviour:
   - {fileID: 235993011}
   - {fileID: 1995455351}
   dynamicAttractors: []
-  layer3Patterns: []
+  layer3Patterns:
+  - {fileID: 11400000, guid: 9745b17c156e9af4fb1f8ad0f4b1423d, type: 2}
 --- !u!4 &731534110
 Transform:
   m_ObjectHideFlags: 0
@@ -1506,11 +1507,24 @@ MonoBehaviour:
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
       count: 500
+    - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
+      count: 0
   - point: {fileID: 2685116}
     useSeed: 0
     seed: 0
-    types: []
-  seedSpawns: []
+    types:
+    - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
+      count: 0
+    - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
+      count: 0
+  seedSpawns:
+  - useSeed: 0
+    seed: 0
+    types:
+    - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
+      count: 0
+    - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
+      count: 0
   globalSeed: 1
 --- !u!1 &1363958399
 GameObject:

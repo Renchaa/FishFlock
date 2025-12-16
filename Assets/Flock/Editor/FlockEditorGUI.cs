@@ -12,6 +12,7 @@ namespace Flock.Editor {
 
         static GUIStyle _sectionHeader;
         static GUIStyle _sectionBox;
+        static GUIStyle _cardHeader;
 
         public static GUIStyle SectionHeader {
             get {
@@ -89,6 +90,61 @@ namespace Flock.Editor {
 
         public static void EndColumns() {
             EditorGUILayout.EndHorizontal();
+        }
+
+        public static GUIStyle CardHeader {
+            get {
+                if (_cardHeader == null) {
+                    _cardHeader = new GUIStyle(EditorStyles.boldLabel) {
+                        alignment = TextAnchor.MiddleLeft
+                    };
+                }
+                return _cardHeader;
+            }
+        }
+
+        /// <summary>
+        /// Non-collapsible "card" section header + body.
+        /// Use this when you want things grouped but NOT hidden behind foldouts.
+        /// </summary>
+        public static void BeginCard(string title) {
+            EditorGUILayout.BeginVertical(SectionBox, GUILayout.ExpandWidth(true));
+            Rect r = GUILayoutUtility.GetRect(0f, 18f, GUILayout.ExpandWidth(true));
+            r.xMin += 2f;
+            EditorGUI.LabelField(r, title, CardHeader);
+            EditorGUILayout.Space(2f);
+        }
+
+        public static void EndCard() {
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.Space(4f);
+        }
+
+        public static void PropertyFieldClamped(SerializedProperty property, bool includeChildren = true) {
+            if (property == null) {
+                return;
+            }
+
+            float h = EditorGUI.GetPropertyHeight(property, includeChildren);
+
+            // This rect is already "inside" the current card/section layout.
+            Rect r = EditorGUILayout.GetControlRect(true, h, GUILayout.ExpandWidth(true));
+
+            // We reserve a left "gutter" ONLY for properties that actually need a foldout arrow (arrays/structs).
+            bool needsFoldoutGutter =
+                includeChildren &&
+                (property.isArray && property.propertyType != SerializedPropertyType.String
+                 || property.propertyType == SerializedPropertyType.Generic);
+
+            float gutter = needsFoldoutGutter ? 16f : 0f;
+
+            // Clamp drawing to this rect (Unity 6 array footer buttons stop bleeding outside).
+            GUI.BeginGroup(r);
+            {
+                Rect local = new Rect(gutter, 0f, r.width - gutter, r.height);
+                EditorGUI.PropertyField(local, property, includeChildren);
+            }
+            GUI.EndGroup();
         }
     }
 }

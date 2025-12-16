@@ -346,6 +346,41 @@ namespace Flock.Runtime {
             return outHandles.Count > 0;
         }
 
+        void ApplyLayer2GroupNoisePatternToSimulation() {
+            if (simulation == null || !simulation.IsCreated) {
+                return;
+            }
+
+            // Default if nothing assigned
+            if (groupNoisePattern == null) {
+                simulation.SetLayer2GroupNoiseSimpleSine(
+                    FlockGroupNoiseCommonSettings.Default,
+                    FlockGroupNoiseSimpleSinePayload.Default);
+                return;
+            }
+
+            var common = groupNoisePattern.ToCommonSettings();
+
+            switch (groupNoisePattern.PatternType) {
+                case FlockGroupNoisePatternType.VerticalBands:
+                    simulation.SetLayer2GroupNoiseVerticalBands(common, groupNoisePattern.ToVerticalBandsPayload());
+                    break;
+
+                case FlockGroupNoisePatternType.Vortex:
+                    simulation.SetLayer2GroupNoiseVortex(common, groupNoisePattern.ToVortexPayload());
+                    break;
+
+                case FlockGroupNoisePatternType.SphereShell:
+                    simulation.SetLayer2GroupNoiseSphereShell(common, groupNoisePattern.ToSphereShellPayload());
+                    break;
+
+                case FlockGroupNoisePatternType.SimpleSine:
+                default:
+                    simulation.SetLayer2GroupNoiseSimpleSine(common, groupNoisePattern.ToSimpleSinePayload());
+                    break;
+            }
+        }
+
         void CreateBehaviourSettingsArray() {
             if (fishTypes == null || fishTypes.Length == 0) {
                 FlockLog.Error(
@@ -490,9 +525,11 @@ namespace Flock.Runtime {
                 environmentData,
                 behaviourSettingsArray,
                 obstacleData,
-                attractorData,               // NEW
+                attractorData,
                 Allocator.Persistent,
                 this);
+
+            ApplyLayer2GroupNoisePatternToSimulation();
 
             simulation.SetAgentBehaviourIds(agentBehaviourIds);
 

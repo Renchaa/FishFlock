@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Layer3_SphereShell
   m_EditorClassIdentifier: 
   enabled: 1
-  strength: 10
+  strength: 100
   affectedTypes:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
   useBoundsCenter: 0
   centerNorm: {x: 0.5, y: 0.5, z: 0.5}
-  radius: 5
-  thickness: 1
+  radius: 6
+  thickness: 2

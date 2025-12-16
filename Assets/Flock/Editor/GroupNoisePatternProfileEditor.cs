@@ -7,35 +7,42 @@ namespace Flock.Editor {
     [CustomEditor(typeof(GroupNoisePatternProfile))]
     public sealed class GroupNoisePatternProfileEditor : UnityEditor.Editor {
 
-        bool commonExpanded = true;
-        bool patternExpanded = true;
-        bool simpleExpanded = false;
-        bool vortexExpanded = false;
-        bool sphereExpanded = false;
-
         SerializedProperty P(string name) => serializedObject.FindProperty(name);
+
+        static void BeginBoxSection(string title) {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
+            EditorGUILayout.Space(2f);
+        }
+
+        static void EndBoxSection() {
+            EditorGUILayout.EndVertical();
+        }
 
         public override void OnInspectorGUI() {
             serializedObject.Update();
 
             // ---------------- Common base settings ----------------
-            if (FlockEditorGUI.BeginSection("Common", ref commonExpanded)) {
+            // ---------------- Common base settings ----------------
+            BeginBoxSection("Common");
+            {
                 EditorGUILayout.PropertyField(P("baseFrequency"), new GUIContent("Base Frequency"));
                 EditorGUILayout.PropertyField(P("timeScale"));
                 EditorGUILayout.PropertyField(P("phaseOffset"));
                 EditorGUILayout.PropertyField(P("worldScale"));
                 EditorGUILayout.PropertyField(P("seed"));
-                FlockEditorGUI.EndSection();
             }
+            EndBoxSection();
 
             EditorGUILayout.Space(2f);
 
             // ---------------- Pattern selection ----------------
             SerializedProperty patternProp = P("patternType");
-            if (FlockEditorGUI.BeginSection("Pattern Type", ref patternExpanded)) {
+            BeginBoxSection("Pattern Type");
+            {
                 EditorGUILayout.PropertyField(patternProp, new GUIContent("Pattern Type"));
-                FlockEditorGUI.EndSection();
             }
+            EndBoxSection();
 
             // Read current enum value AFTER drawing the field
             var patternType = (FlockGroupNoisePatternType)patternProp.enumValueIndex;
@@ -46,30 +53,30 @@ namespace Flock.Editor {
             switch (patternType) {
                 case FlockGroupNoisePatternType.SimpleSine:
                 case FlockGroupNoisePatternType.VerticalBands:
-                    if (FlockEditorGUI.BeginSection("Simple / Bands Extras", ref simpleExpanded)) {
+                    BeginBoxSection("Simple / Bands Extras"); {
                         EditorGUILayout.PropertyField(P("swirlStrength"));
                         EditorGUILayout.PropertyField(P("verticalBias"));
-                        FlockEditorGUI.EndSection();
                     }
+                    EndBoxSection();
                     break;
 
                 case FlockGroupNoisePatternType.Vortex:
-                    if (FlockEditorGUI.BeginSection("Vortex Settings", ref vortexExpanded)) {
+                    BeginBoxSection("Vortex Settings"); {
                         EditorGUILayout.PropertyField(P("vortexCenterNorm"));
                         EditorGUILayout.PropertyField(P("vortexRadius"));
                         EditorGUILayout.PropertyField(P("vortexTightness"));
-                        FlockEditorGUI.EndSection();
                     }
+                    EndBoxSection();
                     break;
 
                 case FlockGroupNoisePatternType.SphereShell:
-                    if (FlockEditorGUI.BeginSection("Sphere Shell Settings", ref sphereExpanded)) {
+                    BeginBoxSection("Sphere Shell Settings"); {
                         EditorGUILayout.PropertyField(P("sphereRadius"));
                         EditorGUILayout.PropertyField(P("sphereThickness"));
                         EditorGUILayout.PropertyField(P("sphereSwirlStrength"));
                         EditorGUILayout.PropertyField(P("sphereCenterNorm"));
-                        FlockEditorGUI.EndSection();
                     }
+                    EndBoxSection();
                     break;
             }
 

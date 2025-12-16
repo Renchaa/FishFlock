@@ -15,39 +15,39 @@ MonoBehaviour:
   maxSpeed: 5
   maxAcceleration: 7
   desiredSpeed: 2.5
-  wanderStrength: 0.1
-  wanderFrequency: 0.2
-  groupNoiseStrength: 0.2
-  groupNoiseDirectionRate: 0.3
-  groupNoiseSpeedWeight: 0.081
+  wanderStrength: 0.2
+  wanderFrequency: 0.1
+  groupNoiseStrength: 1
+  groupNoiseDirectionRate: 0.5
+  groupNoiseSpeedWeight: 0.497
   patternWeight: 1
   groupFlowWeight: 0
   bodyRadius: 0.2
-  schoolingSpacingFactor: 1.6
-  schoolingOuterFactor: 2
-  schoolingStrength: 1.2
-  schoolingInnerSoftness: 0.3
-  schoolingRadialDamping: 0.7
-  schoolingDeadzoneFraction: 0.3
-  neighbourRadius: 2
+  schoolingSpacingFactor: 0.5
+  schoolingOuterFactor: 1
+  schoolingStrength: 0
+  schoolingInnerSoftness: 0
+  schoolingRadialDamping: 0.3
+  schoolingDeadzoneFraction: 0
+  neighbourRadius: 0
   separationRadius: 0
   alignmentWeight: 0
   cohesionWeight: 0
   separationWeight: 0
   influenceWeight: 0
-  avoidanceWeight: 5
+  avoidanceWeight: 1
   neutralWeight: 1
   attractionResponse: 1
-  avoidResponse: 1.5
+  avoidResponse: 1
   splitPanicThreshold: 0.4
   splitLateralWeight: 0.8
   splitAccelBoost: 1
-  attractionWeight: 1
+  attractionWeight: 0
   boundsWeight: 1
   boundsTangentialDamping: 1.5
   boundsInfluenceSuppression: 1
-  minGroupSize: 5
-  maxGroupSize: 300
+  minGroupSize: 1
+  maxGroupSize: 0
   minGroupSizeWeight: 0
   maxGroupSizeWeight: 0
   usePreferredDepth: 0

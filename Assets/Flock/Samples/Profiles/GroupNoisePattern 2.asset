@@ -15,15 +15,15 @@ MonoBehaviour:
   baseFrequency: 0.28
   timeScale: {x: 0.6, y: 0.8, z: 0.6}
   phaseOffset: {x: 0, y: 0, z: 0}
-  worldScale: 35
+  worldScale: 10
   seed: 9876543
-  patternType: 3
-  swirlStrength: 0
-  verticalBias: 0.18
+  patternType: 2
+  swirlStrength: 100
+  verticalBias: 1
   vortexCenterNorm: {x: 0.5, y: 0.45, z: 0.5}
   vortexRadius: 5
   vortexTightness: 1
-  sphereRadius: 8
+  sphereRadius: 4
   sphereThickness: 2
-  sphereSwirlStrength: 1
+  sphereSwirlStrength: 10000
   sphereCenterNorm: {x: 0.5, y: 0.5, z: 0.5}

@@ -49,6 +49,8 @@ namespace Flock.Runtime {
         [SerializeField]
         Vector3 sphereCenterNorm = new Vector3(0.5f, 0.5f, 0.5f);
 
+        public FlockGroupNoisePatternType PatternType => patternType;
+
         public FlockGroupNoisePatternSettings ToSettings() {
             FlockGroupNoisePatternSettings s;
 
@@ -91,6 +93,52 @@ namespace Flock.Runtime {
                 Mathf.Clamp01(sphereCenterNorm.z));
 
             return s;
+        }
+
+        public FlockGroupNoiseCommonSettings ToCommonSettings() {
+            return new FlockGroupNoiseCommonSettings {
+                BaseFrequency = Mathf.Max(0f, baseFrequency),
+                TimeScale = new float3(timeScale.x, timeScale.y, timeScale.z),
+                PhaseOffset = new float3(phaseOffset.x, phaseOffset.y, phaseOffset.z),
+                WorldScale = Mathf.Max(0.001f, worldScale),
+                Seed = seed == 0u ? 1u : seed,
+            };
+        }
+
+        public FlockGroupNoiseSimpleSinePayload ToSimpleSinePayload() {
+            return new FlockGroupNoiseSimpleSinePayload {
+                SwirlStrength = Mathf.Max(0f, swirlStrength),
+            };
+        }
+
+        public FlockGroupNoiseVerticalBandsPayload ToVerticalBandsPayload() {
+            return new FlockGroupNoiseVerticalBandsPayload {
+                VerticalBias = verticalBias,
+            };
+        }
+
+        public FlockGroupNoiseVortexPayload ToVortexPayload() {
+            return new FlockGroupNoiseVortexPayload {
+                CenterNorm = new float3(
+                    Mathf.Clamp01(vortexCenterNorm.x),
+                    Mathf.Clamp01(vortexCenterNorm.y),
+                    Mathf.Clamp01(vortexCenterNorm.z)),
+                Radius = Mathf.Max(0f, vortexRadius),
+                Tightness = Mathf.Max(0f, vortexTightness),
+                VerticalBias = verticalBias,
+            };
+        }
+
+        public FlockGroupNoiseSphereShellPayload ToSphereShellPayload() {
+            return new FlockGroupNoiseSphereShellPayload {
+                CenterNorm = new float3(
+                    Mathf.Clamp01(sphereCenterNorm.x),
+                    Mathf.Clamp01(sphereCenterNorm.y),
+                    Mathf.Clamp01(sphereCenterNorm.z)),
+                Radius = Mathf.Max(0f, sphereRadius),
+                Thickness = Mathf.Max(0.001f, sphereThickness),
+                SwirlStrength = Mathf.Max(0f, sphereSwirlStrength),
+            };
         }
     }
 }

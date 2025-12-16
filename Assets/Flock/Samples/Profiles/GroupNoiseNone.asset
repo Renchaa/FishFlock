@@ -17,13 +17,13 @@ MonoBehaviour:
   phaseOffset: {x: 0, y: 0, z: 0}
   worldScale: 1
   seed: 1234567
-  patternType: 1
+  patternType: 0
   swirlStrength: 0.4
   verticalBias: 0.5
   vortexCenterNorm: {x: 0, y: 0, z: 0}
   vortexRadius: 0
   vortexTightness: 0
-  sphereRadius: 0
-  sphereThickness: 0
-  sphereSwirlStrength: 0
+  sphereRadius: 3
+  sphereThickness: 1
+  sphereSwirlStrength: 10
   sphereCenterNorm: {x: 0.5, y: 0.5, z: 0.5}

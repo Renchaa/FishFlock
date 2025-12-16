@@ -15,14 +15,9 @@ MonoBehaviour:
   FishTypes:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
-  - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
   InteractionMatrix: {fileID: 11400000, guid: f1437cb311dc321438e13eab5952ac74, type: 2}
-  GroupNoiseSettings: {fileID: 11400000, guid: aa71795fa68bacb46a323fae1d6a1b7f, type: 2}
+  GroupNoiseSettings: {fileID: 11400000, guid: e983a20677f6f284eb5a30e3c4de18a6, type: 2}
   PatternAssets:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 11400000, guid: 9745b17c156e9af4fb1f8ad0f4b1423d, type: 2}
+  - {fileID: 11400000, guid: 9745b17c156e9af4fb1f8ad0f4b1423d, type: 2}
+  - {fileID: 11400000, guid: 9745b17c156e9af4fb1f8ad0f4b1423d, type: 2}

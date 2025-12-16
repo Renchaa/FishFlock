@@ -152,6 +152,13 @@ namespace Flock.Runtime {
         public float GlobalPatternMultiplier { get; set; } = 1.0f;
         public float GroupNoiseFrequency { get; set; } = 0.3f;
 
+        int activeLayer2GroupNoiseKind = 0; // 0 SimpleSine, 1 VerticalBands, 2 Vortex, 3 SphereShell
+        FlockGroupNoiseCommonSettings activeLayer2GroupNoiseCommon = FlockGroupNoiseCommonSettings.Default;
+        FlockGroupNoiseSimpleSinePayload activeLayer2SimpleSine = FlockGroupNoiseSimpleSinePayload.Default;
+        FlockGroupNoiseVerticalBandsPayload activeLayer2VerticalBands = FlockGroupNoiseVerticalBandsPayload.Default;
+        FlockGroupNoiseVortexPayload activeLayer2Vortex = FlockGroupNoiseVortexPayload.Default;
+        FlockGroupNoiseSphereShellPayload activeLayer2SphereShell = FlockGroupNoiseSphereShellPayload.Default;
+
         float3 patternSphereCenter;
         float patternSphereRadius;
         float patternSphereThickness;
@@ -218,6 +225,44 @@ namespace Flock.Runtime {
                 }
             }
         }
+
+        // ADD in FlockSimulation (public API)
+        public void SetLayer2GroupNoiseSimpleSine(
+            in FlockGroupNoiseCommonSettings common,
+            in FlockGroupNoiseSimpleSinePayload payload) {
+
+            activeLayer2GroupNoiseKind = 0;
+            activeLayer2GroupNoiseCommon = common;
+            activeLayer2SimpleSine = payload;
+        }
+
+        public void SetLayer2GroupNoiseVerticalBands(
+            in FlockGroupNoiseCommonSettings common,
+            in FlockGroupNoiseVerticalBandsPayload payload) {
+
+            activeLayer2GroupNoiseKind = 1;
+            activeLayer2GroupNoiseCommon = common;
+            activeLayer2VerticalBands = payload;
+        }
+
+        public void SetLayer2GroupNoiseVortex(
+            in FlockGroupNoiseCommonSettings common,
+            in FlockGroupNoiseVortexPayload payload) {
+
+            activeLayer2GroupNoiseKind = 2;
+            activeLayer2GroupNoiseCommon = common;
+            activeLayer2Vortex = payload;
+        }
+
+        public void SetLayer2GroupNoiseSphereShell(
+            in FlockGroupNoiseCommonSettings common,
+            in FlockGroupNoiseSphereShellPayload payload) {
+
+            activeLayer2GroupNoiseKind = 3;
+            activeLayer2GroupNoiseCommon = common;
+            activeLayer2SphereShell = payload;
+        }
+
 
         public void SetLayer3Patterns(
     FlockLayer3PatternCommand[] commands,
@@ -400,7 +445,7 @@ namespace Flock.Runtime {
                     assignHandle);
             }
 
-            // ---------- Per-cell group noise field ----------
+            // ---------- Per-cell group noise field (Layer-2: single active pattern, job-per-pattern) ----------
             bool useGroupNoiseField =
                 cellGroupNoise.IsCreated &&
                 gridCellCount > 0 &&
@@ -409,18 +454,65 @@ namespace Flock.Runtime {
             JobHandle groupNoiseHandle = inputHandle;
 
             if (useGroupNoiseField) {
-                var groupNoiseJob = new GroupNoiseFieldJob {
-                    Time = simulationTime,
-                    Frequency = GroupNoiseFrequency,
-                    GridResolution = environmentData.GridResolution,
-                    CellNoise = cellGroupNoise,
-                    PatternSettings = environmentData.GroupNoisePattern,
-                };
+                // The scheduler chooses the active pattern. No switching inside Burst jobs.
+                switch (activeLayer2GroupNoiseKind) {
+                    case 1: {
+                            var job = new GroupNoiseFieldVerticalBandsJob {
+                                Time = simulationTime,
+                                Frequency = GroupNoiseFrequency,
+                                GridResolution = environmentData.GridResolution,
+                                CellNoise = cellGroupNoise,
+                                Common = activeLayer2GroupNoiseCommon,
+                                Payload = activeLayer2VerticalBands,
+                            };
 
-                groupNoiseHandle = groupNoiseJob.Schedule(
-                    gridCellCount,
-                    64,
-                    inputHandle);
+                            groupNoiseHandle = job.Schedule(gridCellCount, 64, inputHandle);
+                            break;
+                        }
+
+                    case 2: {
+                            var job = new GroupNoiseFieldVortexJob {
+                                Time = simulationTime,
+                                Frequency = GroupNoiseFrequency,
+                                GridResolution = environmentData.GridResolution,
+                                CellNoise = cellGroupNoise,
+                                Common = activeLayer2GroupNoiseCommon,
+                                Payload = activeLayer2Vortex,
+                            };
+
+                            groupNoiseHandle = job.Schedule(gridCellCount, 64, inputHandle);
+                            break;
+                        }
+
+                    case 3: {
+                            var job = new GroupNoiseFieldSphereShellJob {
+                                Time = simulationTime,
+                                Frequency = GroupNoiseFrequency,
+                                GridResolution = environmentData.GridResolution,
+                                CellNoise = cellGroupNoise,
+                                Common = activeLayer2GroupNoiseCommon,
+                                Payload = activeLayer2SphereShell,
+                            };
+
+                            groupNoiseHandle = job.Schedule(gridCellCount, 64, inputHandle);
+                            break;
+                        }
+
+                    case 0:
+                    default: {
+                            var job = new GroupNoiseFieldSimpleSineJob {
+                                Time = simulationTime,
+                                Frequency = GroupNoiseFrequency,
+                                GridResolution = environmentData.GridResolution,
+                                CellNoise = cellGroupNoise,
+                                Common = activeLayer2GroupNoiseCommon,
+                                Payload = activeLayer2SimpleSine,
+                            };
+
+                            groupNoiseHandle = job.Schedule(gridCellCount, 64, inputHandle);
+                            break;
+                        }
+                }
             }
 
             // ---------- Layer-3 patterns (stacked into patternSteering) ----------
