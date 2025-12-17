@@ -1271,11 +1271,13 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
   mainSpawner: {fileID: 745878724}
   groupNoisePattern: {fileID: 11400000, guid: 0cf9db20c6ef69a40aba5e2a14a83848, type: 2}
-  boundsCenter: {x: 48.16, y: 11, z: 50}
+  boundsType: 0
+  boundsCenter: {x: 50, y: 11, z: 50}
   boundsExtents: {x: 19.7, y: 11, z: 25}
+  boundsSphereRadius: 25
   cellSize: 1
   globalDamping: 0.1
-  debugDrawBounds: 0
+  debugDrawBounds: 1
   debugDrawGrid: 0
   debugDrawAgents: 0
   debugDrawNeighbourhood: 0
@@ -1506,8 +1508,10 @@ MonoBehaviour:
     seed: 0
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 500
+      count: 2000
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
+      count: 0
+    - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
       count: 0
   - point: {fileID: 2685116}
     useSeed: 0
@@ -1517,6 +1521,8 @@ MonoBehaviour:
       count: 0
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
       count: 0
+    - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
+      count: 0
   seedSpawns:
   - useSeed: 0
     seed: 0
@@ -1524,6 +1530,8 @@ MonoBehaviour:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
       count: 0
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
+      count: 0
+    - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
       count: 0
   globalSeed: 1
 --- !u!1 &1363958399
@@ -1910,14 +1918,14 @@ GameObject:
   - component: {fileID: 1572445304}
   - component: {fileID: 1572445303}
   - component: {fileID: 1572445302}
-  - component: {fileID: 1572445301}
+  - component: {fileID: 1572445305}
   m_Layer: 0
   m_Name: MovingSphere
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1572445300
 Transform:
   m_ObjectHideFlags: 0
@@ -1933,21 +1941,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 731534110}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1572445301
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1572445299}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9af61abffcbaf4c4d8359d59e85bea27, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  flock: {fileID: 731534109}
-  sphereShellProfile: {fileID: 11400000, guid: 9745b17c156e9af4fb1f8ad0f4b1423d, type: 2}
-  toggleKey: 32
 --- !u!135 &1572445302
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -2022,6 +2015,27 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1572445299}
   m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &1572445305
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1572445299}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51d461f632830804eaf3bac14d89e87b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  target: {fileID: 1572445300}
+  shape: 0
+  sphereRadius: 5
+  sphereThickness: 3
+  boxHalfExtents: {x: 5, y: 5, z: 5}
+  boxThickness: 2
+  strength: 100
+  createOnEnable: 1
+  controller: {fileID: 731534109}
 --- !u!1 &1713668499
 GameObject:
   m_ObjectHideFlags: 0

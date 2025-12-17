@@ -24,7 +24,8 @@ namespace Flock.Runtime {
             in FlockEnvironmentData env,
             FishTypePreset[] controllerFishTypes,
             List<FlockLayer3PatternCommand> commands,
-            List<FlockLayer3PatternSphereShell> sphereShellPayloads) {
+            List<FlockLayer3PatternSphereShell> sphereShellPayloads,
+            List<FlockLayer3PatternBoxShell> boxShellPayloads) {
 
             if (!enabled || strength <= 0f) {
                 return;
@@ -41,14 +42,16 @@ namespace Flock.Runtime {
                 env,
                 mask,
                 commands,
-                sphereShellPayloads);
+                sphereShellPayloads,
+                boxShellPayloads);
         }
 
         protected abstract void BakeInternal(
             in FlockEnvironmentData env,
             uint behaviourMask,
             List<FlockLayer3PatternCommand> commands,
-            List<FlockLayer3PatternSphereShell> sphereShellPayloads);
+            List<FlockLayer3PatternSphereShell> sphereShellPayloads,
+            List<FlockLayer3PatternBoxShell> boxShellPayloads);
 
         protected static uint BuildBehaviourMask(
             FishTypePreset[] controllerFishTypes,

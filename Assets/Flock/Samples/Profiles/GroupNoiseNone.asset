@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3826b696077b4b24f9b5f4be623db280, type: 3}
   m_Name: GroupNoiseNone
   m_EditorClassIdentifier: 
-  baseFrequency: 10
-  timeScale: {x: 0.4, y: 0, z: 0}
+  baseFrequency: 0
+  timeScale: {x: 0, y: 0, z: 0}
   phaseOffset: {x: 0, y: 0, z: 0}
-  worldScale: 1
-  seed: 1234567
+  worldScale: 0
+  seed: 0
   patternType: 0
-  swirlStrength: 0.4
-  verticalBias: 0.5
+  swirlStrength: 0
+  verticalBias: 0
   vortexCenterNorm: {x: 0, y: 0, z: 0}
   vortexRadius: 0
   vortexTightness: 0

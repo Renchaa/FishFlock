@@ -1,5 +1,6 @@
 ﻿#if UNITY_EDITOR
 using Flock.Runtime;
+using Flock.Runtime.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -2022,6 +2023,13 @@ namespace Flock.Editor {
             var so = new SerializedObject(controller);
             so.Update();
 
+            // Bounds-related properties for custom UI
+            SerializedProperty pBoundsType = so.FindProperty("boundsType");
+            SerializedProperty pBoundsCenter = so.FindProperty("boundsCenter");
+            SerializedProperty pBoundsExtents = so.FindProperty("boundsExtents");
+            SerializedProperty pBoundsRadius = so.FindProperty("boundsSphereRadius");
+            bool boundsCardDrawn = false;
+
             Type rootType = controller.GetType();
             string currentSection = null;
             bool sectionOpen = false;
@@ -2036,6 +2044,39 @@ namespace Flock.Editor {
                     if (it.depth != 0) continue;
                     if (it.propertyPath == "m_Script") continue;
 
+                    // Custom Bounds card: draw once, hide raw fields
+                    if (!boundsCardDrawn &&
+                        (it.propertyPath == "boundsType"
+                         || it.propertyPath == "boundsCenter"
+                         || it.propertyPath == "boundsExtents"
+                         || it.propertyPath == "boundsSphereRadius")) {
+
+                        if (sectionOpen) {
+                            FlockEditorGUI.EndCard();
+                            sectionOpen = false;
+                            currentSection = null;
+                        }
+
+                        DrawSceneBoundsCard(
+                            pBoundsType,
+                            pBoundsCenter,
+                            pBoundsExtents,
+                            pBoundsRadius);
+
+                        boundsCardDrawn = true;
+                        continue;
+                    }
+
+                    // Skip remaining raw bounds fields after the card
+                    if (boundsCardDrawn &&
+                        (it.propertyPath == "boundsType"
+                         || it.propertyPath == "boundsCenter"
+                         || it.propertyPath == "boundsExtents"
+                         || it.propertyPath == "boundsSphereRadius")) {
+                        continue;
+                    }
+
+                    // Normal section-based cards
                     if (TryGetHeaderForPropertyPath(rootType, it.propertyPath, out string header)) {
                         if (!sectionOpen || !string.Equals(currentSection, header, StringComparison.Ordinal)) {
                             if (sectionOpen) FlockEditorGUI.EndCard();
@@ -2051,9 +2092,9 @@ namespace Flock.Editor {
 
                     var prop = it.Copy();
 
-                    // If the field name matches the card title (typical for list headers), hide the inner label.
                     GUIContent labelOverride =
-                        (!string.IsNullOrEmpty(currentSection) && string.Equals(prop.displayName, currentSection, StringComparison.Ordinal))
+                        (!string.IsNullOrEmpty(currentSection) &&
+                         string.Equals(prop.displayName, currentSection, StringComparison.Ordinal))
                             ? GUIContent.none
                             : null;
 
@@ -2068,6 +2109,57 @@ namespace Flock.Editor {
             if (so.ApplyModifiedProperties()) {
                 EditorUtility.SetDirty(controller);
             }
+        }
+
+        void DrawSceneBoundsCard(
+            SerializedProperty boundsType,
+            SerializedProperty boundsCenter,
+            SerializedProperty boundsExtents,
+            SerializedProperty boundsSphereRadius) {
+
+            if (boundsCenter == null && boundsExtents == null && boundsSphereRadius == null) {
+                return; // controller is missing these fields
+            }
+
+            FlockEditorGUI.BeginCard("Bounds");
+            {
+                if (boundsType != null) {
+                    FlockEditorGUI.PropertyFieldClamped(boundsType, true);
+                }
+
+                if (boundsCenter != null) {
+                    FlockEditorGUI.PropertyFieldClamped(boundsCenter, true);
+                }
+
+                if (boundsType != null) {
+                    var type = (FlockBoundsType)boundsType.enumValueIndex;
+
+                    using (new EditorGUI.IndentLevelScope()) {
+                        switch (type) {
+                            case FlockBoundsType.Box:
+                                if (boundsExtents != null) {
+                                    FlockEditorGUI.PropertyFieldClamped(boundsExtents, true);
+                                }
+                                break;
+
+                            case FlockBoundsType.Sphere:
+                                if (boundsSphereRadius != null) {
+                                    FlockEditorGUI.PropertyFieldClamped(boundsSphereRadius, true);
+                                }
+                                break;
+                        }
+                    }
+                } else {
+                    // If type is missing, just show both (legacy safety)
+                    if (boundsExtents != null) {
+                        FlockEditorGUI.PropertyFieldClamped(boundsExtents, true);
+                    }
+                    if (boundsSphereRadius != null) {
+                        FlockEditorGUI.PropertyFieldClamped(boundsSphereRadius, true);
+                    }
+                }
+            }
+            FlockEditorGUI.EndCard();
         }
 
         void DrawPatternAssetInspectorCards(FlockLayer3PatternProfile target) {

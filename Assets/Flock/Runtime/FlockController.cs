@@ -21,9 +21,13 @@ namespace Flock.Runtime {
         [Header("Group Noise Pattern")]
         [SerializeField] GroupNoisePatternProfile groupNoisePattern;
 
-        [Header("Bounds (Box)")]
+        [Header("Bounds")]
+        [SerializeField] FlockBoundsType boundsType = FlockBoundsType.Box;
         [SerializeField] Vector3 boundsCenter = Vector3.zero;
         [SerializeField] Vector3 boundsExtents = new Vector3(10.0f, 10.0f, 10.0f);
+
+        // Used when boundsType == Sphere
+        [SerializeField, Min(0f)] float boundsSphereRadius = 10.0f;
 
         [Header("Grid")]
         [SerializeField] float cellSize = 2.0f;
@@ -85,9 +89,13 @@ namespace Flock.Runtime {
         // Runtime Layer-3 start/update scratch (reused to avoid allocations)
         readonly List<FlockLayer3PatternCommand> runtimeL3CmdScratch = new List<FlockLayer3PatternCommand>(4);
         readonly List<FlockLayer3PatternSphereShell> runtimeL3SphereScratch = new List<FlockLayer3PatternSphereShell>(4);
+        readonly List<FlockLayer3PatternBoxShell> runtimeL3BoxShellScratch = new List<FlockLayer3PatternBoxShell>(4);
         readonly List<FlockLayer3PatternHandle> runtimeL3HandleScratch = new List<FlockLayer3PatternHandle>(4);
 
         void Awake() {
+            // Configure global logging filter from this controller
+            FlockLog.SetGlobalMask(enabledLogLevels, enabledLogCategories);
+
             FlockLog.Info(
                 this,
                 FlockLogCategory.Controller,
@@ -135,22 +143,43 @@ namespace Flock.Runtime {
         /// </summary>
         public FlockLayer3PatternToken StartLayer3Pattern(FlockLayer3PatternProfile profile) {
             if (simulation == null || !simulation.IsCreated) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"StartLayer3Pattern called on '{name}' but simulation is not created or already disposed.",
+                    this);
                 return null;
             }
 
             if (profile == null) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"StartLayer3Pattern called on '{name}' with null profile.",
+                    this);
                 return null;
             }
 
             runtimeL3HandleScratch.Clear();
 
             if (!TryBuildRuntimeLayer3FromProfile(profile, runtimeL3HandleScratch)) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"StartLayer3Pattern on '{name}' for profile '{profile.name}' produced no valid runtime commands.",
+                    this);
                 return null;
             }
 
             var token = ScriptableObject.CreateInstance<FlockLayer3PatternToken>();
             token.hideFlags = HideFlags.DontSave;
             token.SetHandles(runtimeL3HandleScratch);
+
+            FlockLog.Info(
+                this,
+                FlockLogCategory.Controller,
+                $"Started Layer-3 pattern '{profile.name}' with {runtimeL3HandleScratch.Count} runtime handles on '{name}'.",
+                this);
 
             return token;
         }
@@ -161,10 +190,29 @@ namespace Flock.Runtime {
         /// </summary>
         public bool UpdateLayer3Pattern(FlockLayer3PatternToken token, FlockLayer3PatternProfile profile) {
             if (simulation == null || !simulation.IsCreated) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"UpdateLayer3Pattern called on '{name}' but simulation is not created or already disposed.",
+                    this);
                 return false;
             }
 
-            if (token == null || profile == null) {
+            if (token == null) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"UpdateLayer3Pattern called on '{name}' with null token.",
+                    this);
+                return false;
+            }
+
+            if (profile == null) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"UpdateLayer3Pattern called on '{name}' with null profile.",
+                    this);
                 return false;
             }
 
@@ -173,12 +221,18 @@ namespace Flock.Runtime {
 
             runtimeL3CmdScratch.Clear();
             runtimeL3SphereScratch.Clear();
+            runtimeL3BoxShellScratch.Clear();
 
-            profile.Bake(env, fishTypes, runtimeL3CmdScratch, runtimeL3SphereScratch);
+            profile.Bake(env, fishTypes, runtimeL3CmdScratch, runtimeL3SphereScratch, runtimeL3BoxShellScratch);
 
             // If profile currently bakes nothing -> stop whatever was running
             if (runtimeL3CmdScratch.Count == 0) {
                 StopLayer3Pattern(token);
+                FlockLog.Info(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"UpdateLayer3Pattern on '{name}' stopped token because profile '{profile.name}' baked no commands.",
+                    this);
                 return true;
             }
 
@@ -188,10 +242,22 @@ namespace Flock.Runtime {
 
                 runtimeL3HandleScratch.Clear();
                 if (!TryBuildRuntimeLayer3FromProfile(profile, runtimeL3HandleScratch)) {
+                    FlockLog.Warning(
+                        this,
+                        FlockLogCategory.Controller,
+                        $"UpdateLayer3Pattern on '{name}' failed to rebuild token for profile '{profile.name}'.",
+                        this);
                     return false;
                 }
 
                 token.SetHandles(runtimeL3HandleScratch);
+
+                FlockLog.Info(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"UpdateLayer3Pattern on '{name}' rebuilt token for profile '{profile.name}' with {runtimeL3HandleScratch.Count} handles.",
+                    this);
+
                 return true;
             }
 
@@ -247,6 +313,45 @@ namespace Flock.Runtime {
 
                             break;
                         }
+                    case FlockLayer3PatternKind.BoxShell: {
+                            if ((uint)cmd.PayloadIndex >= (uint)runtimeL3BoxShellScratch.Count) {
+                                allOk = false;
+                                continue;
+                            }
+
+                            FlockLayer3PatternBoxShell b = runtimeL3BoxShellScratch[cmd.PayloadIndex];
+
+                            bool ok = simulation.UpdatePatternBoxShell(
+                                handle,
+                                b.Center,
+                                b.HalfExtents,
+                                b.Thickness,
+                                cmd.Strength,
+                                cmd.BehaviourMask);
+
+                            if (!ok) {
+                                // stale/invalid handle -> restart just this entry
+                                simulation.StopLayer3Pattern(handle);
+
+                                FlockLayer3PatternBoxShell rb = b;
+
+                                FlockLayer3PatternHandle newHandle = simulation.StartPatternBoxShell(
+                                    rb.Center,
+                                    rb.HalfExtents,
+                                    rb.Thickness,
+                                    cmd.Strength,
+                                    cmd.BehaviourMask);
+
+                                if (!newHandle.IsValid) {
+                                    allOk = false;
+                                    continue;
+                                }
+
+                                token.ReplaceHandle(i, newHandle);
+                            }
+
+                            break;
+                        }
 
                     default: {
                             // Unsupported runtime kind -> treat as failure
@@ -254,6 +359,14 @@ namespace Flock.Runtime {
                             break;
                         }
                 }
+            }
+
+            if (!allOk) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"UpdateLayer3Pattern on '{name}' for profile '{profile.name}' had to restart or skip one or more runtime handles.",
+                    this);
             }
 
             return allOk;
@@ -264,10 +377,20 @@ namespace Flock.Runtime {
         /// </summary>
         public bool StopLayer3Pattern(FlockLayer3PatternToken token) {
             if (simulation == null || !simulation.IsCreated) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"StopLayer3Pattern called on '{name}' but simulation is not created or already disposed.",
+                    this);
                 return false;
             }
 
             if (token == null || !token.IsValid) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"StopLayer3Pattern called on '{name}' with null or invalid token.",
+                    this);
                 return false;
             }
 
@@ -279,7 +402,132 @@ namespace Flock.Runtime {
             }
 
             token.Invalidate();
+
+            if (anyStopped) {
+                FlockLog.Info(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"Stopped Layer-3 pattern token with {count} handles on '{name}'.",
+                    this);
+            }
+
             return anyStopped;
+        }
+
+        public FlockLayer3PatternHandle StartRuntimeSphereShell(
+            float3 center,
+            float radius,
+            float thickness = -1f,
+            float strength = 1f,
+            uint behaviourMask = uint.MaxValue) {
+
+            if (simulation == null || !simulation.IsCreated) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"StartRuntimeSphereShell called on '{name}' but simulation is not created or already disposed.",
+                    this);
+                return FlockLayer3PatternHandle.Invalid;
+            }
+
+            return simulation.StartPatternSphereShell(
+                center,
+                radius,
+                thickness,
+                strength,
+                behaviourMask);
+        }
+
+        public bool UpdateRuntimeSphereShell(
+            FlockLayer3PatternHandle handle,
+            float3 center,
+            float radius,
+            float thickness = -1f,
+            float strength = 1f,
+            uint behaviourMask = uint.MaxValue) {
+
+            if (simulation == null || !simulation.IsCreated) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"UpdateRuntimeSphereShell called on '{name}' but simulation is not created or already disposed.",
+                    this);
+                return false;
+            }
+
+            // We deliberately do NOT log if the underlying simulation returns false –
+            // that can be per-frame and the caller already gets the bool result.
+            return simulation.UpdatePatternSphereShell(
+                handle,
+                center,
+                radius,
+                thickness,
+                strength,
+                behaviourMask);
+        }
+
+        public FlockLayer3PatternHandle StartRuntimeBoxShell(
+            float3 center,
+            float3 halfExtents,
+            float thickness = -1f,
+            float strength = 1f,
+            uint behaviourMask = uint.MaxValue) {
+
+            if (simulation == null || !simulation.IsCreated) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"StartRuntimeBoxShell called on '{name}' but simulation is not created or already disposed.",
+                    this);
+                return FlockLayer3PatternHandle.Invalid;
+            }
+
+            return simulation.StartPatternBoxShell(
+                center,
+                halfExtents,
+                thickness,
+                strength,
+                behaviourMask);
+        }
+
+        public bool UpdateRuntimeBoxShell(
+            FlockLayer3PatternHandle handle,
+            float3 center,
+            float3 halfExtents,
+            float thickness = -1f,
+            float strength = 1f,
+            uint behaviourMask = uint.MaxValue) {
+
+            if (simulation == null || !simulation.IsCreated) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"UpdateRuntimeBoxShell called on '{name}' but simulation is not created or already disposed.",
+                    this);
+                return false;
+            }
+
+            // Same here – caller gets the bool, we don't spam logs from per-frame updates.
+            return simulation.UpdatePatternBoxShell(
+                handle,
+                center,
+                halfExtents,
+                thickness,
+                strength,
+                behaviourMask);
+        }
+
+        public bool StopRuntimePattern(FlockLayer3PatternHandle handle) {
+            if (simulation == null || !simulation.IsCreated) {
+                FlockLog.Warning(
+                    this,
+                    FlockLogCategory.Controller,
+                    $"StopRuntimePattern called on '{name}' but simulation is not created or already disposed.",
+                    this);
+                return false;
+            }
+
+            return simulation.StopLayer3Pattern(handle);
         }
 
         // ----------------------------------------------------------------------
@@ -296,8 +544,9 @@ namespace Flock.Runtime {
 
             runtimeL3CmdScratch.Clear();
             runtimeL3SphereScratch.Clear();
+            runtimeL3BoxShellScratch.Clear();
 
-            profile.Bake(env, fishTypes, runtimeL3CmdScratch, runtimeL3SphereScratch);
+            profile.Bake(env, fishTypes, runtimeL3CmdScratch, runtimeL3SphereScratch, runtimeL3BoxShellScratch);
 
             if (runtimeL3CmdScratch.Count == 0) {
                 return false;
@@ -322,6 +571,27 @@ namespace Flock.Runtime {
                                 s.Center,
                                 s.Radius,
                                 s.Thickness,
+                                cmd.Strength,
+                                cmd.BehaviourMask);
+
+                            if (handle.IsValid) {
+                                outHandles.Add(handle);
+                            }
+
+                            break;
+                        }
+
+                    case FlockLayer3PatternKind.BoxShell: {
+                            if ((uint)cmd.PayloadIndex >= (uint)runtimeL3BoxShellScratch.Count) {
+                                continue;
+                            }
+
+                            FlockLayer3PatternBoxShell b = runtimeL3BoxShellScratch[cmd.PayloadIndex];
+
+                            FlockLayer3PatternHandle handle = simulation.StartPatternBoxShell(
+                                b.Center,
+                                b.HalfExtents,
+                                b.Thickness,
                                 cmd.Strength,
                                 cmd.BehaviourMask);
 
@@ -535,13 +805,16 @@ namespace Flock.Runtime {
             simulation.SetAgentBehaviourIds(agentBehaviourIds);
 
             BuildLayer3PatternRuntime(
-    environmentData,
-    out var layer3Commands,
-    out var layer3SphereShells);
+                environmentData,
+                out var layer3Commands,
+                out var layer3SphereShells,
+                out var layer3BoxShells);
 
             simulation.SetLayer3Patterns(
                 layer3Commands,
-                layer3SphereShells);
+                layer3SphereShells,
+                layer3BoxShells);
+
 
 
             // Let the spawner write initial positions into the simulation
@@ -618,10 +891,19 @@ namespace Flock.Runtime {
         FlockEnvironmentData BuildEnvironmentData() {
             FlockEnvironmentData environmentData;
 
-            environmentData.BoundsType = FlockBoundsType.Box;
+            environmentData.BoundsType = boundsType;
             environmentData.BoundsCenter = boundsCenter;
-            environmentData.BoundsExtents = boundsExtents;
-            environmentData.BoundsRadius = math.length(boundsExtents);
+
+            if (boundsType == FlockBoundsType.Box) {
+                // Classic AABB bounds
+                environmentData.BoundsExtents = boundsExtents;
+                environmentData.BoundsRadius = math.length(boundsExtents);
+            } else {
+                // Spherical bounds: radius drives clamp; extents define grid volume (cube around sphere)
+                float radius = math.max(boundsSphereRadius, 0.1f);
+                environmentData.BoundsRadius = radius;
+                environmentData.BoundsExtents = new float3(radius, radius, radius);
+            }
 
             environmentData.CellSize = math.max(cellSize, 0.1f);
 
@@ -646,9 +928,6 @@ namespace Flock.Runtime {
 
             return environmentData;
         }
-
-
-        // REPLACE SpawnAgents IN FlockController
 
         void SpawnAgents() {
             if (simulation == null || !simulation.IsCreated) {
@@ -933,18 +1212,22 @@ namespace Flock.Runtime {
         }
 
         void BuildLayer3PatternRuntime(
-    in FlockEnvironmentData env,
-    out FlockLayer3PatternCommand[] commands,
-    out FlockLayer3PatternSphereShell[] sphereShells) {
+            in FlockEnvironmentData env,
+            out FlockLayer3PatternCommand[] commands,
+            out FlockLayer3PatternSphereShell[] sphereShells,
+            out FlockLayer3PatternBoxShell[] boxShells) {
+
 
             if (layer3Patterns == null || layer3Patterns.Length == 0) {
                 commands = Array.Empty<FlockLayer3PatternCommand>();
                 sphereShells = Array.Empty<FlockLayer3PatternSphereShell>();
+                boxShells = Array.Empty<FlockLayer3PatternBoxShell>();
                 return;
             }
 
             var cmdList = new List<FlockLayer3PatternCommand>(layer3Patterns.Length);
             var sphereList = new List<FlockLayer3PatternSphereShell>(layer3Patterns.Length);
+            var boxList = new List<FlockLayer3PatternBoxShell>(layer3Patterns.Length);
 
             for (int i = 0; i < layer3Patterns.Length; i += 1) {
                 var profile = layer3Patterns[i];
@@ -956,11 +1239,13 @@ namespace Flock.Runtime {
                     env,
                     fishTypes,
                     cmdList,
-                    sphereList);
+                    sphereList,
+                    boxList);
             }
 
             commands = cmdList.Count > 0 ? cmdList.ToArray() : Array.Empty<FlockLayer3PatternCommand>();
             sphereShells = sphereList.Count > 0 ? sphereList.ToArray() : Array.Empty<FlockLayer3PatternSphereShell>();
+            boxShells = boxList.Count > 0 ? boxList.ToArray() : Array.Empty<FlockLayer3PatternBoxShell>();
         }
 
 
@@ -1007,13 +1292,18 @@ namespace Flock.Runtime {
         // ADD THIS NEW METHOD
         void DrawBoundsGizmos(FlockEnvironmentData environmentData) {
             float3 center = environmentData.BoundsCenter;
-            float3 extents = environmentData.BoundsExtents;
-
-            // Just draw the actual simulation bounds, nothing about "soft" zones.
             Gizmos.color = Color.green;
-            Gizmos.DrawWireCube(
-                (Vector3)center,
-                (Vector3)(extents * 2f));
+
+            if (environmentData.BoundsType == FlockBoundsType.Sphere && environmentData.BoundsRadius > 0f) {
+                Gizmos.DrawWireSphere(
+                    (Vector3)center,
+                    environmentData.BoundsRadius);
+            } else {
+                float3 extents = environmentData.BoundsExtents;
+                Gizmos.DrawWireCube(
+                    (Vector3)center,
+                    (Vector3)(extents * 2f));
+            }
         }
 
         // REPLACE THIS METHOD SIGNATURE + BODY

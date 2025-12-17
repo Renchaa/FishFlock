@@ -1,4 +1,3 @@
-// REPLACE FILE: Assets/Flock/Runtime/Logging/FlockLogCategory.cs
 namespace Flock.Runtime.Logging {
     using System;
 
@@ -8,6 +7,18 @@ namespace Flock.Runtime.Logging {
         General = 1 << 0,
         Controller = 1 << 1,
         Simulation = 1 << 2,
-        All = General | Controller | Simulation
+        Spawner = 1 << 3,
+        Obstacles = 1 << 4,
+        Attractors = 1 << 5,
+        Patterns = 1 << 6,
+
+        // Add more bits later if needed (Editor, UI, etc).
+        All = General
+            | Controller
+            | Simulation
+            | Spawner
+            | Obstacles
+            | Attractors
+            | Patterns
     }
 }

@@ -27,101 +27,133 @@ namespace Flock.Runtime.Jobs {
             WallDirections[index] = float3.zero;
             WallDangers[index] = 0f;
 
-            if (EnvironmentData.BoundsType != FlockBoundsType.Box) {
-                return;
-            }
-
-            float3 center = EnvironmentData.BoundsCenter;
-            float3 extents = EnvironmentData.BoundsExtents;
-
-            if (extents.x <= 0f && extents.y <= 0f && extents.z <= 0f) {
-                return;
-            }
-
-            float3 min = center - extents;
-            float3 max = center + extents;
-
             int behaviourIndex = BehaviourIds[index];
             if ((uint)behaviourIndex >= (uint)BehaviourSeparationRadius.Length) {
                 return;
             }
 
-            // Use separation radius as base margin (you can later expose a multiplier if needed)
+            // Use separation radius as "danger margin" near the boundary
             float separationRadius = math.max(BehaviourSeparationRadius[behaviourIndex], 0.01f);
             float margin = separationRadius;
 
-            float3 accumDir = float3.zero;
-            float maxDanger = 0f;
+            if (EnvironmentData.BoundsType == FlockBoundsType.Box) {
+                float3 center = EnvironmentData.BoundsCenter;
+                float3 extents = EnvironmentData.BoundsExtents;
 
-            // X min wall (normal +X)
-            AccumulateWallContribution(
-                posComponent: pos.x,
-                wallMin: min.x,
-                wallMax: max.x,
-                margin: margin,
-                inwardNormal: new float3(1f, 0f, 0f),
-                ref accumDir,
-                ref maxDanger);
+                if (extents.x <= 0f && extents.y <= 0f && extents.z <= 0f) {
+                    return;
+                }
 
-            // X max wall (normal -X)
-            AccumulateWallContribution(
-                posComponent: pos.x,
-                wallMin: min.x,
-                wallMax: max.x,
-                margin: margin,
-                inwardNormal: new float3(-1f, 0f, 0f),
-                ref accumDir,
-                ref maxDanger,
-                isMaxSide: true);
+                float3 min = center - extents;
+                float3 max = center + extents;
 
-            // Y min wall (normal +Y)
-            AccumulateWallContribution(
-                posComponent: pos.y,
-                wallMin: min.y,
-                wallMax: max.y,
-                margin: margin,
-                inwardNormal: new float3(0f, 1f, 0f),
-                ref accumDir,
-                ref maxDanger);
+                float3 accumDir = float3.zero;
+                float maxDanger = 0f;
 
-            // Y max wall (normal -Y)
-            AccumulateWallContribution(
-                posComponent: pos.y,
-                wallMin: min.y,
-                wallMax: max.y,
-                margin: margin,
-                inwardNormal: new float3(0f, -1f, 0f),
-                ref accumDir,
-                ref maxDanger,
-                isMaxSide: true);
+                // X min wall (normal +X)
+                AccumulateWallContribution(
+                    posComponent: pos.x,
+                    wallMin: min.x,
+                    wallMax: max.x,
+                    margin: margin,
+                    inwardNormal: new float3(1f, 0f, 0f),
+                    ref accumDir,
+                    ref maxDanger);
 
-            // Z min wall (normal +Z)
-            AccumulateWallContribution(
-                posComponent: pos.z,
-                wallMin: min.z,
-                wallMax: max.z,
-                margin: margin,
-                inwardNormal: new float3(0f, 0f, 1f),
-                ref accumDir,
-                ref maxDanger);
+                // X max wall (normal -X)
+                AccumulateWallContribution(
+                    posComponent: pos.x,
+                    wallMin: min.x,
+                    wallMax: max.x,
+                    margin: margin,
+                    inwardNormal: new float3(-1f, 0f, 0f),
+                    ref accumDir,
+                    ref maxDanger,
+                    isMaxSide: true);
 
-            // Z max wall (normal -Z)
-            AccumulateWallContribution(
-                posComponent: pos.z,
-                wallMin: min.z,
-                wallMax: max.z,
-                margin: margin,
-                inwardNormal: new float3(0f, 0f, -1f),
-                ref accumDir,
-                ref maxDanger,
-                isMaxSide: true);
+                // Y min wall (normal +Y)
+                AccumulateWallContribution(
+                    posComponent: pos.y,
+                    wallMin: min.y,
+                    wallMax: max.y,
+                    margin: margin,
+                    inwardNormal: new float3(0f, 1f, 0f),
+                    ref accumDir,
+                    ref maxDanger);
 
-            if (math.lengthsq(accumDir) < 1e-8f || maxDanger <= 0f) {
-                return;
+                // Y max wall (normal -Y)
+                AccumulateWallContribution(
+                    posComponent: pos.y,
+                    wallMin: min.y,
+                    wallMax: max.y,
+                    margin: margin,
+                    inwardNormal: new float3(0f, -1f, 0f),
+                    ref accumDir,
+                    ref maxDanger,
+                    isMaxSide: true);
+
+                // Z min wall (normal +Z)
+                AccumulateWallContribution(
+                    posComponent: pos.z,
+                    wallMin: min.z,
+                    wallMax: max.z,
+                    margin: margin,
+                    inwardNormal: new float3(0f, 0f, 1f),
+                    ref accumDir,
+                    ref maxDanger);
+
+                // Z max wall (normal -Z)
+                AccumulateWallContribution(
+                    posComponent: pos.z,
+                    wallMin: min.z,
+                    wallMax: max.z,
+                    margin: margin,
+                    inwardNormal: new float3(0f, 0f, -1f),
+                    ref accumDir,
+                    ref maxDanger,
+                    isMaxSide: true);
+
+                if (math.lengthsq(accumDir) < 1e-8f || maxDanger <= 0f) {
+                    return;
+                }
+
+                WallDirections[index] = math.normalizesafe(accumDir, float3.zero);
+                WallDangers[index] = maxDanger;
+            } else if (EnvironmentData.BoundsType == FlockBoundsType.Sphere) {
+                float radius = EnvironmentData.BoundsRadius;
+                if (radius <= 0f) {
+                    return;
+                }
+
+                float3 center = EnvironmentData.BoundsCenter;
+                float3 offset = pos - center;
+                float distSq = math.lengthsq(offset);
+
+                if (distSq < 1e-8f) {
+                    // At center: no meaningful wall direction
+                    return;
+                }
+
+                float dist = math.sqrt(distSq);
+                float distanceToSurface = radius - dist; // >0 inside, <0 outside
+
+                // Far from the wall, no danger
+                if (distanceToSurface >= margin) {
+                    return;
+                }
+
+                // 0 at margin, 1 on or beyond surface
+                float t = 1f - math.saturate(distanceToSurface / math.max(margin, 0.0001f));
+                if (t <= 0f) {
+                    return;
+                }
+
+                // Inward = towards center
+                float3 inwardNormal = -offset / dist;
+
+                WallDirections[index] = inwardNormal;
+                WallDangers[index] = t;
             }
-
-            WallDirections[index] = math.normalizesafe(accumDir, float3.zero);
-            WallDangers[index] = maxDanger; // 0..1 (can go a bit above if outside)
         }
 
         /// <summary>

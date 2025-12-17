@@ -15,15 +15,19 @@ MonoBehaviour:
   fishTypes:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
-  interactionFlags: 00000000
-  relationTypes: 00000000000000000000000000000000
+  - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
+  interactionFlags: 010000000000000000
+  relationTypes: 010000000000000000000000000000000000000000000000000000000000000000000000
   neutralWeights:
+  - 1
   - 1
   - 1
   leadershipWeights:
   - 1
   - 1
+  - 1
   avoidanceWeights:
+  - 1
   - 1
   - 1
   defaultLeadershipWeight: 1

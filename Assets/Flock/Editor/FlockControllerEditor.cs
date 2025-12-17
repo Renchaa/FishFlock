@@ -1,13 +1,20 @@
 #if UNITY_EDITOR
+using Flock.Runtime;
+using Flock.Runtime.Data;
 using System;
 using System.Collections.Generic;
-using Flock.Runtime;
 using UnityEditor;
 using UnityEngine;
 
 namespace Flock.Editor {
     [CustomEditor(typeof(FlockController))]
     public sealed class FlockControllerEditor : UnityEditor.Editor {
+
+        SerializedProperty boundsTypeProp;
+        SerializedProperty boundsCenterProp;
+        SerializedProperty boundsExtentsProp;
+        SerializedProperty boundsSphereRadiusProp;
+        SerializedProperty fishTypesProp;
 
         enum Section {
             FishTypes,
@@ -24,10 +31,15 @@ namespace Flock.Editor {
             ControllerSettings
         }
 
-        SerializedProperty fishTypesProp;
 
         void OnEnable() {
             fishTypesProp = serializedObject.FindProperty("fishTypes");
+
+            // ADD:
+            boundsTypeProp = serializedObject.FindProperty("boundsType");
+            boundsCenterProp = serializedObject.FindProperty("boundsCenter");
+            boundsExtentsProp = serializedObject.FindProperty("boundsExtents");
+            boundsSphereRadiusProp = serializedObject.FindProperty("boundsSphereRadius");
         }
 
         public override void OnInspectorGUI() {
@@ -35,6 +47,9 @@ namespace Flock.Editor {
 
             // Fish types (now editable)
             DrawFishTypesCard();
+
+            // ADD: our custom bounds card
+            DrawBoundsCard();
 
             // Draw everything else in normal inspector order (no special read-only)
             var it = serializedObject.GetIterator();
@@ -48,13 +63,51 @@ namespace Flock.Editor {
                     continue;
                 }
 
-                // All properties, including interactionMatrix and layer3Patterns,
-                // are now fully editable.
+                // ADD: skip raw bounds fields (we draw them in DrawBoundsCard)
+                if (it.name == "boundsType"
+                    || it.name == "boundsCenter"
+                    || it.name == "boundsExtents"
+                    || it.name == "boundsSphereRadius") {
+                    continue;
+                }
+
                 FlockEditorGUI.PropertyFieldClamped(it, true);
             }
 
             serializedObject.ApplyModifiedProperties();
         }
+
+        void DrawBoundsCard() {
+            if (boundsTypeProp == null || boundsCenterProp == null) {
+                return;
+            }
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Bounds", EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+
+            // Bounds type (Box / Sphere)
+            FlockEditorGUI.PropertyFieldClamped(boundsTypeProp, true);
+
+            // Always show center
+            FlockEditorGUI.PropertyFieldClamped(boundsCenterProp, true);
+
+            // Decide which size field to show
+            var type = (FlockBoundsType)boundsTypeProp.enumValueIndex;
+
+            if (type == FlockBoundsType.Box) {
+                if (boundsExtentsProp != null) {
+                    FlockEditorGUI.PropertyFieldClamped(boundsExtentsProp, true);
+                }
+            } else if (type == FlockBoundsType.Sphere) {
+                if (boundsSphereRadiusProp != null) {
+                    FlockEditorGUI.PropertyFieldClamped(boundsSphereRadiusProp, true);
+                }
+            }
+
+            EditorGUI.indentLevel--;
+        }
+
 
         void DrawFishTypesCard() {
             if (fishTypesProp != null) {

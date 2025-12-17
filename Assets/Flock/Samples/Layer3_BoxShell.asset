@@ -9,14 +9,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5795584ff31350a43bad5d1ca8ca7d4d, type: 3}
-  m_Name: Layer3_SphereShell
+  m_Script: {fileID: 11500000, guid: e72401ec3a909604fa6c515795b14639, type: 3}
+  m_Name: Layer3_BoxShell
   m_EditorClassIdentifier: 
   enabled: 1
   strength: 100
   affectedTypes:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-  useBoundsCenter: 0
+  useBoundsCenter: 1
   centerNorm: {x: 0.5, y: 0.5, z: 0.5}
-  radius: 6
+  halfExtents: {x: 3, y: 3, z: 3}
   thickness: 2

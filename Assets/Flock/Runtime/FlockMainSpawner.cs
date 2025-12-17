@@ -397,20 +397,69 @@ namespace Flock.Runtime {
 
         static float3 SampleInBounds(ref Random rng, FlockEnvironmentData environment) {
             float3 center = environment.BoundsCenter;
+
+            // Spherical bounds: sample inside sphere volume
+            if (environment.BoundsType == FlockBoundsType.Sphere && environment.BoundsRadius > 0f) {
+                float radius = environment.BoundsRadius;
+
+                // Rejection sample direction in unit sphere, then scale radius with cubic root
+                for (int attempt = 0; attempt < 8; attempt++) {
+                    float3 v = rng.NextFloat3(new float3(-1f), new float3(1f));
+                    float lenSq = math.lengthsq(v);
+                    if (lenSq > 1e-4f && lenSq <= 1f) {
+                        float len = math.sqrt(lenSq);
+                        float3 dir = v / len;
+
+                        float u = rng.NextFloat();             // 0..1
+                        float r = radius * math.pow(u, 1f / 3f); // uniform volume
+
+                        return center + dir * r;
+                    }
+                }
+
+                // Fallback if rejection failed: random in cube, then clamp to sphere
+                float3 fallback = center + rng.NextFloat3(new float3(-radius), new float3(radius));
+                float3 off = fallback - center;
+                float dSq = math.lengthsq(off);
+                if (dSq > radius * radius) {
+                    float d = math.sqrt(dSq);
+                    float3 dir = off / math.max(d, 1e-4f);
+                    fallback = center + dir * radius * 0.999f;
+                }
+                return fallback;
+            }
+
+            // Box bounds (default)
             float3 extents = environment.BoundsExtents;
             float3 min = center - extents;
             float3 size = extents * 2f;
 
-            float3 r = new float3(
+            float3 rBox = new float3(
                 rng.NextFloat(),
                 rng.NextFloat(),
                 rng.NextFloat());
 
-            return min + r * size;
+            return min + rBox * size;
         }
 
         static float3 ClampToBounds(float3 position, FlockEnvironmentData environment) {
             float3 center = environment.BoundsCenter;
+
+            if (environment.BoundsType == FlockBoundsType.Sphere && environment.BoundsRadius > 0f) {
+                float radius = environment.BoundsRadius;
+                float3 offset = position - center;
+                float distSq = math.lengthsq(offset);
+
+                if (distSq > radius * radius) {
+                    float dist = math.sqrt(distSq);
+                    float3 dir = offset / math.max(dist, 1e-4f);
+                    return center + dir * radius * 0.999f;
+                }
+
+                return position;
+            }
+
+            // Box
             float3 extents = environment.BoundsExtents;
             float3 min = center - extents;
             float3 max = center + extents;
