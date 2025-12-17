@@ -18,7 +18,9 @@ MonoBehaviour:
   wanderStrength: 0.2
   wanderFrequency: 0.2
   groupNoiseStrength: 0.5
-  patternWeight: 0
+  groupNoiseDirectionRate: 1
+  groupNoiseSpeedWeight: 0
+  patternWeight: 1
   groupFlowWeight: 1
   bodyRadius: 2
   schoolingSpacingFactor: 2

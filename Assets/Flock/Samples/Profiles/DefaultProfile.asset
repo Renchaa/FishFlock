@@ -50,7 +50,7 @@ MonoBehaviour:
   maxGroupSize: 300
   minGroupSizeWeight: 3
   maxGroupSizeWeight: 1
-  usePreferredDepth: 1
+  usePreferredDepth: 0
   preferredDepthMin: 0
   preferredDepthMax: 0.441
   preferredDepthWeight: 0.3

@@ -49,16 +49,6 @@ namespace Flock.Editor {
             }
         }
 
-        static void BeginBoxSection(string title) {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
-            EditorGUILayout.Space(2f);
-        }
-
-        static void EndBoxSection() {
-            EditorGUILayout.EndVertical();
-        }
-
 
         // ===== REPLACE OnInspectorGUI WITH THIS VERSION =====
         public override void OnInspectorGUI() {
@@ -74,7 +64,14 @@ namespace Flock.Editor {
             EditorGUILayout.LabelField("Fish Types & Defaults", EditorStyles.boldLabel);
 
             SerializedProperty fishTypesProp = serializedObject.FindProperty("fishTypes");
-            EditorGUILayout.PropertyField(fishTypesProp, new GUIContent("Fish Types"), true);
+            if (fishTypesProp != null) {
+                using (new EditorGUI.DisabledScope(true)) {
+                    FlockEditorGUI.PropertyFieldClamped(
+                        fishTypesProp,
+                        includeChildren: true,
+                        labelOverride: EditorGUIUtility.TrTextContent("Fish Types"));
+                }
+            }
 
             SerializedProperty defaultLeaderProp = serializedObject.FindProperty("defaultLeadershipWeight");
             EditorGUILayout.PropertyField(defaultLeaderProp, new GUIContent("Default Leadership Weight"));

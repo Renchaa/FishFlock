@@ -74,6 +74,7 @@ namespace Flock.Runtime {
         public FlockLogCategory EnabledCategories => enabledLogCategories;
         public FishTypePreset[] FishTypes => fishTypes;
         public FlockMainSpawner MainSpawner => mainSpawner;
+        public FlockLayer3PatternProfile[] Layer3Patterns => layer3Patterns;
 
         FlockSimulation simulation;
         NativeArray<FlockBehaviourSettings> behaviourSettingsArray;

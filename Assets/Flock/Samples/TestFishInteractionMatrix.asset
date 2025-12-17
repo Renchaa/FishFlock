@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5873904421353f94ea0730c36d405216, type: 3}
-  m_Name: FishInteractionMatrix
+  m_Name: TestFishInteractionMatrix
   m_EditorClassIdentifier: 
   fishTypes:
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
-  interactionFlags: 01000000
-  relationTypes: 01000000000000000000000000000000
+  interactionFlags: 00000000
+  relationTypes: 00000000000000000000000000000000
   neutralWeights:
   - 1
   - 1

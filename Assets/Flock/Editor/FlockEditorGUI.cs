@@ -13,6 +13,127 @@ namespace Flock.Editor {
         static GUIStyle _sectionHeader;
         static GUIStyle _sectionBox;
         static GUIStyle _cardHeader;
+        // Add near other cached styles in FlockEditorGUI
+        static GUIStyle _arrayFoldout;
+        static GUIStyle _arrayElementBox;
+
+        public static GUIStyle ArrayElementBox {
+            get {
+                if (_arrayElementBox == null) {
+                    _arrayElementBox = new GUIStyle("HelpBox") {
+                        padding = new RectOffset(8, 8, 6, 6),
+                        margin = new RectOffset(0, 0, 2, 2)
+                    };
+                }
+                return _arrayElementBox;
+            }
+        }
+
+        static GUIStyle ArrayFoldout {
+            get {
+                if (_arrayFoldout == null) {
+                    // Keep foldout behavior, but match normal label sizing/weight.
+                    _arrayFoldout = new GUIStyle(EditorStyles.foldout) {
+                        fontStyle = FontStyle.Normal,
+                        fontSize = EditorStyles.label.fontSize
+                    };
+                }
+                return _arrayFoldout;
+            }
+        }
+
+        public static void PropertyFieldClamped(SerializedProperty property, bool includeChildren = true, GUIContent labelOverride = null) {
+            if (property == null) {
+                return;
+            }
+
+            GUIContent label = labelOverride ?? EditorGUIUtility.TrTextContent(property.displayName);
+
+            // Custom array drawer: fixes the “shifted right” header and lets us control header styling.
+            bool isArray = property.isArray && property.propertyType != SerializedPropertyType.String;
+            if (includeChildren && isArray) {
+                DrawArrayField(property, label);
+                return;
+            }
+
+            float h = EditorGUI.GetPropertyHeight(property, label, includeChildren);
+            Rect r = EditorGUILayout.GetControlRect(true, h, GUILayout.ExpandWidth(true));
+
+            // For foldout-like generic structs/classes, expand clip area left without shifting visuals right.
+            bool needsFoldoutGutter = includeChildren && property.propertyType == SerializedPropertyType.Generic;
+            float gutter = needsFoldoutGutter ? 16f : 0f;
+
+            Rect groupRect = (gutter > 0f)
+                ? new Rect(r.x - gutter, r.y, r.width + gutter, r.height)
+                : r;
+
+            GUI.BeginGroup(groupRect);
+            {
+                Rect local = new Rect(gutter, 0f, r.width, r.height);
+                EditorGUI.PropertyField(local, property, label, includeChildren);
+            }
+            GUI.EndGroup();
+        }
+
+        static void DrawArrayField(SerializedProperty arrayProp, GUIContent label) {
+            bool headerless = (label == GUIContent.none) || string.IsNullOrEmpty(label.text);
+
+            // Header row (optional): foldout + size field
+            if (!headerless) {
+                Rect header = EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight, GUILayout.ExpandWidth(true));
+
+                const float sizeWidth = 52f;
+                Rect sizeRect = new Rect(header.xMax - sizeWidth, header.y, sizeWidth, header.height);
+                Rect foldoutRect = new Rect(header.x, header.y, header.width - sizeWidth - 4f, header.height);
+
+                arrayProp.isExpanded = EditorGUI.Foldout(foldoutRect, arrayProp.isExpanded, label, true, ArrayFoldout);
+
+                EditorGUI.BeginChangeCheck();
+                int newSize = EditorGUI.IntField(sizeRect, arrayProp.arraySize);
+                if (EditorGUI.EndChangeCheck()) {
+                    arrayProp.arraySize = Mathf.Max(0, newSize);
+                }
+
+                if (!arrayProp.isExpanded) {
+                    return;
+                }
+            }
+
+            // Body
+            int bodyIndent = headerless ? 0 : 1;
+            using (new EditorGUI.IndentLevelScope(bodyIndent)) {
+                if (arrayProp.arraySize == 0) {
+                    EditorGUILayout.LabelField("List is Empty", EditorStyles.miniLabel);
+                } else {
+                    for (int i = 0; i < arrayProp.arraySize; i++) {
+                        SerializedProperty element = arrayProp.GetArrayElementAtIndex(i);
+
+                        using (new EditorGUILayout.VerticalScope(ArrayElementBox)) {
+                            // Elements draw aligned like normal fields (and nested arrays still work).
+                            PropertyFieldClamped(element, includeChildren: true);
+                        }
+                    }
+
+                }
+            }
+
+            // Footer: + / - like the built-in list, right aligned
+            using (new EditorGUILayout.HorizontalScope()) {
+                GUILayout.FlexibleSpace();
+
+                if (GUILayout.Button("+", EditorStyles.miniButtonLeft, GUILayout.Width(26f))) {
+                    arrayProp.arraySize++;
+                }
+
+                using (new EditorGUI.DisabledScope(arrayProp.arraySize == 0)) {
+                    if (GUILayout.Button("-", EditorStyles.miniButtonRight, GUILayout.Width(26f))) {
+                        arrayProp.arraySize = Mathf.Max(0, arrayProp.arraySize - 1);
+                    }
+                }
+            }
+
+            EditorGUILayout.Space(2f);
+        }
 
         public static GUIStyle SectionHeader {
             get {
@@ -39,6 +160,16 @@ namespace Flock.Editor {
                 }
 
                 return _sectionBox;
+            }
+        }
+
+        public static void WithIndentLevel(int indentLevel, System.Action draw) {
+            int old = EditorGUI.indentLevel;
+            EditorGUI.indentLevel = indentLevel;
+            try {
+                draw?.Invoke();
+            } finally {
+                EditorGUI.indentLevel = old;
             }
         }
 
@@ -109,10 +240,10 @@ namespace Flock.Editor {
         /// </summary>
         public static void BeginCard(string title) {
             EditorGUILayout.BeginVertical(SectionBox, GUILayout.ExpandWidth(true));
-            Rect r = GUILayoutUtility.GetRect(0f, 18f, GUILayout.ExpandWidth(true));
+            Rect r = GUILayoutUtility.GetRect(0f, 16f, GUILayout.ExpandWidth(true));
             r.xMin += 2f;
             EditorGUI.LabelField(r, title, CardHeader);
-            EditorGUILayout.Space(2f);
+            EditorGUILayout.Space(1f);
         }
 
         public static void EndCard() {
