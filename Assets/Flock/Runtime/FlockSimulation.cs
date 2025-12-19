@@ -237,6 +237,12 @@ namespace Flock.Runtime {
             activeLayer2GroupNoiseKind = 0;
             activeLayer2GroupNoiseCommon = common;
             activeLayer2SimpleSine = payload;
+
+            FlockLog.Info(
+                logger,
+                FlockLogCategory.Patterns,
+                "Layer-2 GroupNoise set to SimpleSine.",
+                null);
         }
 
         public void SetLayer2GroupNoiseVerticalBands(
@@ -246,6 +252,12 @@ namespace Flock.Runtime {
             activeLayer2GroupNoiseKind = 1;
             activeLayer2GroupNoiseCommon = common;
             activeLayer2VerticalBands = payload;
+
+            FlockLog.Info(
+                logger,
+                FlockLogCategory.Patterns,
+                "Layer-2 GroupNoise set to VerticalBands.",
+                null);
         }
 
         public void SetLayer2GroupNoiseVortex(
@@ -255,6 +267,12 @@ namespace Flock.Runtime {
             activeLayer2GroupNoiseKind = 2;
             activeLayer2GroupNoiseCommon = common;
             activeLayer2Vortex = payload;
+
+            FlockLog.Info(
+                logger,
+                FlockLogCategory.Patterns,
+                "Layer-2 GroupNoise set to Vortex.",
+                null);
         }
 
         public void SetLayer2GroupNoiseSphereShell(
@@ -264,8 +282,13 @@ namespace Flock.Runtime {
             activeLayer2GroupNoiseKind = 3;
             activeLayer2GroupNoiseCommon = common;
             activeLayer2SphereShell = payload;
-        }
 
+            FlockLog.Info(
+                logger,
+                FlockLogCategory.Patterns,
+                "Layer-2 GroupNoise set to SphereShell.",
+                null);
+        }
 
         public void SetLayer3Patterns(
             FlockLayer3PatternCommand[] commands,
@@ -275,6 +298,12 @@ namespace Flock.Runtime {
             layer3PatternCommands = commands ?? Array.Empty<FlockLayer3PatternCommand>();
             layer3SphereShells = sphereShellPayloads ?? Array.Empty<FlockLayer3PatternSphereShell>();
             layer3BoxShells = boxShellPayloads ?? Array.Empty<FlockLayer3PatternBoxShell>();
+
+            FlockLog.Info(
+                logger,
+                FlockLogCategory.Patterns,
+                $"Layer-3 baked patterns set: commands={layer3PatternCommands.Length}, sphereShells={layer3SphereShells.Length}, boxShells={layer3BoxShells.Length}.",
+                null);
         }
 
         public JobHandle ScheduleStepJobs(
@@ -1196,10 +1225,18 @@ namespace Flock.Runtime {
 
             runtimeLayer3Patterns[patternIndex] = inst;
 
-            return new FlockLayer3PatternHandle {
+            var handle = new FlockLayer3PatternHandle {
                 Index = patternIndex,
                 Generation = inst.Generation,
             };
+
+            FlockLog.Info(
+                logger,
+                FlockLogCategory.Patterns,
+                $"StartPatternSphereShell: handle=({handle.Index}:{handle.Generation}) radius={radius:0.###} thickness={t:0.###} strength={strength:0.###}.",
+                null);
+
+            return handle;
         }
 
         /// <summary>
@@ -1302,10 +1339,18 @@ namespace Flock.Runtime {
 
             runtimeLayer3Patterns[patternIndex] = inst;
 
-            return new FlockLayer3PatternHandle {
+            var handle = new FlockLayer3PatternHandle {
                 Index = patternIndex,
                 Generation = inst.Generation,
             };
+
+            FlockLog.Info(
+                logger,
+                FlockLogCategory.Patterns,
+                $"StartPatternBoxShell: handle=({handle.Index}:{handle.Generation}) halfExtents=({he.x:0.###},{he.y:0.###},{he.z:0.###}) thickness={t:0.###} strength={strength:0.###}.",
+                null);
+
+            return handle;
         }
 
         public bool UpdatePatternBoxShell(
@@ -1413,6 +1458,12 @@ namespace Flock.Runtime {
 
             runtimeLayer3Patterns[patternIndex] = inst;
             runtimeLayer3Free.Push(patternIndex);
+
+            FlockLog.Info(
+                logger,
+                FlockLogCategory.Patterns,
+                $"StopLayer3Pattern: stopped handle=({handle.Index}:{handle.Generation}) kind={inst.Kind}.",
+                null);
 
             return true;
         }

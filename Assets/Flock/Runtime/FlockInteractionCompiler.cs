@@ -1,6 +1,7 @@
 ﻿// File: Assets/Flock/Runtime/Data/FlockInteractionCompiler.cs
 namespace Flock.Runtime.Data {
     using Flock.Runtime;
+    using Flock.Runtime.Logging;
     using UnityEngine;
 
     public static class FlockInteractionCompiler {
@@ -22,6 +23,24 @@ namespace Flock.Runtime.Data {
             friendlyMasks = new uint[n];
             avoidMasks = new uint[n];
             neutralMasks = new uint[n];
+
+            // Absolutely necessary warnings only (runs at compile/init time, not per-frame).
+            if (n > 32) {
+                FlockLog.WarningFormat(
+                    null,
+                    FlockLogCategory.Simulation,
+                    matrix,
+                    "FlockInteractionCompiler: fishTypes length ({0}) exceeds 32; relation masks are 32-bit. Types with index >= 32 will be ignored in relation masks.",
+                    n);
+            }
+
+            if (n > 0 && matrix == null) {
+                FlockLog.Warning(
+                    null,
+                    FlockLogCategory.Simulation,
+                    "FlockInteractionCompiler: FishInteractionMatrix is null; interaction weights/masks will remain defaults (zero).",
+                    matrix);
+            }
 
             if (n == 0 || matrix == null) {
                 return;

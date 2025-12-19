@@ -1295,8 +1295,8 @@ MonoBehaviour:
   - {fileID: 1842005994}
   - {fileID: 305406291}
   dynamicObstacles: []
-  enabledLogLevels: 4
-  enabledLogCategories: 1
+  enabledLogLevels: 6
+  enabledLogCategories: -1
   debugObstacleAvoidance: 0
   debugObstacleCellsToLog: 4
   interactionMatrix: {fileID: 11400000, guid: 69997841281513840a4f142d2cae17de, type: 2}

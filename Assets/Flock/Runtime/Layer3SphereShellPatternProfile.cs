@@ -33,7 +33,7 @@ namespace Flock.Runtime.Patterns {
             List<FlockLayer3PatternBoxShell> boxShellPayloads) {
 
             if (radius <= 0f) {
-                return;
+                radius = 0.1f;
             }
 
             float t = thickness <= 0f ? radius * 0.25f : thickness;
