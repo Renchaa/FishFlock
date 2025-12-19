@@ -1529,7 +1529,6 @@ namespace Flock.Runtime {
             }
         }
 
-
         static int3 GetCell(
             float3 position,
             FlockEnvironmentData environmentData) {
@@ -1545,6 +1544,5 @@ namespace Flock.Runtime {
                 max);
         }
         #endregion
-
     }
 }

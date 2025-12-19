@@ -369,17 +369,8 @@ namespace Flock.Runtime {
                 BuildObstacleGrid();
             }
 
-
-            // ---------- Copy previous velocities ----------
-            var copyJob = new CopyVelocitiesJob {
-                Source = velocities,
-                Destination = prevVelocities,
-            };
-
-            JobHandle copyHandle = copyJob.Schedule(
-                AgentCount,
-                64,
-                inputHandle);
+            NativeArray<float3> velRead = velocities;       // last frame (stable)
+            NativeArray<float3> velWrite = prevVelocities;  // this frame (write target)
 
             // ---------- Clear neighbour stamps ----------
             var clearStampsJob = new ClearIntArrayJob {
@@ -491,7 +482,7 @@ namespace Flock.Runtime {
             if (useObstacleAvoidance) {
                 var obstacleJob = new ObstacleAvoidanceJob {
                     Positions = positions,
-                    Velocities = velocities,
+                    Velocities = velRead,
 
                     BehaviourIds = behaviourIds,
                     BehaviourMaxSpeed = behaviourMaxSpeed,
@@ -789,7 +780,7 @@ namespace Flock.Runtime {
 
                                 anyPattern = true;
                                 break;
-                        }
+                            }
                     }
                 }
             }
@@ -831,10 +822,6 @@ namespace Flock.Runtime {
 
             flockDeps = JobHandle.CombineDependencies(
                 flockDeps,
-                copyHandle);
-
-            flockDeps = JobHandle.CombineDependencies(
-                flockDeps,
                 clearStampsHandle);
 
             if (useGroupNoiseField) {
@@ -853,8 +840,8 @@ namespace Flock.Runtime {
             var flockJob = new FlockStepJob {
                 // Core agent data
                 Positions = positions,
-                PrevVelocities = prevVelocities,
-                Velocities = velocities,
+                PrevVelocities = velRead,     // read-only snapshot (no copy job)
+                Velocities = velWrite,        // write this frame here
 
                 // Bounds probe outputs (per-agent)
                 WallDirections = wallDirections,
@@ -982,7 +969,7 @@ namespace Flock.Runtime {
             // ---------- Integrate positions ----------
             var integrateJob = new IntegrateJob {
                 Positions = positions,
-                Velocities = velocities,
+                Velocities = velWrite,
                 EnvironmentData = environmentData,
                 DeltaTime = deltaTime,
             };
@@ -991,6 +978,9 @@ namespace Flock.Runtime {
                 AgentCount,
                 64,
                 flockHandle);
+
+            velocities = velWrite;       // next frame reads the newly produced velocities
+            prevVelocities = velRead;    // next frame writes into the old buffer
 
             return integrateHandle;
         }
