@@ -52,7 +52,9 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public NativeArray<uint> BehaviourAvoidMask;
         [ReadOnly] public NativeArray<uint> BehaviourNeutralMask;
 
-        [ReadOnly] public NativeParallelMultiHashMap<int, int> CellToAgents;
+        [ReadOnly] public NativeArray<int> CellAgentStarts;
+        [ReadOnly] public NativeArray<int> CellAgentCounts;
+        [ReadOnly] public NativeArray<Flock.Runtime.Jobs.CellAgentPair> CellAgentPairs;
         [ReadOnly] public float3 GridOrigin;
         [ReadOnly] public int3 GridResolution;
         [ReadOnly] public float CellSize;
@@ -1200,9 +1202,14 @@ namespace Flock.Runtime.Jobs {
 
                         int cellId = GetCellId(neighbourCell);
 
-                        var enumerator = CellToAgents.GetValuesForKey(cellId);
-                        while (enumerator.MoveNext()) {
-                            int neighbourIndex = enumerator.Current;
+                        int countInCell = CellAgentCounts[cellId];
+                        if (countInCell <= 0) {
+                            continue;
+                        }
+
+                        int startInCell = CellAgentStarts[cellId];
+                        for (int p = 0; p < countInCell; p += 1) {
+                            int neighbourIndex = CellAgentPairs[startInCell + p].AgentIndex;
                             if (neighbourIndex == agentIndex)
                                 continue;
 

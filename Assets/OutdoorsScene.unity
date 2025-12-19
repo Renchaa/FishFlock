@@ -452,7 +452,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3176ea580578d894b89e7277388f19b1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  shape: 0
+  shape: 1
   sphereRadius: 2
   boxSize: {x: 3.5, y: 13.26, z: 8}
   baseStrength: 0
@@ -1272,8 +1272,8 @@ MonoBehaviour:
   mainSpawner: {fileID: 745878724}
   groupNoisePattern: {fileID: 11400000, guid: 0cf9db20c6ef69a40aba5e2a14a83848, type: 2}
   boundsType: 0
-  boundsCenter: {x: 50, y: 11, z: 50}
-  boundsExtents: {x: 19.7, y: 11, z: 25}
+  boundsCenter: {x: 50, y: 8, z: 50}
+  boundsExtents: {x: 10, y: 8, z: 10}
   boundsSphereRadius: 25
   cellSize: 1
   globalDamping: 0.1
@@ -1318,6 +1318,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 745878723}
   - {fileID: 303518910}
   - {fileID: 235993010}
   - {fileID: 1995455350}
@@ -1329,7 +1330,6 @@ Transform:
   - {fileID: 1842005998}
   - {fileID: 305406287}
   - {fileID: 1572445300}
-  - {fileID: 745878723}
   - {fileID: 2685115}
   - {fileID: 499848433}
   m_Father: {fileID: 0}
@@ -1508,21 +1508,17 @@ MonoBehaviour:
     seed: 0
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 2000
+      count: 8000
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
       count: 0
     - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
       count: 0
-  - point: {fileID: 2685116}
+  - point: {fileID: 499848434}
     useSeed: 0
     seed: 0
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 0
-    - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
-      count: 0
-    - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
-      count: 0
+      count: 8000
   seedSpawns:
   - useSeed: 0
     seed: 0

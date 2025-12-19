@@ -1,4 +1,3 @@
-// File: Assets/Flock/Runtime/Jobs/AssignToGridJob.cs
 namespace Flock.Runtime.Jobs {
     using Unity.Burst;
     using Unity.Collections;
@@ -7,26 +6,22 @@ namespace Flock.Runtime.Jobs {
 
     [BurstCompile]
     public struct AssignToGridJob : IJobParallelFor {
-        [ReadOnly]
-        public NativeArray<float3> Positions;
+        [ReadOnly] public NativeArray<float3> Positions;
 
-        // NEW: per-agent behaviour and body radius
-        [ReadOnly]
-        public NativeArray<int> BehaviourIds;
+        [ReadOnly] public NativeArray<int> BehaviourIds;
+        [ReadOnly] public NativeArray<float> BehaviourBodyRadius;
 
-        [ReadOnly]
-        public NativeArray<float> BehaviourBodyRadius;
+        [ReadOnly] public float CellSize;
+        [ReadOnly] public float3 GridOrigin;
+        [ReadOnly] public int3 GridResolution;
 
-        [ReadOnly]
-        public float CellSize;
+        [ReadOnly] public int MaxCellsPerAgent;
 
-        [ReadOnly]
-        public float3 GridOrigin;
+        [NativeDisableParallelForRestriction]
+        public NativeArray<int> AgentCellCounts; // length = agent count
 
-        [ReadOnly]
-        public int3 GridResolution;
-
-        public NativeParallelMultiHashMap<int, int>.ParallelWriter CellToAgents;
+        [NativeDisableParallelForRestriction]
+        public NativeArray<int> AgentCellIds;    // length = agent count * MaxCellsPerAgent
 
         public void Execute(int index) {
             float3 position = Positions[index];
@@ -38,31 +33,41 @@ namespace Flock.Runtime.Jobs {
                 bodyRadius = math.max(0f, BehaviourBodyRadius[behaviourIndex]);
             }
 
-            // If no body radius defined, fall back to a single cell
+            int baseOffset = index * MaxCellsPerAgent;
+
             if (bodyRadius <= 0f) {
-                int cellId = GetCellIdFromPosition(position);
-                CellToAgents.Add(cellId, index);
+                AgentCellIds[baseOffset] = GetCellIdFromPosition(position);
+                AgentCellCounts[index] = 1;
                 return;
             }
 
-            // World-space bounds of the fish body
             float3 min = position - bodyRadius;
             float3 max = position + bodyRadius;
 
             int3 minCell = GetCellCoords(min);
             int3 maxCell = GetCellCoords(max);
 
-            // Occupy all grid cells the body touches
+            int write = 0;
+
             for (int z = minCell.z; z <= maxCell.z; z++) {
                 int zOffset = z * GridResolution.x * GridResolution.y;
+
                 for (int y = minCell.y; y <= maxCell.y; y++) {
                     int rowOffset = zOffset + y * GridResolution.x;
+
                     for (int x = minCell.x; x <= maxCell.x; x++) {
-                        int cellId = rowOffset + x;
-                        CellToAgents.Add(cellId, index);
+                        if (write >= MaxCellsPerAgent) {
+                            AgentCellCounts[index] = write;
+                            return;
+                        }
+
+                        AgentCellIds[baseOffset + write] = rowOffset + x;
+                        write += 1;
                     }
                 }
             }
+
+            AgentCellCounts[index] = write;
         }
 
         int3 GetCellCoords(float3 position) {
@@ -83,11 +88,9 @@ namespace Flock.Runtime.Jobs {
         int GetCellIdFromPosition(float3 position) {
             int3 cell = GetCellCoords(position);
 
-            int cellId = cell.x
-                         + cell.y * GridResolution.x
-                         + cell.z * GridResolution.x * GridResolution.y;
-
-            return cellId;
+            return cell.x
+                   + cell.y * GridResolution.x
+                   + cell.z * GridResolution.x * GridResolution.y;
         }
     }
 }

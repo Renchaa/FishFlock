@@ -124,7 +124,21 @@ namespace Flock.Runtime {
         NativeArray<float> behaviourGroupNoiseDirectionRate;
         NativeArray<float> behaviourGroupNoiseSpeedWeight;
 
-        NativeParallelMultiHashMap<int, int> cellToAgents;
+        NativeArray<int> cellAgentStarts;      // per cell: start index into cellAgentPairs
+        NativeArray<int> cellAgentCounts;      // per cell: number of entries
+        NativeArray<CellAgentPair> cellAgentPairs; // packed (CellId, AgentIndex), sorted by CellId
+
+        // Per-agent temporary buffers to build the packed grid
+        NativeArray<int> agentCellCounts;      // how many cells this agent occupies this frame
+        NativeArray<int> agentCellIds;         // size = AgentCount * maxCellsPerAgent (per-agent block)
+        NativeArray<int> agentEntryStarts;     // exclusive prefix sum of agentCellCounts
+        NativeArray<int> totalAgentPairCount;  // length 1: total occupied-cell entries this frame
+
+        // Track touched cells so we clear only what we wrote last frame
+        NativeArray<int> touchedAgentCells;    // unique cell ids written this frame
+        NativeArray<int> touchedAgentCellCount;// length 1: how many touched cells
+
+        int maxCellsPerAgent;
         NativeParallelMultiHashMap<int, int> cellToObstacles;
 
         FlockEnvironmentData environmentData;
@@ -330,12 +344,22 @@ namespace Flock.Runtime {
                 }
             }
 
-            if (!cellToAgents.IsCreated) {
+            if (!cellAgentStarts.IsCreated
+                || !cellAgentCounts.IsCreated
+                || !cellAgentPairs.IsCreated
+                || !agentCellCounts.IsCreated
+                || !agentCellIds.IsCreated
+                || !agentEntryStarts.IsCreated
+                || !totalAgentPairCount.IsCreated
+                || !touchedAgentCells.IsCreated
+                || !touchedAgentCellCount.IsCreated) {
+
                 FlockLog.Error(
                     logger,
                     FlockLogCategory.Simulation,
-                    "ScheduleStepJobs called but cellToAgents is not created.",
+                    "ScheduleStepJobs called but packed agent grid is not created.",
                     null);
+
                 return inputHandle;
             }
 
@@ -345,7 +369,6 @@ namespace Flock.Runtime {
                 BuildObstacleGrid();
             }
 
-            cellToAgents.Clear();
 
             // ---------- Copy previous velocities ----------
             var copyJob = new CopyVelocitiesJob {
@@ -368,8 +391,19 @@ namespace Flock.Runtime {
                 64,
                 inputHandle);
 
-            // ---------- Assign agents to grid ----------
-            var assignJob = new AssignToGridJob {
+            // ---------- Packed agent grid rebuild (no hash map) ----------
+
+            // Clear only cells that were touched last frame (job reads touchedAgentCellCount internally).
+            var clearTouchedJob = new Flock.Runtime.Jobs.ClearTouchedAgentCellsJob {
+                TouchedCells = touchedAgentCells,
+                TouchedCount = touchedAgentCellCount,
+                CellStarts = cellAgentStarts,
+                CellCounts = cellAgentCounts,
+            };
+            JobHandle clearTouchedHandle = clearTouchedJob.Schedule(inputHandle);
+
+            // 1) Per-agent: compute list of occupied cellIds into per-agent blocks
+            var buildCellIdsJob = new AssignToGridJob {
                 Positions = positions,
                 BehaviourIds = behaviourIds,
                 BehaviourBodyRadius = behaviourBodyRadius,
@@ -378,13 +412,58 @@ namespace Flock.Runtime {
                 GridOrigin = environmentData.GridOrigin,
                 GridResolution = environmentData.GridResolution,
 
-                CellToAgents = cellToAgents.AsParallelWriter(),
+                MaxCellsPerAgent = maxCellsPerAgent,
+                AgentCellCounts = agentCellCounts,
+                AgentCellIds = agentCellIds,
             };
 
-            JobHandle assignHandle = assignJob.Schedule(
+            JobHandle buildCellIdsHandle = buildCellIdsJob.Schedule(
                 AgentCount,
                 64,
-                inputHandle);
+                clearTouchedHandle);
+
+            // 2) Exclusive prefix sum over agentCellCounts -> agentEntryStarts + totalPairCount
+            var prefixJob = new Flock.Runtime.Jobs.ExclusivePrefixSumIntJob {
+                Counts = agentCellCounts,
+                Starts = agentEntryStarts,
+                Total = totalAgentPairCount,
+            };
+
+            JobHandle prefixHandle = prefixJob.Schedule(buildCellIdsHandle);
+
+            // 3) Fill packed pairs array (cellId, agentIndex)
+            var fillPairsJob = new Flock.Runtime.Jobs.FillCellAgentPairsJob {
+                MaxCellsPerAgent = maxCellsPerAgent,
+                AgentCellCounts = agentCellCounts,
+                AgentCellIds = agentCellIds,
+                AgentEntryStarts = agentEntryStarts,
+                OutPairs = cellAgentPairs,
+            };
+
+            JobHandle fillPairsHandle = fillPairsJob.Schedule(
+                AgentCount,
+                64,
+                prefixHandle);
+
+            // 4) Sort pairs by CellId so we can build ranges
+            var sortPairsJob = new Flock.Runtime.Jobs.SortCellAgentPairsJob {
+                Pairs = cellAgentPairs,
+                Total = totalAgentPairCount,
+            };
+
+            JobHandle sortPairsHandle = sortPairsJob.Schedule(fillPairsHandle);
+
+            // 5) Build per-cell ranges + touched cell list for next frame clearing
+            var buildRangesJob = new Flock.Runtime.Jobs.BuildCellAgentRangesJob {
+                Pairs = cellAgentPairs,
+                Total = totalAgentPairCount,
+                CellStarts = cellAgentStarts,
+                CellCounts = cellAgentCounts,
+                TouchedCells = touchedAgentCells,
+                TouchedCount = touchedAgentCellCount,
+            };
+
+            JobHandle assignHandle = buildRangesJob.Schedule(sortPairsHandle);
 
             // ---------- Bounds probe ----------
             var boundsJob = new BoundsProbeJob {
@@ -863,7 +942,10 @@ namespace Flock.Runtime {
                 NeighbourVisitStamp = neighbourVisitStamp,
 
                 // Spatial grid
-                CellToAgents = cellToAgents,
+                CellAgentStarts = cellAgentStarts,
+                CellAgentCounts = cellAgentCounts,
+                CellAgentPairs = cellAgentPairs,
+
                 GridOrigin = environmentData.GridOrigin,
                 GridResolution = environmentData.GridResolution,
                 CellSize = environmentData.CellSize,
@@ -1000,9 +1082,17 @@ namespace Flock.Runtime {
             // NEW: per-agent pattern steering
             DisposeArray(ref patternSteering);
 
-            if (cellToAgents.IsCreated) {
-                cellToAgents.Dispose();
-            }
+            DisposeArray(ref cellAgentStarts);
+            DisposeArray(ref cellAgentCounts);
+            DisposeArray(ref cellAgentPairs);
+
+            DisposeArray(ref agentCellCounts);
+            DisposeArray(ref agentCellIds);
+            DisposeArray(ref agentEntryStarts);
+            DisposeArray(ref totalAgentPairCount);
+
+            DisposeArray(ref touchedAgentCells);
+            DisposeArray(ref touchedAgentCellCount);
 
             if (cellToObstacles.IsCreated) {
                 cellToObstacles.Dispose();
@@ -1833,13 +1923,60 @@ namespace Flock.Runtime {
                 cellGroupNoise = default;
             }
 
-            int capacity = math.max(
-                AgentCount * DefaultGridCapacityMultiplier,
-                gridCellCount);
+            // -------------------- Packed agent grid allocation --------------------
+            if (gridCellCount > 0) {
+                cellAgentStarts = new NativeArray<int>(gridCellCount, allocator, NativeArrayOptions.UninitializedMemory);
+                cellAgentCounts = new NativeArray<int>(gridCellCount, allocator, NativeArrayOptions.ClearMemory);
 
-            cellToAgents = new NativeParallelMultiHashMap<int, int>(
-                capacity,
-                allocator);
+                for (int i = 0; i < gridCellCount; i += 1) {
+                    cellAgentStarts[i] = -1;
+                }
+
+                float cellSizeSafe = math.max(environmentData.CellSize, 0.0001f);
+
+                float maxBodyRadius = 0f;
+                if (behaviourBodyRadius.IsCreated && behaviourBodyRadius.Length > 0) {
+                    for (int i = 0; i < behaviourBodyRadius.Length; i += 1) {
+                        maxBodyRadius = math.max(maxBodyRadius, behaviourBodyRadius[i]);
+                    }
+                }
+
+                if (maxBodyRadius <= 0f) {
+                    maxCellsPerAgent = 1;
+                } else {
+                    int span = (int)math.ceil((2f * maxBodyRadius) / cellSizeSafe) + 2;
+                    span = math.max(span, 1);
+                    maxCellsPerAgent = span * span * span;
+                }
+
+                int pairCapacity = math.max(AgentCount * maxCellsPerAgent, AgentCount);
+
+                agentCellCounts = new NativeArray<int>(AgentCount, allocator, NativeArrayOptions.ClearMemory);
+                agentCellIds = new NativeArray<int>(AgentCount * maxCellsPerAgent, allocator, NativeArrayOptions.UninitializedMemory);
+                agentEntryStarts = new NativeArray<int>(AgentCount, allocator, NativeArrayOptions.UninitializedMemory);
+
+                cellAgentPairs = new NativeArray<Flock.Runtime.Jobs.CellAgentPair>(pairCapacity, allocator, NativeArrayOptions.UninitializedMemory);
+
+                totalAgentPairCount = new NativeArray<int>(1, allocator, NativeArrayOptions.ClearMemory);
+
+                int touchedCap = math.min(gridCellCount, pairCapacity);
+                touchedAgentCells = new NativeArray<int>(touchedCap, allocator, NativeArrayOptions.UninitializedMemory);
+                touchedAgentCellCount = new NativeArray<int>(1, allocator, NativeArrayOptions.ClearMemory);
+            } else {
+                cellAgentStarts = default;
+                cellAgentCounts = default;
+                cellAgentPairs = default;
+
+                agentCellCounts = default;
+                agentCellIds = default;
+                agentEntryStarts = default;
+                totalAgentPairCount = default;
+
+                touchedAgentCells = default;
+                touchedAgentCellCount = default;
+
+                maxCellsPerAgent = 1;
+            }
 
             if (gridCellCount <= 0) {
                 cellToIndividualAttractor = default;
@@ -1985,8 +2122,10 @@ namespace Flock.Runtime {
                 null);
         }
 
+        // File: Assets/Flock/Runtime/FlockSimulation.cs
+        // REPLACE METHOD: AllocateObstacleSimulationData
         void AllocateObstacleSimulationData(Allocator allocator) {
-            if (obstacleCount <= 0) {
+            if (obstacleCount <= 0 || gridCellCount <= 0) {
                 obstacleSteering = default;
                 cellToObstacles = default;
                 return;
@@ -1997,29 +2136,112 @@ namespace Flock.Runtime {
                 allocator,
                 NativeArrayOptions.ClearMemory);
 
-            int capacity = math.max(
-                obstacleCount * DefaultGridCapacityMultiplier,
-                gridCellCount);
+            float cellSize = math.max(environmentData.CellSize, 0.0001f);
+            float3 origin = environmentData.GridOrigin;
+            int3 res = environmentData.GridResolution;
+
+            float3 gridMin = origin;
+            float3 gridMax = origin + (float3)res * cellSize;
+
+            long cap = 0;
+
+            for (int i = 0; i < obstacleCount; i += 1) {
+                FlockObstacleData o = obstacles[i];
+
+                float r = math.max(0.0f, o.Radius);
+                r = math.max(r, cellSize * 0.5f);
+
+                float3 minW = o.Position - new float3(r);
+                float3 maxW = o.Position + new float3(r);
+
+                // Reject if completely outside grid bounds
+                if (maxW.x < gridMin.x || minW.x > gridMax.x ||
+                    maxW.y < gridMin.y || minW.y > gridMax.y ||
+                    maxW.z < gridMin.z || minW.z > gridMax.z) {
+                    continue;
+                }
+
+                float3 minLocal = (minW - origin) / cellSize;
+                float3 maxLocal = (maxW - origin) / cellSize;
+
+                int3 minCell = (int3)math.floor(minLocal);
+                int3 maxCell = (int3)math.floor(maxLocal);
+
+                minCell = math.clamp(minCell, new int3(0, 0, 0), res - new int3(1, 1, 1));
+                maxCell = math.clamp(maxCell, new int3(0, 0, 0), res - new int3(1, 1, 1));
+
+                long cx = (long)(maxCell.x - minCell.x + 1);
+                long cy = (long)(maxCell.y - minCell.y + 1);
+                long cz = (long)(maxCell.z - minCell.z + 1);
+
+                cap += cx * cy * cz;
+            }
+
+            // Slack to avoid capacity overflow when obstacles move / clamp changes
+            cap = (long)(cap * 1.25f) + 16;
+            cap = math.max(cap, (long)obstacleCount * 4L);
+            cap = math.max(cap, (long)gridCellCount);
+
+            int capacity = (int)math.min(cap, (long)int.MaxValue);
 
             cellToObstacles = new NativeParallelMultiHashMap<int, int>(
                 capacity,
                 allocator);
         }
 
+        // File: Assets/Flock/Runtime/FlockSimulation.cs
+        // REPLACE METHOD: BuildObstacleGrid
         void BuildObstacleGrid() {
-            if (!cellToObstacles.IsCreated || !obstacles.IsCreated || obstacleCount <= 0) {
+            if (!cellToObstacles.IsCreated || !obstacles.IsCreated || obstacleCount <= 0 || gridCellCount <= 0) {
                 return;
             }
 
             cellToObstacles.Clear();
 
+            float cellSize = math.max(environmentData.CellSize, 0.0001f);
+            float3 origin = environmentData.GridOrigin;
+            int3 res = environmentData.GridResolution;
+
+            float3 gridMin = origin;
+            float3 gridMax = origin + (float3)res * cellSize;
+
+            int layerSize = res.x * res.y;
+
             for (int index = 0; index < obstacleCount; index += 1) {
-                int cellIndex = GetCellIndexForPosition(obstacles[index].Position);
-                if (cellIndex < 0) {
+                FlockObstacleData o = obstacles[index];
+
+                float r = math.max(0.0f, o.Radius);
+                r = math.max(r, cellSize * 0.5f);
+
+                float3 minW = o.Position - new float3(r);
+                float3 maxW = o.Position + new float3(r);
+
+                // Reject if completely outside grid bounds
+                if (maxW.x < gridMin.x || minW.x > gridMax.x ||
+                    maxW.y < gridMin.y || minW.y > gridMax.y ||
+                    maxW.z < gridMin.z || minW.z > gridMax.z) {
                     continue;
                 }
 
-                cellToObstacles.Add(cellIndex, index);
+                float3 minLocal = (minW - origin) / cellSize;
+                float3 maxLocal = (maxW - origin) / cellSize;
+
+                int3 minCell = (int3)math.floor(minLocal);
+                int3 maxCell = (int3)math.floor(maxLocal);
+
+                minCell = math.clamp(minCell, new int3(0, 0, 0), res - new int3(1, 1, 1));
+                maxCell = math.clamp(maxCell, new int3(0, 0, 0), res - new int3(1, 1, 1));
+
+                for (int z = minCell.z; z <= maxCell.z; z += 1) {
+                    for (int y = minCell.y; y <= maxCell.y; y += 1) {
+                        int rowBase = y * res.x + z * layerSize;
+
+                        for (int x = minCell.x; x <= maxCell.x; x += 1) {
+                            int cellIndex = x + rowBase;
+                            cellToObstacles.Add(cellIndex, index);
+                        }
+                    }
+                }
             }
         }
 
