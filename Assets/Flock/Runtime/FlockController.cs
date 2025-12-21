@@ -738,6 +738,9 @@ namespace Flock.Runtime {
                     ? compiledNeutralMasks[i]
                     : 0u;
 
+                settings = SanitizeBehaviourSettings(settings);
+
+                // Line after:
                 behaviourSettingsArray[i] = settings;
             }
 
@@ -748,8 +751,6 @@ namespace Flock.Runtime {
                 this);
         }
 
-        // REPLACE CreateSimulation IN FlockController.cs
-        // REPLACE CreateSimulation IN FlockController.cs
         void CreateSimulation() {
             CreateBehaviourSettingsArray();
 
@@ -1248,7 +1249,126 @@ namespace Flock.Runtime {
             boxShells = boxList.Count > 0 ? boxList.ToArray() : Array.Empty<FlockLayer3PatternBoxShell>();
         }
 
+        // Add inside FlockController (private helper)
+        static FlockBehaviourSettings SanitizeBehaviourSettings(in FlockBehaviourSettings input) {
+            FlockBehaviourSettings s = input;
 
+            // --- Core movement ---
+            s.MaxSpeed = math.max(0f, s.MaxSpeed);
+            s.MaxAcceleration = math.max(0f, s.MaxAcceleration);
+            s.DesiredSpeed = math.clamp(s.DesiredSpeed, 0f, s.MaxSpeed);
+
+            // --- Radii ---
+            s.NeighbourRadius = math.max(0f, s.NeighbourRadius);
+            s.SeparationRadius = math.max(0f, s.SeparationRadius);
+
+            // If separation > neighbour radius, your grid search derived from neighbour radius can miss separation.
+            s.NeighbourRadius = math.max(s.NeighbourRadius, s.SeparationRadius);
+
+            s.BodyRadius = math.max(0f, s.BodyRadius);
+            if (s.BodyRadius <= 0f) {
+                s.BodyRadius = math.max(0.01f, s.SeparationRadius);
+            } else {
+                s.BodyRadius = math.max(0.01f, s.BodyRadius);
+            }
+
+            // --- Rule weights ---
+            s.AlignmentWeight = math.max(0f, s.AlignmentWeight);
+            s.CohesionWeight = math.max(0f, s.CohesionWeight);
+            s.SeparationWeight = math.max(0f, s.SeparationWeight);
+            s.InfluenceWeight = math.max(0f, s.InfluenceWeight);
+            s.GroupFlowWeight = math.max(0f, s.GroupFlowWeight);
+
+            // --- Schooling / band ---
+            s.SchoolingSpacingFactor = math.max(0.5f, s.SchoolingSpacingFactor);
+            s.SchoolingOuterFactor = math.max(1f, s.SchoolingOuterFactor);
+            s.SchoolingStrength = math.max(0f, s.SchoolingStrength);
+            s.SchoolingInnerSoftness = math.clamp(s.SchoolingInnerSoftness, 0f, 1f);
+            s.SchoolingDeadzoneFraction = math.clamp(s.SchoolingDeadzoneFraction, 0f, 0.5f);
+            s.SchoolingRadialDamping = math.max(0f, s.SchoolingRadialDamping);
+
+            // --- Relationships / leadership ---
+            s.AvoidanceWeight = math.max(0f, s.AvoidanceWeight);
+            s.NeutralWeight = math.max(0f, s.NeutralWeight);
+            s.AttractionWeight = math.max(0f, s.AttractionWeight);
+            s.AvoidResponse = math.max(0f, s.AvoidResponse);
+            s.LeadershipWeight = math.max(0f, s.LeadershipWeight);
+
+            // --- Split ---
+            s.SplitPanicThreshold = math.max(0f, s.SplitPanicThreshold);
+            s.SplitLateralWeight = math.max(0f, s.SplitLateralWeight);
+            s.SplitAccelBoost = math.max(0f, s.SplitAccelBoost);
+
+            // --- Bounds ---
+            s.BoundsWeight = math.max(0f, s.BoundsWeight);
+            s.BoundsTangentialDamping = math.max(0f, s.BoundsTangentialDamping);
+            s.BoundsInfluenceSuppression = math.clamp(s.BoundsInfluenceSuppression, 0f, 1f);
+
+            // --- Grouping ---
+            s.MinGroupSize = math.max(1, s.MinGroupSize);
+            s.MaxGroupSize = math.max(0, s.MaxGroupSize);
+
+            // Enforce: Min <= Max unless Max==0 (unlimited)
+            if (s.MaxGroupSize != 0 && s.MaxGroupSize < s.MinGroupSize) {
+                s.MaxGroupSize = s.MinGroupSize;
+            }
+
+            s.MinGroupSizeWeight = math.max(0f, s.MinGroupSizeWeight);
+            s.MaxGroupSizeWeight = math.max(0f, s.MaxGroupSizeWeight);
+
+            s.GroupRadiusMultiplier = math.max(0.1f, s.GroupRadiusMultiplier);
+            s.LonerRadiusMultiplier = math.max(0.1f, s.LonerRadiusMultiplier);
+            if (s.LonerRadiusMultiplier < s.GroupRadiusMultiplier) {
+                s.LonerRadiusMultiplier = s.GroupRadiusMultiplier;
+            }
+
+            s.LonerCohesionBoost = math.max(0f, s.LonerCohesionBoost);
+
+            // --- Preferred depth ---
+            s.UsePreferredDepth = (byte)(s.UsePreferredDepth != 0 ? 1 : 0);
+
+            s.PreferredDepthMin = math.saturate(s.PreferredDepthMin);
+            s.PreferredDepthMax = math.saturate(s.PreferredDepthMax);
+            if (s.PreferredDepthMax < s.PreferredDepthMin) {
+                float tmp = s.PreferredDepthMin;
+                s.PreferredDepthMin = s.PreferredDepthMax;
+                s.PreferredDepthMax = tmp;
+            }
+
+            s.PreferredDepthMinNorm = math.saturate(s.PreferredDepthMinNorm);
+            s.PreferredDepthMaxNorm = math.saturate(s.PreferredDepthMaxNorm);
+            if (s.PreferredDepthMaxNorm < s.PreferredDepthMinNorm) {
+                float tmp = s.PreferredDepthMinNorm;
+                s.PreferredDepthMinNorm = s.PreferredDepthMaxNorm;
+                s.PreferredDepthMaxNorm = tmp;
+            }
+
+            s.PreferredDepthEdgeFraction = math.clamp(s.PreferredDepthEdgeFraction, 0f, 0.5f);
+            s.PreferredDepthWeight = math.max(0f, s.PreferredDepthWeight);
+            s.DepthBiasStrength = math.max(0f, s.DepthBiasStrength);
+
+            s.DepthWinsOverAttractor = (byte)(s.DepthWinsOverAttractor != 0 ? 1 : 0);
+
+            if (s.UsePreferredDepth == 0) {
+                s.PreferredDepthWeight = 0f;
+            }
+
+            // --- Noise ---
+            s.WanderStrength = math.max(0f, s.WanderStrength);
+            s.WanderFrequency = math.max(0f, s.WanderFrequency);
+            s.GroupNoiseStrength = math.max(0f, s.GroupNoiseStrength);
+            s.PatternWeight = math.max(0f, s.PatternWeight);
+
+            s.GroupNoiseDirectionRate = math.max(0f, s.GroupNoiseDirectionRate);
+            s.GroupNoiseSpeedWeight = math.clamp(s.GroupNoiseSpeedWeight, 0f, 1f);
+
+            // --- Caps: 0 = unlimited, never negative ---
+            s.MaxNeighbourChecks = math.max(0, s.MaxNeighbourChecks);
+            s.MaxFriendlySamples = math.max(0, s.MaxFriendlySamples);
+            s.MaxSeparationSamples = math.max(0, s.MaxSeparationSamples);
+
+            return s;
+        }
         #region Debug
 
         // ===== FlockController.cs – ONLY REPLACE THESE TWO METHODS =====
@@ -1497,8 +1617,6 @@ namespace Flock.Runtime {
                 // for the selected debugAgentIndex, to avoid insane clutter.
             }
         }
-
-
 
         void DrawGridGizmos(FlockEnvironmentData environmentData) {
             float3 origin = environmentData.GridOrigin;

@@ -165,6 +165,19 @@ namespace Flock.Runtime {
         [SerializeField, Range(0f, 0.5f)]
         float preferredDepthEdgeFraction = 0.25f;
 
+        [Header("Performance Caps")]
+        [Tooltip("Max unique neighbours processed per fish per frame. 0 = unlimited.")]
+        [SerializeField, Min(0)]
+        int maxNeighbourChecks = 128;
+
+        [Tooltip("Max friendly neighbours that can contribute to alignment/cohesion per frame. 0 = unlimited.")]
+        [SerializeField, Min(0)]
+        int maxFriendlySamples = 24;
+
+        [Tooltip("Max separation contributions per frame (hard separation + band + avoid + neutral). 0 = unlimited.")]
+        [SerializeField, Min(0)]
+        int maxSeparationSamples = 64;
+
         // File: Assets/Flock/Runtime/FishBehaviourProfile.cs
         // File: Assets/Flock/Runtime/FishBehaviourProfile.cs
         // UPDATED ToSettings – now correctly wires preferred-depth settings
@@ -283,6 +296,10 @@ namespace Flock.Runtime {
             settings.BoundsWeight = Mathf.Max(0f, boundsWeight);
             settings.BoundsTangentialDamping = Mathf.Max(0f, boundsTangentialDamping);
             settings.BoundsInfluenceSuppression = Mathf.Max(0f, boundsInfluenceSuppression);
+
+            settings.MaxNeighbourChecks = Mathf.Max(0, maxNeighbourChecks);
+            settings.MaxFriendlySamples = Mathf.Max(0, maxFriendlySamples);
+            settings.MaxSeparationSamples = Mathf.Max(0, maxSeparationSamples);
 
 
             return settings;

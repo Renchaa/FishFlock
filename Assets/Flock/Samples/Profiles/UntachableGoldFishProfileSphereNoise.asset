@@ -14,27 +14,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxSpeed: 3
   maxAcceleration: 6
-  desiredSpeed: 2
+  desiredSpeed: 4
   wanderStrength: 0.1
   wanderFrequency: 0.1
-  groupNoiseStrength: 0.4
+  groupNoiseStrength: 0.5
   groupNoiseDirectionRate: 1
-  groupNoiseSpeedWeight: 0.215
+  groupNoiseSpeedWeight: 0.512
   patternWeight: 1
-  groupFlowWeight: 1.263
+  groupFlowWeight: 2
   bodyRadius: 0.1
-  schoolingSpacingFactor: 1
-  schoolingOuterFactor: 1.2
-  schoolingStrength: 2
+  schoolingSpacingFactor: 1.2
+  schoolingOuterFactor: 1.6
+  schoolingStrength: 1.2
   schoolingInnerSoftness: 0.3
   schoolingRadialDamping: 0.7
   schoolingDeadzoneFraction: 0.219
   neighbourRadius: 1.5
-  separationRadius: 0.15
-  alignmentWeight: 1.2
-  cohesionWeight: 0.8
-  separationWeight: 1
-  influenceWeight: 0.01
+  separationRadius: 1
+  alignmentWeight: 0.8
+  cohesionWeight: 0.6
+  separationWeight: 1.4
+  influenceWeight: 1
   avoidanceWeight: 5
   neutralWeight: 1
   attractionResponse: 1
@@ -43,20 +43,23 @@ MonoBehaviour:
   splitLateralWeight: 0.415
   splitAccelBoost: 0.39
   attractionWeight: 1
-  boundsWeight: 8
-  boundsTangentialDamping: 3
-  boundsInfluenceSuppression: 0.5
+  boundsWeight: 5
+  boundsTangentialDamping: 2
+  boundsInfluenceSuppression: 1
   minGroupSize: 50
-  maxGroupSize: 300
+  maxGroupSize: 200
   minGroupSizeWeight: 3
   maxGroupSizeWeight: 3
   usePreferredDepth: 0
-  preferredDepthMin: 0.49
-  preferredDepthMax: 0.441
-  preferredDepthWeight: 0.3
+  preferredDepthMin: 0
+  preferredDepthMax: 0.4
+  preferredDepthWeight: 0.8
   depthBiasStrength: 0.2
   depthWinsOverAttractor: 1
-  groupRadiusMultiplier: 0.5
-  lonerRadiusMultiplier: 1.475
-  lonerCohesionBoost: 1.67
+  groupRadiusMultiplier: 1
+  lonerRadiusMultiplier: 1
+  lonerCohesionBoost: 1
   preferredDepthEdgeFraction: 0.067
+  maxNeighbourChecks: 100
+  maxFriendlySamples: 100
+  maxSeparationSamples: 100

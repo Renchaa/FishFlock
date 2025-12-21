@@ -1172,6 +1172,14 @@ namespace Flock.Editor {
                 }
                 FlockEditorGUI.EndCard();
 
+                FlockEditorGUI.BeginCard("Neighbour Sampling Caps");
+                {
+                    DrawPropertyNoDecorators(so.FindProperty("maxNeighbourChecks"));
+                    DrawPropertyNoDecorators(so.FindProperty("maxFriendlySamples"));
+                    DrawPropertyNoDecorators(so.FindProperty("maxSeparationSamples"));
+                }
+                FlockEditorGUI.EndCard();
+
                 // ------------- Rule Weights (INCLUDING Influence) -------------
                 FlockEditorGUI.BeginCard("Rule Weights");
                 {
@@ -1592,6 +1600,25 @@ namespace Flock.Editor {
             }
         }
 
+        static bool ShouldUseAttributeDrivenDrawer(SerializedProperty p) {
+            if (p == null || p.serializedObject == null || p.serializedObject.targetObject == null) {
+                return false;
+            }
+
+            var rootType = p.serializedObject.targetObject.GetType();
+
+            if (!TryGetFieldInfoFromPropertyPath(rootType, p.propertyPath, out FieldInfo fi) || fi == null) {
+                return false;
+            }
+
+            // Anything that changes UI/validation needs the real PropertyField path.
+            if (fi.GetCustomAttribute<RangeAttribute>(inherit: true) != null) return true;
+            if (fi.GetCustomAttribute<MinAttribute>(inherit: true) != null) return true;
+
+            return false;
+        }
+
+
         static void DrawPropertyNoDecorators(SerializedProperty p, GUIContent labelOverride = null) {
             if (p == null) return;
 
@@ -1605,12 +1632,23 @@ namespace Flock.Editor {
                         break;
                     }
                 case SerializedPropertyType.Integer: {
+                        if (ShouldUseAttributeDrivenDrawer(p)) {
+                            FlockEditorGUI.PropertyFieldClamped(p, includeChildren: true, labelOverride: labelOverride);
+                            break;
+                        }
+
                         EditorGUI.BeginChangeCheck();
                         int v = EditorGUILayout.IntField(label, p.intValue);
                         if (EditorGUI.EndChangeCheck()) p.intValue = v;
                         break;
                     }
+
                 case SerializedPropertyType.Float: {
+                        if (ShouldUseAttributeDrivenDrawer(p)) {
+                            FlockEditorGUI.PropertyFieldClamped(p, includeChildren: true, labelOverride: labelOverride);
+                            break;
+                        }
+
                         EditorGUI.BeginChangeCheck();
                         float v = EditorGUILayout.FloatField(label, p.floatValue);
                         if (EditorGUI.EndChangeCheck()) p.floatValue = v;

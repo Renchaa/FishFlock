@@ -99,5 +99,9 @@ namespace Flock.Runtime.Data {
         // FlockBehaviourSettings (struct or class)
         public float GroupNoiseDirectionRate;   // NEW – how fast species follows cell noise (0..1-ish)
         public float GroupNoiseSpeedWeight;     // NEW – how much group noise affects speed
+
+        public int MaxNeighbourChecks;     // 0 = unlimited
+        public int MaxFriendlySamples;     // 0 = unlimited
+        public int MaxSeparationSamples;   // 0 = unlimited
     }
 }

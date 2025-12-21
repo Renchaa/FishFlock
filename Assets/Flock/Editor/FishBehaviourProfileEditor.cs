@@ -43,6 +43,10 @@ namespace Flock.Editor {
             DrawIfExists(serializedObject, "neighbourRadius");
             DrawIfExists(serializedObject, "separationRadius");
 
+            DrawIfExists(serializedObject, "maxNeighbourChecks");
+            DrawIfExists(serializedObject, "maxFriendlySamples");
+            DrawIfExists(serializedObject, "maxSeparationSamples");
+
             // Rule Weights (includes Influence)
             DrawIfExists(serializedObject, "alignmentWeight");
             DrawIfExists(serializedObject, "cohesionWeight");

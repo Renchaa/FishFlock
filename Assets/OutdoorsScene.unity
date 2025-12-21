@@ -998,7 +998,7 @@ Transform:
   m_GameObject: {fileID: 499848432}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -29.39, y: 10.75, z: -14.23}
+  m_LocalPosition: {x: 1.5, y: 10.75, z: -11}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1111,6 +1111,53 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &639351747
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 639351749}
+  - component: {fileID: 639351748}
+  m_Layer: 0
+  m_Name: SpawnPoint (2)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &639351748
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 639351747}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cb305353033a8640a971025e22c3cd7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shape: 0
+  radius: 3
+  halfExtents: {x: 3, y: 3, z: 3}
+--- !u!4 &639351749
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 639351747}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 5.5, y: 10.75, z: -2.25}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 731534110}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &669637764
 GameObject:
@@ -1270,12 +1317,12 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
   mainSpawner: {fileID: 745878724}
-  groupNoisePattern: {fileID: 11400000, guid: 0cf9db20c6ef69a40aba5e2a14a83848, type: 2}
+  groupNoisePattern: {fileID: 11400000, guid: 5db971d17ac9bec4388a58f9b56f0a70, type: 2}
   boundsType: 0
   boundsCenter: {x: 50, y: 8, z: 50}
-  boundsExtents: {x: 10, y: 8, z: 10}
+  boundsExtents: {x: 15, y: 8, z: 15}
   boundsSphereRadius: 25
-  cellSize: 1
+  cellSize: 0.5
   globalDamping: 0.1
   debugDrawBounds: 1
   debugDrawGrid: 0
@@ -1332,6 +1379,8 @@ Transform:
   - {fileID: 1572445300}
   - {fileID: 2685115}
   - {fileID: 499848433}
+  - {fileID: 639351749}
+  - {fileID: 2111676098}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &736868109
@@ -1508,7 +1557,7 @@ MonoBehaviour:
     seed: 0
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 2500
+      count: 200
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
       count: 0
     - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
@@ -1518,17 +1567,32 @@ MonoBehaviour:
     seed: 0
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 2500
-  seedSpawns:
-  - useSeed: 0
-    seed: 0
-    types:
-    - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 0
+      count: 200
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
       count: 0
     - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
       count: 0
+  - point: {fileID: 639351748}
+    useSeed: 0
+    seed: 0
+    types:
+    - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
+      count: 100
+    - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
+      count: 0
+    - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
+      count: 0
+  - point: {fileID: 2111676097}
+    useSeed: 0
+    seed: 0
+    types:
+    - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
+      count: 100
+    - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
+      count: 0
+    - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
+      count: 0
+  seedSpawns: []
   globalSeed: 1
 --- !u!1 &1363958399
 GameObject:
@@ -3263,6 +3327,53 @@ MonoBehaviour:
   shape: 1
   sphereRadius: 1
   boxSize: {x: 2, y: 8, z: 4}
+--- !u!1 &2111676096
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2111676098}
+  - component: {fileID: 2111676097}
+  m_Layer: 0
+  m_Name: SpawnPoint (3)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2111676097
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2111676096}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cb305353033a8640a971025e22c3cd7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shape: 0
+  radius: 3
+  halfExtents: {x: 3, y: 3, z: 3}
+--- !u!4 &2111676098
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2111676096}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -15.75, y: 10.75, z: 9.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 731534110}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
