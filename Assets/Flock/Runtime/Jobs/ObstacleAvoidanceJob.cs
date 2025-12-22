@@ -1,5 +1,4 @@
-﻿// REPLACE FILE: Assets/Flock/Runtime/Jobs/ObstacleAvoidanceJob.cs
-namespace Flock.Runtime.Jobs {
+﻿namespace Flock.Runtime.Jobs {
     using Flock.Runtime.Data;
     using Unity.Burst;
     using Unity.Collections;
@@ -19,11 +18,11 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly] public NativeArray<FlockObstacleData> Obstacles;
         [ReadOnly] public NativeParallelMultiHashMap<int, int> CellToObstacles;
 
-        [ReadOnly] public float3 GridOrigin;
-        [ReadOnly] public int3 GridResolution;
-        [ReadOnly] public float CellSize;
+        public float3 GridOrigin;
+        public int3 GridResolution;
+        public float CellSize;
 
-        [ReadOnly] public float AvoidStrength;
+        public float AvoidStrength;
 
         [WriteOnly] public NativeArray<float3> ObstacleSteering;
 
@@ -41,8 +40,16 @@ namespace Flock.Runtime.Jobs {
             float3 forward = vel * invSpeed; // normalized
             float speed = 1.0f / invSpeed;
 
+            if (!BehaviourIds.IsCreated || (uint)index >= (uint)BehaviourIds.Length) {
+                ObstacleSteering[index] = float3.zero;
+                return;
+            }
+
             int behaviourIndex = BehaviourIds[index];
-            if ((uint)behaviourIndex >= (uint)BehaviourMaxSpeed.Length) {
+
+            if ((uint)behaviourIndex >= (uint)BehaviourMaxSpeed.Length
+                || (uint)behaviourIndex >= (uint)BehaviourMaxAcceleration.Length
+                || (uint)behaviourIndex >= (uint)BehaviourSeparationRadius.Length) {
                 ObstacleSteering[index] = float3.zero;
                 return;
             }
@@ -62,13 +69,15 @@ namespace Flock.Runtime.Jobs {
             int3 res = GridResolution;
 
             int3 cell = GetCell(pos, GridOrigin, res, cellSize);
-            int cellId = GetCellId(cell, res);
 
-            // Search range depends only on how far ahead we care this frame (no global obstacle radius).
+            // Search range depends only on how far ahead we care this frame.
             int cellRange = (int)math.ceil(lookAhead / cellSize) + 1;
             cellRange = math.clamp(cellRange, 1, math.cmax(res));
 
             int layerSize = res.x * res.y;
+
+            // Dedup obstacle indices for this agent (so same obstacle in multiple cells is evaluated once).
+            FixedList512Bytes<int> seen = default;
 
             for (int dz = -cellRange; dz <= cellRange; dz += 1) {
                 int z = cell.z + dz;
@@ -100,6 +109,19 @@ namespace Flock.Runtime.Jobs {
                         }
 
                         do {
+                            if ((uint)obstacleIndex >= (uint)Obstacles.Length) {
+                                continue;
+                            }
+
+                            // Best-effort dedup (if seen list fills, we stop deduping but still stay correct).
+                            if (Contains(seen, obstacleIndex)) {
+                                continue;
+                            }
+
+                            if (seen.Length < seen.Capacity) {
+                                seen.Add(obstacleIndex);
+                            }
+
                             FlockObstacleData obstacle = Obstacles[obstacleIndex];
 
                             float broadR = math.max(0.0f, obstacle.Radius) + separationRadius;
@@ -145,8 +167,17 @@ namespace Flock.Runtime.Jobs {
                 return;
             }
 
-            float avoidAccel = bestDanger * maxAcceleration * AvoidStrength;
+            float avoidAccel = bestDanger * maxAcceleration * math.max(0f, AvoidStrength);
             ObstacleSteering[index] = math.normalizesafe(bestDir, float3.zero) * avoidAccel;
+        }
+
+        static bool Contains(in FixedList512Bytes<int> list, int value) {
+            for (int i = 0; i < list.Length; i += 1) {
+                if (list[i] == value) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         static void EvaluateSphere(
@@ -414,10 +445,6 @@ namespace Flock.Runtime.Jobs {
                 cell,
                 new int3(0, 0, 0),
                 res - new int3(1, 1, 1));
-        }
-
-        static int GetCellId(int3 cell, int3 res) {
-            return cell.x + cell.y * res.x + cell.z * res.x * res.y;
         }
     }
 }
