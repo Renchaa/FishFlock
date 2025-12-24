@@ -1,18 +1,25 @@
-// ==========================================
-// 4) FishBehaviourProfile – ADD serialized fields + ToSettings
-// File: Assets/Flock/Runtime/FishBehaviourProfile.cs
-// ==========================================
-namespace Flock.Runtime {
-    using Flock.Runtime.Data;
-    using UnityEngine;
+using Flock.Runtime.Data;
+using UnityEngine;
 
+namespace Flock.Runtime {
+    /**
+     * <summary>
+     * ScriptableObject profile that stores fish behaviour tuning parameters and can be converted into
+     * a runtime <see cref="FlockBehaviourSettings"/> snapshot.
+     * </summary>
+     */
     [CreateAssetMenu(
         fileName = "FishBehaviourProfile",
         menuName = "Flock/Fish Behaviour Profile")]
     public sealed class FishBehaviourProfile : ScriptableObject {
         [Header("Movement")]
+        [Tooltip("Maximum speed in world units per second.")]
         [SerializeField] float maxSpeed = 5.0f;
+
+        [Tooltip("Maximum steering acceleration in world units per second squared.")]
         [SerializeField] float maxAcceleration = 10.0f;
+
+        [Tooltip("Desired cruising speed (clamped to Max Speed in settings).")]
         [SerializeField] float desiredSpeed = 3.0f;
 
         [Header("Noise")]
@@ -75,34 +82,54 @@ namespace Flock.Runtime {
         float schoolingDeadzoneFraction = 0.1f;
 
         [Header("Neighbourhood")]
+        [Tooltip("Radius used to search for neighbours for alignment/cohesion and related rules.")]
         [SerializeField] float neighbourRadius = 3.0f;
+
+        [Tooltip("Radius used for separation and close-range avoidance forces.")]
         [SerializeField] float separationRadius = 1.0f;
 
         [Header("Rule Weights")]
+        [Tooltip("Weight of alignment steering toward neighbour headings.")]
         [SerializeField] float alignmentWeight = 1.0f;
+
+        [Tooltip("Weight of cohesion steering toward neighbour center.")]
         [SerializeField] float cohesionWeight = 1.0f;
+
+        [Tooltip("Weight of separation steering away from neighbours.")]
         [SerializeField] float separationWeight = 1.0f;
 
         [Header("Influence")]
+        [Tooltip("Weight of external influence sources relative to the core flocking rules.")]
         [SerializeField] float influenceWeight = 1.0f;
 
         [Header("Relationships")]
+        [Tooltip("Baseline weight applied when avoiding other types.")]
         [SerializeField, Min(0f)] float avoidanceWeight = 1.0f;
+
+        [Tooltip("Baseline weight applied when interacting with neutral types.")]
         [SerializeField, Min(0f)] float neutralWeight = 1.0f;
+
+        [Tooltip("Response multiplier when attracted to another type.")]
         [SerializeField, Min(0f)] float attractionResponse = 1.0f;
+
+        [Tooltip("Response multiplier when avoiding another type.")]
         [SerializeField, Min(0f)] float avoidResponse = 1.0f;
 
         [Header("Split Behaviour")]
+        [Tooltip("Panic needed to trigger a split.")]
         [SerializeField, Range(0f, 2f)]
         float splitPanicThreshold = 0.4f;    // panic needed to trigger a split
 
+        [Tooltip("Lateral steering weight during split (higher = wider fan).")]
         [SerializeField, Range(0f, 2f)]
         float splitLateralWeight = 0.8f;     // 0 = straight flee, 1+ = wide fan
 
+        [Tooltip("Acceleration/speed boost applied during split behaviour.")]
         [SerializeField, Range(0f, 3f)]
         float splitAccelBoost = 1.0f;        // extra accel/speed when splitting
 
         [Header("Attraction")]
+        [Tooltip("Weight of attraction to attractors.")]
         [SerializeField, Min(0f)]
         float attractionWeight = 1.0f;
 
@@ -120,9 +147,11 @@ namespace Flock.Runtime {
         float boundsInfluenceSuppression = 1.0f;
 
         [Header("Grouping")]
+        [Tooltip("Preferred minimum group size for loners to seek.")]
         [SerializeField, Min(1)]
         int minGroupSize = 3;
 
+        [Tooltip("Preferred maximum group size before oversized groups are pushed apart (0 = no upper limit).")]
         [SerializeField, Min(0)]
         int maxGroupSize = 0; // 0 = no upper limit
 
@@ -135,29 +164,34 @@ namespace Flock.Runtime {
         float maxGroupSizeWeight = 1.0f;
 
         [Header("Preferred Depth")]
+        [Tooltip("Enables preferred depth band steering.")]
         [SerializeField] bool usePreferredDepth = false;
 
         [Tooltip("Normalised depth band [0..1] where 0 = bottom of bounds, 1 = top of bounds.")]
         [SerializeField, Range(0f, 1f)] float preferredDepthMin = 0.0f;
 
+        [Tooltip("Upper bound of the preferred normalised depth band [0..1].")]
         [SerializeField, Range(0f, 1f)] float preferredDepthMax = 1.0f;
 
+        [Tooltip("Strength of preferred depth steering when enabled.")]
         [SerializeField, Min(0f)]
-
         float preferredDepthWeight = 1.0f;
 
+        [Tooltip("Bias strength toward staying within the preferred depth band.")]
         [SerializeField, Min(0f)] float depthBiasStrength = 1.0f;
 
         [Tooltip("If true, preferred depth wins when attraction would pull fish out of its band.")]
         [SerializeField] bool depthWinsOverAttractor = true;
 
-
+        [Tooltip("Multiplier applied to grouping radius for grouped fish.")]
         [SerializeField, Range(0.5f, 1.5f)]
         float groupRadiusMultiplier = 1.0f;
 
+        [Tooltip("Multiplier applied to grouping radius for loners (typically larger to find groups).")]
         [SerializeField, Range(1.0f, 3.0f)]
         float lonerRadiusMultiplier = 2.0f;
 
+        [Tooltip("Extra cohesion applied to loners to help them rejoin groups.")]
         [SerializeField, Range(0f, 3f)]
         float lonerCohesionBoost = 1.5f;
 
@@ -178,83 +212,135 @@ namespace Flock.Runtime {
         [SerializeField, Min(0)]
         int maxSeparationSamples = 64;
 
-        // File: Assets/Flock/Runtime/FishBehaviourProfile.cs
-        // File: Assets/Flock/Runtime/FishBehaviourProfile.cs
-        // UPDATED ToSettings – now correctly wires preferred-depth settings
+
+        /**
+         * <summary>
+         * Creates a runtime settings snapshot from this profile.
+         * </summary>
+         * <returns>The populated <see cref="FlockBehaviourSettings"/>.</returns>
+         */
         public FlockBehaviourSettings ToSettings() {
             FlockBehaviourSettings settings = default;
 
+            ApplyMovementSettings(ref settings);
+            ApplyNeighbourhoodSettings(ref settings);
+            ApplyBodySettings(ref settings);
+            ApplyRelationshipDefaults(ref settings);
+
+            ApplyRuleWeightSettings(ref settings);
+            ApplyInfluenceAndFlowSettings(ref settings);
+            ApplyLeadershipAndGroupMaskDefaults(ref settings);
+
+            ApplyGroupingSettings(ref settings);
+            ApplySplitSettings(ref settings);
+            ApplySchoolingSettings(ref settings);
+
+            ApplyAttractionAndAvoidResponseSettings(ref settings);
+            ApplyNoiseSettings(ref settings);
+            ApplyPreferredDepthSettings(ref settings);
+
+            ApplyBoundsSettings(ref settings);
+            ApplyPerformanceCapSettings(ref settings);
+
+            return settings;
+        }
+
+        private void ApplyMovementSettings(ref FlockBehaviourSettings settings) {
             settings.MaxSpeed = maxSpeed;
             settings.MaxAcceleration = maxAcceleration;
             settings.DesiredSpeed = Mathf.Clamp(desiredSpeed, 0.0f, maxSpeed);
+        }
 
+        private void ApplyNeighbourhoodSettings(ref FlockBehaviourSettings settings) {
             settings.NeighbourRadius = neighbourRadius;
             settings.SeparationRadius = separationRadius;
+        }
 
+        private void ApplyBodySettings(ref FlockBehaviourSettings settings) {
             float baseBodyRadius = bodyRadius > 0f ? bodyRadius : separationRadius;
             settings.BodyRadius = Mathf.Max(0.01f, baseBodyRadius);
+        }
 
-            // Relationship-related defaults – will be overridden by interaction matrix
+        private void ApplyRelationshipDefaults(ref FlockBehaviourSettings settings) {
+            // Relationship-related defaults – will be overridden by interaction matrix.
             settings.AvoidanceWeight = Mathf.Max(0f, avoidanceWeight);
             settings.NeutralWeight = Mathf.Max(0f, neutralWeight);
 
             settings.AvoidMask = 0u;
             settings.NeutralMask = 0u;
+        }
 
+        private void ApplyRuleWeightSettings(ref FlockBehaviourSettings settings) {
             settings.AlignmentWeight = alignmentWeight;
             settings.CohesionWeight = cohesionWeight;
             settings.SeparationWeight = separationWeight;
+        }
 
+        private void ApplyInfluenceAndFlowSettings(ref FlockBehaviourSettings settings) {
             settings.InfluenceWeight = influenceWeight;
             settings.GroupFlowWeight = Mathf.Max(0f, groupFlowWeight);
+        }
 
-            // Leadership / group mask – overridden from matrix
+        private void ApplyLeadershipAndGroupMaskDefaults(ref FlockBehaviourSettings settings) {
+            // Leadership / group mask – overridden from matrix.
             settings.LeadershipWeight = 1.0f;
             settings.GroupMask = 0u;
+        }
 
-            // === Grouping behaviour ===
+        private void ApplyGroupingSettings(ref FlockBehaviourSettings settings) {
+            ApplyGroupingLimits(ref settings);
+            ApplyGroupingRadiusMultipliers(ref settings);
+            ApplyGroupingWeights(ref settings);
+        }
+
+        private void ApplyGroupingLimits(ref FlockBehaviourSettings settings) {
             settings.MinGroupSize = Mathf.Max(1, minGroupSize);
             settings.MaxGroupSize = Mathf.Max(0, maxGroupSize);
+        }
 
+        private void ApplyGroupingRadiusMultipliers(ref FlockBehaviourSettings settings) {
             settings.GroupRadiusMultiplier = Mathf.Max(0.1f, groupRadiusMultiplier);
 
             float safeLonerMultiplier = Mathf.Max(groupRadiusMultiplier, lonerRadiusMultiplier);
             settings.LonerRadiusMultiplier = Mathf.Max(0.1f, safeLonerMultiplier);
 
             settings.LonerCohesionBoost = Mathf.Max(0f, lonerCohesionBoost);
+        }
 
-            // NEW: strength of min / max constraints
+        private void ApplyGroupingWeights(ref FlockBehaviourSettings settings) {
             settings.MinGroupSizeWeight = Mathf.Max(0f, minGroupSizeWeight);
             settings.MaxGroupSizeWeight = Mathf.Max(0f, maxGroupSizeWeight);
+        }
 
-            // === Split behaviour ===
+        private void ApplySplitSettings(ref FlockBehaviourSettings settings) {
             settings.SplitPanicThreshold = splitPanicThreshold;
             settings.SplitLateralWeight = splitLateralWeight;
             settings.SplitAccelBoost = splitAccelBoost;
+        }
 
-            settings.SchoolingSpacingFactor =
-                Mathf.Max(0.5f, schoolingSpacingFactor);
+        private void ApplySchoolingSettings(ref FlockBehaviourSettings settings) {
+            ApplySchoolingDistanceBandSettings(ref settings);
+            ApplySchoolingForceShapingSettings(ref settings);
+        }
 
-            settings.SchoolingOuterFactor =
-                Mathf.Max(1f, schoolingOuterFactor);
+        private void ApplySchoolingDistanceBandSettings(ref FlockBehaviourSettings settings) {
+            settings.SchoolingSpacingFactor = Mathf.Max(0.5f, schoolingSpacingFactor);
+            settings.SchoolingOuterFactor = Mathf.Max(1f, schoolingOuterFactor);
+            settings.SchoolingDeadzoneFraction = Mathf.Clamp(schoolingDeadzoneFraction, 0f, 0.5f);
+        }
 
-            settings.SchoolingStrength =
-                Mathf.Max(0f, schoolingStrength);
+        private void ApplySchoolingForceShapingSettings(ref FlockBehaviourSettings settings) {
+            settings.SchoolingStrength = Mathf.Max(0f, schoolingStrength);
+            settings.SchoolingInnerSoftness = Mathf.Clamp01(schoolingInnerSoftness);
+            settings.SchoolingRadialDamping = Mathf.Max(0f, schoolingRadialDamping);
+        }
 
-            settings.SchoolingInnerSoftness =
-                Mathf.Clamp01(schoolingInnerSoftness);
-
-            settings.SchoolingDeadzoneFraction =
-                Mathf.Clamp(schoolingDeadzoneFraction, 0f, 0.5f);
-
-            settings.SchoolingRadialDamping =
-                Mathf.Max(0f, schoolingRadialDamping);
-
-            // === Attraction / avoid response ===
+        private void ApplyAttractionAndAvoidResponseSettings(ref FlockBehaviourSettings settings) {
             settings.AttractionWeight = Mathf.Max(0f, attractionWeight);
             settings.AvoidResponse = Mathf.Max(0f, avoidResponse);
+        }
 
-            // Noise
+        private void ApplyNoiseSettings(ref FlockBehaviourSettings settings) {
             settings.WanderStrength = Mathf.Max(0f, wanderStrength);
             settings.WanderFrequency = Mathf.Max(0f, wanderFrequency);
 
@@ -263,48 +349,56 @@ namespace Flock.Runtime {
 
             settings.GroupNoiseDirectionRate = Mathf.Max(0f, groupNoiseDirectionRate);
             settings.GroupNoiseSpeedWeight = Mathf.Clamp01(groupNoiseSpeedWeight);
+        }
 
-            // === Preferred depth ===
-            float min = Mathf.Clamp01(preferredDepthMin);
-            float max = Mathf.Clamp01(preferredDepthMax);
-            if (max < min) {
-                // swap if user drags the sliders in weird order
-                float tmp = min;
-                min = max;
-                max = tmp;
-            }
+        private void ApplyPreferredDepthSettings(ref FlockBehaviourSettings settings) {
+            GetPreferredDepthBand(preferredDepthMin, preferredDepthMax, out float preferredDepthMinimum, out float preferredDepthMaximum);
 
-            // Flag: enable/disable depth control in jobs
             settings.UsePreferredDepth = (byte)(usePreferredDepth ? 1 : 0);
 
-            // Store band in both raw + normalised fields (we use normalised everywhere right now)
-            settings.PreferredDepthMin = min;
-            settings.PreferredDepthMax = max;
-            settings.PreferredDepthMinNorm = min;
-            settings.PreferredDepthMaxNorm = max;
+            settings.PreferredDepthMin = preferredDepthMinimum;
+            settings.PreferredDepthMax = preferredDepthMaximum;
+            settings.PreferredDepthMinNorm = preferredDepthMinimum;
+            settings.PreferredDepthMaxNorm = preferredDepthMaximum;
 
-            // Strength & conflict resolution
             settings.PreferredDepthWeight = usePreferredDepth
                 ? Mathf.Max(0f, preferredDepthWeight)
-                : 0f; // 0 = disabled in jobs
+                : 0f;
 
             settings.DepthBiasStrength = Mathf.Max(0f, depthBiasStrength);
             settings.DepthWinsOverAttractor = (byte)(depthWinsOverAttractor ? 1 : 0);
 
             settings.PreferredDepthEdgeFraction = Mathf.Clamp(preferredDepthEdgeFraction, 0f, 0.5f);
+        }
 
+        private static void GetPreferredDepthBand(
+            float preferredDepthMinimumValue,
+            float preferredDepthMaximumValue,
+            out float preferredDepthMinimum,
+            out float preferredDepthMaximum) {
+            preferredDepthMinimum = Mathf.Clamp01(preferredDepthMinimumValue);
+            preferredDepthMaximum = Mathf.Clamp01(preferredDepthMaximumValue);
+
+            if (preferredDepthMaximum >= preferredDepthMinimum) {
+                return;
+            }
+
+            // Swap if user drags the sliders in weird order.
+            float temporaryPreferredDepth = preferredDepthMinimum;
+            preferredDepthMinimum = preferredDepthMaximum;
+            preferredDepthMaximum = temporaryPreferredDepth;
+        }
+
+        private void ApplyBoundsSettings(ref FlockBehaviourSettings settings) {
             settings.BoundsWeight = Mathf.Max(0f, boundsWeight);
             settings.BoundsTangentialDamping = Mathf.Max(0f, boundsTangentialDamping);
             settings.BoundsInfluenceSuppression = Mathf.Max(0f, boundsInfluenceSuppression);
+        }
 
+        private void ApplyPerformanceCapSettings(ref FlockBehaviourSettings settings) {
             settings.MaxNeighbourChecks = Mathf.Max(0, maxNeighbourChecks);
             settings.MaxFriendlySamples = Mathf.Max(0, maxFriendlySamples);
             settings.MaxSeparationSamples = Mathf.Max(0, maxSeparationSamples);
-
-
-            return settings;
         }
-
-
     }
 }

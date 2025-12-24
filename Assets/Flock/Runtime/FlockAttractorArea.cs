@@ -1,55 +1,89 @@
-// ==========================================
-// 3) UPDATE FlockAttractorArea
-// File: Assets/Flock/Runtime/FlockAttractorArea.cs
-// ==========================================
-namespace Flock.Runtime {
-    using Flock.Runtime.Data;
-    using Unity.Mathematics;
-    using UnityEngine;
+using System;
+using Flock.Runtime.Data;
+using Unity.Mathematics;
+using UnityEngine;
 
+namespace Flock.Runtime {
+    /**
+     * <summary>
+     * Scene component that defines an attractor volume and converts it into a
+     * <see cref="FlockAttractorData"/> snapshot for runtime use.
+     * </summary>
+     */
     public sealed class FlockAttractorArea : MonoBehaviour {
         [SerializeField]
-        FlockAttractorShape shape = FlockAttractorShape.Sphere;
+        private FlockAttractorShape shape = FlockAttractorShape.Sphere;
 
         [Header("Sphere Settings")]
         [SerializeField]
-        float sphereRadius = 3.0f;
+        private float sphereRadius = 3.0f;
 
         [Header("Box Settings")]
         [SerializeField]
-        Vector3 boxSize = new Vector3(6.0f, 4.0f, 6.0f);
+        private Vector3 boxSize = new Vector3(6.0f, 4.0f, 6.0f);
 
         [Header("Attraction")]
-        [SerializeField, Min(0f)]
-        float baseStrength = 1.0f;
-
-        [SerializeField, Range(0.1f, 4f)]
-        float falloffPower = 1.0f;
+        [SerializeField]
+        [Min(0f)]
+        private float baseStrength = 1.0f;
 
         [SerializeField]
-        FishTypePreset[] attractedTypes = System.Array.Empty<FishTypePreset>();
+        [Range(0.1f, 4f)]
+        private float falloffPower = 1.0f;
 
-        // === NEW: usage + cell priority ===
+        [SerializeField]
+        private FishTypePreset[] attractedTypes = Array.Empty<FishTypePreset>();
+
         [Header("Usage")]
         [SerializeField]
-        FlockAttractorUsage usage = FlockAttractorUsage.Individual;
+        private FlockAttractorUsage usage = FlockAttractorUsage.Individual;
 
         [Tooltip("Higher value wins when multiple attractors overlap the same grid cells.")]
-        [SerializeField, Min(0f)]
-        float cellPriority = 1.0f;
+        [SerializeField]
+        [Min(0f)]
+        private float cellPriority = 1.0f;
 
-        public FlockAttractorShape Shape => shape;
-        public float SphereRadius => sphereRadius;
-        public Vector3 BoxSize => boxSize;
-        public float BaseStrength => baseStrength;
-        public float FalloffPower => falloffPower;
+        /**
+         * <summary>
+         * Gets the fish types affected by this attractor (used to build masks externally).
+         * </summary>
+         */
         public FishTypePreset[] AttractedTypes => attractedTypes;
 
-        public FlockAttractorUsage Usage => usage;
-        public float CellPriority => cellPriority;
+        private void OnDrawGizmos() {
+            Gizmos.color = new Color(0.0f, 0.8f, 1.0f, 0.75f);
 
+            if (shape == FlockAttractorShape.Sphere) {
+                Gizmos.DrawWireSphere(transform.position, sphereRadius);
+                return;
+            }
+
+            Matrix4x4 previousGizmosMatrix = Gizmos.matrix;
+
+            Gizmos.matrix = Matrix4x4.TRS(
+                transform.position,
+                transform.rotation,
+                Vector3.one);
+
+            Gizmos.DrawWireCube(Vector3.zero, boxSize);
+
+            Gizmos.matrix = previousGizmosMatrix;
+        }
+
+        /**
+         * <summary>
+         * Converts this component state into a runtime <see cref="FlockAttractorData"/> snapshot.
+         * </summary>
+         * <param name="affectedTypesMask">Mask of fish types affected by this attractor (0 means all).</param>
+         * <returns>The populated <see cref="FlockAttractorData"/>.</returns>
+         */
         public FlockAttractorData ToData(uint affectedTypesMask) {
-            // IMPORTANT: initialise struct so C# is happy
+            FlockAttractorData data = CreateBaseData(affectedTypesMask);
+            ApplyShapeData(ref data);
+            return data;
+        }
+
+        private FlockAttractorData CreateBaseData(uint affectedTypesMask) {
             FlockAttractorData data = default;
 
             data.Shape = shape;
@@ -59,48 +93,40 @@ namespace Flock.Runtime {
             data.FalloffPower = Mathf.Max(0.1f, falloffPower);
             data.AffectedTypesMask = affectedTypesMask == 0u ? uint.MaxValue : affectedTypesMask;
 
-            // NEW: usage + cell priority
             data.Usage = usage;
             data.CellPriority = Mathf.Max(0f, cellPriority);
 
-            if (shape == FlockAttractorShape.Sphere) {
-                float radius = math.max(0.0f, sphereRadius);
-
-                data.Radius = radius;
-                data.BoxHalfExtents = float3.zero;
-                data.BoxRotation = quaternion.identity;
-            } else {
-                float3 halfExtents = new float3(
-                    math.max(0.0f, boxSize.x * 0.5f),
-                    math.max(0.0f, boxSize.y * 0.5f),
-                    math.max(0.0f, boxSize.z * 0.5f));
-
-                data.BoxHalfExtents = halfExtents;
-                data.BoxRotation = transform.rotation;
-
-                // Bounding sphere radius for broad-phase / stamping
-                data.Radius = math.length(halfExtents);
-            }
             return data;
         }
 
-        void OnDrawGizmos() {
-            Gizmos.color = new Color(0.0f, 0.8f, 1.0f, 0.75f);
-
+        private void ApplyShapeData(ref FlockAttractorData data) {
             if (shape == FlockAttractorShape.Sphere) {
-                Gizmos.DrawWireSphere(transform.position, sphereRadius);
-            } else {
-                Matrix4x4 previous = Gizmos.matrix;
-
-                Gizmos.matrix = Matrix4x4.TRS(
-                    transform.position,
-                    transform.rotation,
-                    Vector3.one);
-
-                Gizmos.DrawWireCube(Vector3.zero, boxSize);
-
-                Gizmos.matrix = previous;
+                ApplySphereData(ref data);
+                return;
             }
+
+            ApplyBoxData(ref data);
+        }
+
+        private void ApplySphereData(ref FlockAttractorData data) {
+            float radius = math.max(0.0f, sphereRadius);
+
+            data.Radius = radius;
+            data.BoxHalfExtents = float3.zero;
+            data.BoxRotation = quaternion.identity;
+        }
+
+        private void ApplyBoxData(ref FlockAttractorData data) {
+            float3 halfExtents = new float3(
+                math.max(0.0f, boxSize.x * 0.5f),
+                math.max(0.0f, boxSize.y * 0.5f),
+                math.max(0.0f, boxSize.z * 0.5f));
+
+            data.BoxHalfExtents = halfExtents;
+            data.BoxRotation = transform.rotation;
+
+            // Bounding sphere radius for broad-phase / stamping.
+            data.Radius = math.length(halfExtents);
         }
     }
 }

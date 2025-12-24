@@ -1,472 +1,373 @@
-﻿// ==========================================
-// FishInteractionMatrix.cs (Runtime)
-// ==========================================
-namespace Flock.Runtime {
-    using System;
-    using UnityEngine;
-    using Flock.Runtime.Data;
+﻿using System;
+using Flock.Runtime.Data;
+using UnityEngine;
 
+namespace Flock.Runtime {
+    /**
+     * <summary>
+     * Defines per-species interaction configuration, including NxN interaction/relationship matrices and
+     * per-type weight arrays aligned to the <see cref="FishTypes"/> ordering.
+     * </summary>
+     */
     [CreateAssetMenu(
         fileName = "FishInteractionMatrix",
         menuName = "Flock/Fish Interaction Matrix")]
     public sealed class FishInteractionMatrix : ScriptableObject {
         [SerializeField]
-        FishTypePreset[] fishTypes = Array.Empty<FishTypePreset>();
+        private FishTypePreset[] fishTypes = Array.Empty<FishTypePreset>();
 
-        // N x N symmetric interaction flags (row * N + col)
-        [SerializeField, HideInInspector]
-        bool[] interactionFlags = Array.Empty<bool>();
+        // N x N symmetric interaction flags (row * N + col).
+        [SerializeField]
+        [HideInInspector]
+        private bool[] interactionFlags = Array.Empty<bool>();
 
-        // NEW: N x N symmetric relationship types (row * N + col)
-        [SerializeField, HideInInspector]
-        FishRelationType[] relationTypes = Array.Empty<FishRelationType>();
+        // N x N symmetric relationship types (row * N + col).
+        [SerializeField]
+        [HideInInspector]
+        private FishRelationType[] relationTypes = Array.Empty<FishRelationType>();
 
-        [SerializeField, HideInInspector]
-        float[] neutralWeights = Array.Empty<float>();
-        // per-fish leadership weights (size N, one per fish type)
-        [SerializeField, HideInInspector]
-        float[] leadershipWeights = Array.Empty<float>();
-        // NEW: per-fish avoidance weights (size N, one per fish type)
-        [SerializeField, HideInInspector]
-        float[] avoidanceWeights = Array.Empty<float>();
+        [SerializeField]
+        [HideInInspector]
+        private float[] neutralWeights = Array.Empty<float>();
 
-        // default weights used when a slot is zero / uninitialised
-        [SerializeField, Min(0f)]
-        float defaultLeadershipWeight = 1.0f;
-        [SerializeField, Min(0f)]
-        float defaultAvoidanceWeight = 1.0f;
-        [SerializeField, Min(0f)]
-        float defaultNeutralWeight = 1.0f;
+        // Per-fish leadership weights (size N, one per fish type).
+        [SerializeField]
+        [HideInInspector]
+        private float[] leadershipWeights = Array.Empty<float>();
 
+        // Per-fish avoidance weights (size N, one per fish type).
+        [SerializeField]
+        [HideInInspector]
+        private float[] avoidanceWeights = Array.Empty<float>();
+
+        // Default weights used when a slot is zero / uninitialised.
+        [SerializeField]
+        [Min(0f)]
+        private float defaultLeadershipWeight = 1.0f;
+
+        [SerializeField]
+        [Min(0f)]
+        private float defaultAvoidanceWeight = 1.0f;
+
+        [SerializeField]
+        [Min(0f)]
+        private float defaultNeutralWeight = 1.0f;
+
+        /**
+         * <summary>
+         * Gets the ordered list of fish types used to index matrices and per-type arrays.
+         * </summary>
+         */
         public FishTypePreset[] FishTypes => fishTypes;
+
+        /**
+         * <summary>
+         * Gets the number of fish types currently present in <see cref="FishTypes"/>.
+         * </summary>
+         */
         public int Count => fishTypes != null ? fishTypes.Length : 0;
 
-        public float DefaultLeadershipWeight {
-            get => defaultLeadershipWeight;
-            set => defaultLeadershipWeight = Mathf.Max(0f, value);
-        }
-
-        public float DefaultAvoidanceWeight {
-            get => defaultAvoidanceWeight;
-            set => defaultAvoidanceWeight = Mathf.Max(0f, value);
-        }
-
-        public float DefaultNeutralWeight {
-            get => defaultNeutralWeight;
-            set => defaultNeutralWeight = Mathf.Max(0f, value);
-        }
-
-        int Index(int row, int col, int n) => row * n + col;
-
-        // ===== REPLACE SyncSizeWithFishTypes WITH THIS VERSION =====
-        // REPLACE THIS WHOLE METHOD
+        /**
+         * <summary>
+         * Resizes internal matrices and per-type arrays to match the current <see cref="FishTypes"/> length,
+         * preserving data where possible.
+         * </summary>
+         */
         public void SyncSizeWithFishTypes() {
-            int n = Count;
-            int requiredMatrixSize = n * n;
+            int typeCount = Count;
+            int requiredMatrixSize = typeCount * typeCount;
 
-            // cache old data so we can preserve as much as possible
-            bool[] oldFlags = interactionFlags;
-            FishRelationType[] oldRelations = relationTypes;
-            float[] oldLeadership = leadershipWeights;
-            float[] oldAvoidance = avoidanceWeights;
-            float[] oldNeutral = neutralWeights;
+            bool[] previousInteractionFlags = interactionFlags;
+            FishRelationType[] previousRelationTypes = relationTypes;
 
-            int oldNFlags = 0;
-            if (oldFlags != null && oldFlags.Length > 0) {
-                oldNFlags = Mathf.RoundToInt(Mathf.Sqrt(oldFlags.Length));
-            }
+            float[] previousLeadershipWeights = leadershipWeights;
+            float[] previousAvoidanceWeights = avoidanceWeights;
+            float[] previousNeutralWeights = neutralWeights;
 
-            int oldNRelations = 0;
-            if (oldRelations != null && oldRelations.Length > 0) {
-                oldNRelations = Mathf.RoundToInt(Mathf.Sqrt(oldRelations.Length));
-            }
+            int previousInteractionSideLength = GetSquareMatrixSideLength(previousInteractionFlags);
+            int previousRelationSideLength = GetSquareMatrixSideLength(previousRelationTypes);
 
-            // --- allocate / resize interaction matrix (bool) ---
-            if (interactionFlags == null || interactionFlags.Length != requiredMatrixSize) {
-                interactionFlags = new bool[requiredMatrixSize];
-            }
+            EnsureMatrixSize(ref interactionFlags, requiredMatrixSize);
+            EnsureMatrixSize(ref relationTypes, requiredMatrixSize);
 
-            // --- allocate / resize relation matrix (FishRelationType) ---
-            if (relationTypes == null || relationTypes.Length != requiredMatrixSize) {
-                relationTypes = new FishRelationType[requiredMatrixSize];
-            }
+            CopySquareMatrix(previousInteractionFlags, previousInteractionSideLength, interactionFlags, typeCount);
+            CopySquareMatrix(previousRelationTypes, previousRelationSideLength, relationTypes, typeCount);
 
-            // copy old interaction flags into new matrix where possible
-            if (oldFlags != null && oldNFlags > 0) {
-                int copyN = Mathf.Min(oldNFlags, n);
-                for (int r = 0; r < copyN; r++) {
-                    for (int c = 0; c < copyN; c++) {
-                        int oldIdx = r * oldNFlags + c;
-                        int newIdx = r * n + c;
-                        interactionFlags[newIdx] = oldFlags[oldIdx];
-                    }
-                }
-            }
+            leadershipWeights = EnsurePerTypeArraySize(leadershipWeights, previousLeadershipWeights, typeCount);
+            avoidanceWeights = EnsurePerTypeArraySize(avoidanceWeights, previousAvoidanceWeights, typeCount);
+            neutralWeights = EnsurePerTypeArraySize(neutralWeights, previousNeutralWeights, typeCount);
 
-            // copy old relations into new matrix where possible
-            if (oldRelations != null && oldNRelations > 0) {
-                int copyN = Mathf.Min(oldNRelations, n);
-                for (int r = 0; r < copyN; r++) {
-                    for (int c = 0; c < copyN; c++) {
-                        int oldIdx = r * oldNRelations + c;
-                        int newIdx = r * n + c;
-                        relationTypes[newIdx] = oldRelations[oldIdx];
-                    }
-                }
-            }
-
-            // --- 1D per-type weights ---
-
-            // leadership
-            if (leadershipWeights == null || leadershipWeights.Length != n) {
-                float[] newArr = new float[n];
-                if (oldLeadership != null) {
-                    int copyN = Mathf.Min(oldLeadership.Length, n);
-                    for (int i = 0; i < copyN; i++) {
-                        newArr[i] = oldLeadership[i];
-                    }
-                }
-                leadershipWeights = newArr;
-            }
-
-            // avoidance
-            if (avoidanceWeights == null || avoidanceWeights.Length != n) {
-                float[] newArr = new float[n];
-                if (oldAvoidance != null) {
-                    int copyN = Mathf.Min(oldAvoidance.Length, n);
-                    for (int i = 0; i < copyN; i++) {
-                        newArr[i] = oldAvoidance[i];
-                    }
-                }
-                avoidanceWeights = newArr;
-            }
-
-            // neutral
-            if (neutralWeights == null || neutralWeights.Length != n) {
-                float[] newArr = new float[n];
-                if (oldNeutral != null) {
-                    int copyN = Mathf.Min(oldNeutral.Length, n);
-                    for (int i = 0; i < copyN; i++) {
-                        newArr[i] = oldNeutral[i];
-                    }
-                }
-                neutralWeights = newArr;
-            }
-
-            // ensure valid defaults
-            for (int i = 0; i < n; i++) {
-                if (leadershipWeights[i] <= 0f) {
-                    leadershipWeights[i] = defaultLeadershipWeight;
-                }
-
-                if (avoidanceWeights[i] <= 0f) {
-                    avoidanceWeights[i] = defaultAvoidanceWeight;
-                }
-
-                if (neutralWeights[i] <= 0f) {
-                    neutralWeights[i] = defaultNeutralWeight;
-                }
-            }
+            ApplyDefaultWeights(typeCount);
         }
 
+        /**
+         * <summary>
+         * Gets whether interaction is enabled for the ordered pair (a, b).
+         * </summary>
+         * <param name="a">Row fish type index.</param>
+         * <param name="b">Column fish type index.</param>
+         * <returns>True if enabled; otherwise false.</returns>
+         */
         public bool GetInteraction(int a, int b) {
-            int n = Count;
-            if (a < 0 || b < 0 || a >= n || b >= n || interactionFlags == null) {
+            int typeCount = Count;
+            if (a < 0 || b < 0 || a >= typeCount || b >= typeCount || interactionFlags == null) {
                 return false;
             }
 
-            return interactionFlags[Index(a, b, n)];
+            return interactionFlags[GetMatrixIndex(a, b, typeCount)];
         }
 
+        /**
+         * <summary>
+         * Sets interaction for (a, b) and (b, a) to the same value. If disabling interaction, also clears
+         * the corresponding relationship entries to <see cref="FishRelationType.Neutral"/>.
+         * </summary>
+         * <param name="a">First fish type index.</param>
+         * <param name="b">Second fish type index.</param>
+         * <param name="enabled">Whether interaction is enabled.</param>
+         */
         public void SetSymmetricInteraction(int a, int b, bool enabled) {
-            int n = Count;
-            if (a < 0 || b < 0 || a >= n || b >= n) {
+            int typeCount = Count;
+            if (a < 0 || b < 0 || a >= typeCount || b >= typeCount) {
                 return;
             }
 
-            int idxAB = Index(a, b, n);
-            int idxBA = Index(b, a, n);
+            int indexAB = GetMatrixIndex(a, b, typeCount);
+            int indexBA = GetMatrixIndex(b, a, typeCount);
 
-            interactionFlags[idxAB] = enabled;
-            interactionFlags[idxBA] = enabled;
+            interactionFlags[indexAB] = enabled;
+            interactionFlags[indexBA] = enabled;
 
-            // if interaction is turned off, clear relationship too
-            if (!enabled && relationTypes != null && relationTypes.Length == n * n) {
-                relationTypes[idxAB] = FishRelationType.Neutral;
-                relationTypes[idxBA] = FishRelationType.Neutral;
-            }
+            ClearRelationWhenInteractionDisabled(typeCount, enabled, indexAB, indexBA);
         }
 
+        /**
+         * <summary>
+         * Gets the relationship for the ordered pair (a, b).
+         * </summary>
+         * <param name="a">Row fish type index.</param>
+         * <param name="b">Column fish type index.</param>
+         * <returns>The relationship value, or Neutral if unavailable.</returns>
+         */
         public FishRelationType GetRelation(int a, int b) {
-            int n = Count;
-
-            if (a < 0 || b < 0 || a >= n || b >= n || relationTypes == null) {
+            int typeCount = Count;
+            if (a < 0 || b < 0 || a >= typeCount || b >= typeCount || relationTypes == null) {
                 return FishRelationType.Neutral;
             }
 
-            int idx = Index(a, b, n);
-
-            if (idx < 0 || idx >= relationTypes.Length) {
+            int index = GetMatrixIndex(a, b, typeCount);
+            if (index < 0 || index >= relationTypes.Length) {
                 return FishRelationType.Neutral;
             }
 
-            return relationTypes[idx];
+            return relationTypes[index];
         }
 
-
+        /**
+         * <summary>
+         * Sets the relationship for (a, b) and (b, a) to the same value.
+         * </summary>
+         * <param name="a">First fish type index.</param>
+         * <param name="b">Second fish type index.</param>
+         * <param name="relation">The relationship value to assign.</param>
+         */
         public void SetSymmetricRelation(int a, int b, FishRelationType relation) {
-            int n = Count;
-
-            if (a < 0 || b < 0 || a >= n || b >= n || relationTypes == null) {
+            int typeCount = Count;
+            if (a < 0 || b < 0 || a >= typeCount || b >= typeCount || relationTypes == null) {
                 return;
             }
 
-            int idxAB = Index(a, b, n);
-            int idxBA = Index(b, a, n);
+            int indexAB = GetMatrixIndex(a, b, typeCount);
+            int indexBA = GetMatrixIndex(b, a, typeCount);
 
-            if (idxAB < 0 || idxAB >= relationTypes.Length
-                || idxBA < 0 || idxBA >= relationTypes.Length) {
+            if (indexAB < 0 || indexAB >= relationTypes.Length || indexBA < 0 || indexBA >= relationTypes.Length) {
                 return;
             }
 
-            relationTypes[idxAB] = relation;
-            relationTypes[idxBA] = relation;
+            relationTypes[indexAB] = relation;
+            relationTypes[indexBA] = relation;
         }
 
-        // ===== existing leadership weight API (unchanged) =====
+        /**
+         * <summary>
+         * Gets the leadership weight for a fish type index.
+         * </summary>
+         * <param name="typeIndex">The fish type index.</param>
+         * <returns>The leadership weight, or the default if unavailable or non-positive.</returns>
+         */
         public float GetLeadershipWeight(int typeIndex) {
-            int n = Count;
-            if (typeIndex < 0 || typeIndex >= n || leadershipWeights == null) {
+            int typeCount = Count;
+            if (typeIndex < 0 || typeIndex >= typeCount || leadershipWeights == null) {
                 return defaultLeadershipWeight;
             }
 
-            float w = leadershipWeights[typeIndex];
-            return w > 0f ? w : defaultLeadershipWeight;
+            float weight = leadershipWeights[typeIndex];
+            return weight > 0f ? weight : defaultLeadershipWeight;
         }
 
+        /**
+         * <summary>
+         * Sets the leadership weight for a fish type index.
+         * </summary>
+         * <param name="typeIndex">The fish type index.</param>
+         * <param name="weight">The weight value (clamped to non-negative).</param>
+         */
         public void SetLeadershipWeight(int typeIndex, float weight) {
-            int n = Count;
-            if (typeIndex < 0 || typeIndex >= n || leadershipWeights == null) {
+            int typeCount = Count;
+            if (typeIndex < 0 || typeIndex >= typeCount || leadershipWeights == null) {
                 return;
             }
 
             leadershipWeights[typeIndex] = Mathf.Max(0f, weight);
         }
 
-        public float GetLeadershipWeight(FishTypePreset preset) {
-            if (preset == null || fishTypes == null) {
-                return defaultLeadershipWeight;
-            }
-
-            int n = fishTypes.Length;
-            for (int i = 0; i < n; i++) {
-                if (fishTypes[i] == preset) {
-                    return GetLeadershipWeight(i);
-                }
-            }
-
-            return defaultLeadershipWeight;
-        }
-
-        // ===== NEW: avoidance weight API =====
-
-        public float GetAvoidanceWeight(FishTypePreset preset) {
-            if (preset == null || fishTypes == null) {
-                return defaultAvoidanceWeight;
-            }
-
-            int n = fishTypes.Length;
-            for (int i = 0; i < n; i++) {
-                if (fishTypes[i] == preset) {
-                    return GetAvoidanceWeight(i);
-                }
-            }
-
-            return defaultAvoidanceWeight;
-        }
-
-        // ADD these new APIs somewhere near GetLeadershipWeight / SetLeadershipWeight
-
+        /**
+         * <summary>
+         * Gets the avoidance weight for a fish type index.
+         * </summary>
+         * <param name="typeIndex">The fish type index.</param>
+         * <returns>The avoidance weight, or the default if unavailable or non-positive.</returns>
+         */
         public float GetAvoidanceWeight(int typeIndex) {
-            int n = Count;
-            if (typeIndex < 0 || typeIndex >= n || avoidanceWeights == null) {
+            int typeCount = Count;
+            if (typeIndex < 0 || typeIndex >= typeCount || avoidanceWeights == null) {
                 return defaultAvoidanceWeight;
             }
 
-            float w = avoidanceWeights[typeIndex];
-            return w > 0f ? w : defaultAvoidanceWeight;
+            float weight = avoidanceWeights[typeIndex];
+            return weight > 0f ? weight : defaultAvoidanceWeight;
         }
 
+        /**
+         * <summary>
+         * Sets the avoidance weight for a fish type index.
+         * </summary>
+         * <param name="typeIndex">The fish type index.</param>
+         * <param name="weight">The weight value (clamped to non-negative).</param>
+         */
         public void SetAvoidanceWeight(int typeIndex, float weight) {
-            int n = Count;
-            if (typeIndex < 0 || typeIndex >= n || avoidanceWeights == null) {
+            int typeCount = Count;
+            if (typeIndex < 0 || typeIndex >= typeCount || avoidanceWeights == null) {
                 return;
             }
 
             avoidanceWeights[typeIndex] = Mathf.Max(0f, weight);
         }
 
+        /**
+         * <summary>
+         * Gets the neutral weight for a fish type index.
+         * </summary>
+         * <param name="typeIndex">The fish type index.</param>
+         * <returns>The neutral weight, or the default if unavailable or non-positive.</returns>
+         */
         public float GetNeutralWeight(int typeIndex) {
-            int n = Count;
-            if (typeIndex < 0 || typeIndex >= n || neutralWeights == null) {
+            int typeCount = Count;
+            if (typeIndex < 0 || typeIndex >= typeCount || neutralWeights == null) {
                 return defaultNeutralWeight;
             }
 
-            float w = neutralWeights[typeIndex];
-            return w > 0f ? w : defaultNeutralWeight;
+            float weight = neutralWeights[typeIndex];
+            return weight > 0f ? weight : defaultNeutralWeight;
         }
 
+        /**
+         * <summary>
+         * Sets the neutral weight for a fish type index.
+         * </summary>
+         * <param name="typeIndex">The fish type index.</param>
+         * <param name="weight">The weight value (clamped to non-negative).</param>
+         */
         public void SetNeutralWeight(int typeIndex, float weight) {
-            int n = Count;
-            if (typeIndex < 0 || typeIndex >= n || neutralWeights == null) {
+            int typeCount = Count;
+            if (typeIndex < 0 || typeIndex >= typeCount || neutralWeights == null) {
                 return;
             }
 
             neutralWeights[typeIndex] = Mathf.Max(0f, weight);
         }
 
-        // Drive matrix fishTypes from an external list (e.g. FlockSetup.Species.TypePreset).
-        // Preserves data by matching FishTypePreset references where possible.
-        public void SyncFishTypesFrom(FishTypePreset[] newFishTypes) {
-            if (newFishTypes == null) {
-                newFishTypes = Array.Empty<FishTypePreset>();
+        private static int GetMatrixIndex(int rowIndex, int columnIndex, int matrixSideLength) {
+            return rowIndex * matrixSideLength + columnIndex;
+        }
+
+        private static int GetSquareMatrixSideLength<T>(T[] matrixValues) {
+            if (matrixValues == null || matrixValues.Length <= 0) {
+                return 0;
             }
 
-            FishTypePreset[] oldTypes = fishTypes ?? Array.Empty<FishTypePreset>();
-            int oldTypeCount = oldTypes.Length;
+            return Mathf.RoundToInt(Mathf.Sqrt(matrixValues.Length));
+        }
 
-            bool[] oldFlags = interactionFlags;
-            FishRelationType[] oldRelations = relationTypes;
-            float[] oldLeadership = leadershipWeights;
-            float[] oldAvoidance = avoidanceWeights;
-            float[] oldNeutral = neutralWeights;
-
-            int oldMatrixN = 0;
-            if (oldFlags != null && oldFlags.Length > 0) {
-                oldMatrixN = Mathf.RoundToInt(Mathf.Sqrt(oldFlags.Length));
-            } else if (oldRelations != null && oldRelations.Length > 0) {
-                oldMatrixN = Mathf.RoundToInt(Mathf.Sqrt(oldRelations.Length));
+        private static void EnsureMatrixSize<T>(ref T[] matrixValues, int requiredSize) {
+            if (matrixValues != null && matrixValues.Length == requiredSize) {
+                return;
             }
 
-            int newN = newFishTypes.Length;
-            int newMatrixSize = newN * newN;
+            matrixValues = new T[requiredSize];
+        }
 
-            bool[] newFlags = newN > 0 ? new bool[newMatrixSize] : Array.Empty<bool>();
-            FishRelationType[] newRelations =
-                newN > 0 ? new FishRelationType[newMatrixSize] : Array.Empty<FishRelationType>();
-
-            float[] newLeadership = newN > 0 ? new float[newN] : Array.Empty<float>();
-            float[] newAvoidance = newN > 0 ? new float[newN] : Array.Empty<float>();
-            float[] newNeutral = newN > 0 ? new float[newN] : Array.Empty<float>();
-
-            // newIndex -> oldIndex mapping by preset reference
-            int[] newToOld = new int[newN];
-
-            for (int i = 0; i < newN; i++) {
-                FishTypePreset preset = newFishTypes[i];
-                int oldIndex = -1;
-
-                if (preset != null && oldTypeCount > 0) {
-                    for (int j = 0; j < oldTypeCount; j++) {
-                        if (oldTypes[j] == preset) {
-                            oldIndex = j;
-                            break;
-                        }
-                    }
-                }
-
-                newToOld[i] = oldIndex;
-
-                float leader = defaultLeadershipWeight;
-                float avoid = defaultAvoidanceWeight;
-                float neutral = defaultNeutralWeight;
-
-                if (oldIndex >= 0) {
-                    if (oldLeadership != null &&
-                        oldIndex < oldLeadership.Length &&
-                        oldLeadership[oldIndex] > 0f) {
-                        leader = oldLeadership[oldIndex];
-                    }
-
-                    if (oldAvoidance != null &&
-                        oldIndex < oldAvoidance.Length &&
-                        oldAvoidance[oldIndex] > 0f) {
-                        avoid = oldAvoidance[oldIndex];
-                    }
-
-                    if (oldNeutral != null &&
-                        oldIndex < oldNeutral.Length &&
-                        oldNeutral[oldIndex] > 0f) {
-                        neutral = oldNeutral[oldIndex];
-                    }
-                }
-
-                newLeadership[i] = leader;
-                newAvoidance[i] = avoid;
-                newNeutral[i] = neutral;
+        private static void CopySquareMatrix<T>(
+            T[] sourceMatrix,
+            int sourceSideLength,
+            T[] destinationMatrix,
+            int destinationSideLength) {
+            if (sourceMatrix == null || sourceSideLength <= 0) {
+                return;
             }
 
-            // Matrix copy
-            for (int a = 0; a < newN; a++) {
-                int oldA = newToOld[a];
-
-                for (int b = 0; b < newN; b++) {
-                    int oldB = newToOld[b];
-                    int newIdx = a * newN + b;
-
-                    if (oldA >= 0 && oldB >= 0 && oldMatrixN > 0) {
-                        int oldIdx = oldA * oldMatrixN + oldB;
-
-                        if (oldFlags != null &&
-                            oldIdx >= 0 &&
-                            oldIdx < oldFlags.Length) {
-                            newFlags[newIdx] = oldFlags[oldIdx];
-                        } else {
-                            newFlags[newIdx] = false;
-                        }
-
-                        if (oldRelations != null &&
-                            oldIdx >= 0 &&
-                            oldIdx < oldRelations.Length) {
-                            newRelations[newIdx] = oldRelations[oldIdx];
-                        } else {
-                            newRelations[newIdx] = FishRelationType.Neutral;
-                        }
-                    } else {
-                        newFlags[newIdx] = false;
-                        newRelations[newIdx] = FishRelationType.Neutral;
-                    }
-                }
-            }
-
-            // Commit
-            fishTypes = (FishTypePreset[])newFishTypes.Clone();
-            interactionFlags = newFlags;
-            relationTypes = newRelations;
-            leadershipWeights = newLeadership;
-            avoidanceWeights = newAvoidance;
-            neutralWeights = newNeutral;
-
-            int n = Count;
-            for (int i = 0; i < n; i++) {
-                if (leadershipWeights[i] <= 0f) {
-                    leadershipWeights[i] = defaultLeadershipWeight;
-                }
-
-                if (avoidanceWeights[i] <= 0f) {
-                    avoidanceWeights[i] = defaultAvoidanceWeight;
-                }
-
-                if (neutralWeights[i] <= 0f) {
-                    neutralWeights[i] = defaultNeutralWeight;
+            int copySideLength = Mathf.Min(sourceSideLength, destinationSideLength);
+            for (int rowIndex = 0; rowIndex < copySideLength; rowIndex++) {
+                for (int columnIndex = 0; columnIndex < copySideLength; columnIndex++) {
+                    int sourceIndex = rowIndex * sourceSideLength + columnIndex;
+                    int destinationIndex = rowIndex * destinationSideLength + columnIndex;
+                    destinationMatrix[destinationIndex] = sourceMatrix[sourceIndex];
                 }
             }
         }
 
-#if UNITY_EDITOR
-        void OnValidate() {
-            SyncSizeWithFishTypes();
+        private static float[] EnsurePerTypeArraySize(float[] currentWeights, float[] previousWeights, int typeCount) {
+            if (currentWeights != null && currentWeights.Length == typeCount) {
+                return currentWeights;
+            }
+
+            float[] newWeights = new float[typeCount];
+            if (previousWeights == null) {
+                return newWeights;
+            }
+
+            int copyCount = Mathf.Min(previousWeights.Length, typeCount);
+            for (int typeIndex = 0; typeIndex < copyCount; typeIndex++) {
+                newWeights[typeIndex] = previousWeights[typeIndex];
+            }
+
+            return newWeights;
         }
-#endif
+
+        private void ApplyDefaultWeights(int typeCount) {
+            for (int typeIndex = 0; typeIndex < typeCount; typeIndex++) {
+                if (leadershipWeights[typeIndex] <= 0f) {
+                    leadershipWeights[typeIndex] = defaultLeadershipWeight;
+                }
+
+                if (avoidanceWeights[typeIndex] <= 0f) {
+                    avoidanceWeights[typeIndex] = defaultAvoidanceWeight;
+                }
+
+                if (neutralWeights[typeIndex] <= 0f) {
+                    neutralWeights[typeIndex] = defaultNeutralWeight;
+                }
+            }
+        }
+
+        private void ClearRelationWhenInteractionDisabled(int typeCount, bool enabled, int indexAB, int indexBA) {
+            // If interaction is turned off, clear relationship too.
+            if (enabled || relationTypes == null || relationTypes.Length != typeCount * typeCount) {
+                return;
+            }
+
+            relationTypes[indexAB] = FishRelationType.Neutral;
+            relationTypes[indexBA] = FishRelationType.Neutral;
+        }
     }
 }
