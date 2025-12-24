@@ -15,4 +15,3 @@ MonoBehaviour:
   displayName: Whalee
   behaviourProfile: {fileID: 11400000, guid: f8f2b761d31cbe64cb0044c706d1ced5, type: 2}
   prefab: {fileID: 8371508306270534608, guid: 3c5bec2302e2c0840b4a94912c632519, type: 3}
-  spawnCount: 10

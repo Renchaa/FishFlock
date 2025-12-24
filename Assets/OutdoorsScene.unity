@@ -1317,12 +1317,12 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
   mainSpawner: {fileID: 745878724}
-  groupNoisePattern: {fileID: 11400000, guid: 5db971d17ac9bec4388a58f9b56f0a70, type: 2}
+  groupNoisePattern: {fileID: 11400000, guid: 2534ad2ac523ac4409f484627454a159, type: 2}
   boundsType: 0
   boundsCenter: {x: 50, y: 8, z: 50}
   boundsExtents: {x: 15, y: 8, z: 15}
   boundsSphereRadius: 25
-  cellSize: 0.5
+  cellSize: 2
   globalDamping: 0.1
   debugDrawBounds: 1
   debugDrawGrid: 0
@@ -1342,8 +1342,8 @@ MonoBehaviour:
   - {fileID: 1842005994}
   - {fileID: 305406291}
   dynamicObstacles: []
-  enabledLogLevels: 6
-  enabledLogCategories: -1
+  enabledLogLevels: 4
+  enabledLogCategories: 16
   debugObstacleAvoidance: 0
   debugObstacleCellsToLog: 4
   interactionMatrix: {fileID: 11400000, guid: 69997841281513840a4f142d2cae17de, type: 2}
@@ -1351,7 +1351,8 @@ MonoBehaviour:
   - {fileID: 235993011}
   - {fileID: 1995455351}
   dynamicAttractors: []
-  layer3Patterns: []
+  layer3Patterns:
+  - {fileID: 11400000, guid: be8dd2e38cb35b040a341b57b452e84c, type: 2}
 --- !u!4 &731534110
 Transform:
   m_ObjectHideFlags: 0
@@ -1557,7 +1558,7 @@ MonoBehaviour:
     seed: 0
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 200
+      count: 1000
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
       count: 0
     - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
@@ -1567,7 +1568,7 @@ MonoBehaviour:
     seed: 0
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 2000
+      count: 1000
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
       count: 0
     - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}

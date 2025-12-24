@@ -4,102 +4,164 @@ using UnityEditor;
 using UnityEngine;
 
 namespace Flock.Editor {
+    /**
+     * <summary>
+     * Custom inspector for <see cref="FishBehaviourProfile"/> that renders selected serialized fields
+     * in a fixed order and gates preferred depth settings behind a toggle.
+     * </summary>
+     */
     [CustomEditor(typeof(FishBehaviourProfile))]
     public sealed class FishBehaviourProfileEditor : UnityEditor.Editor {
 
-        static void DrawIfExists(SerializedObject so, string name, bool includeChildren = false) {
-            var p = so.FindProperty(name);
-            if (p != null) {
-                EditorGUILayout.PropertyField(p, includeChildren);
-            }
-        }
-
+        /** <inheritdoc /> */
         public override void OnInspectorGUI() {
             serializedObject.Update();
 
             // Movement
-            DrawIfExists(serializedObject, "maxSpeed");
-            DrawIfExists(serializedObject, "maxAcceleration");
-            DrawIfExists(serializedObject, "desiredSpeed");
+            DrawMovementProperties(serializedObject);
 
-            // Noise  (same as window)
-            DrawIfExists(serializedObject, "wanderStrength");
-            DrawIfExists(serializedObject, "wanderFrequency");
-            DrawIfExists(serializedObject, "groupNoiseStrength");
-            DrawIfExists(serializedObject, "groupNoiseDirectionRate");
-            DrawIfExists(serializedObject, "groupNoiseSpeedWeight");
-            DrawIfExists(serializedObject, "patternWeight");
+            // Noise
+            DrawNoiseProperties(serializedObject);
 
             // Size & Schooling
-            DrawIfExists(serializedObject, "bodyRadius");
-            DrawIfExists(serializedObject, "schoolingSpacingFactor");
-            DrawIfExists(serializedObject, "schoolingOuterFactor");
-            DrawIfExists(serializedObject, "schoolingStrength");
-            DrawIfExists(serializedObject, "schoolingInnerSoftness");
-            DrawIfExists(serializedObject, "schoolingRadialDamping");
-            DrawIfExists(serializedObject, "schoolingDeadzoneFraction");
+            DrawSizeAndSchoolingProperties(serializedObject);
 
             // Neighbourhood
-            DrawIfExists(serializedObject, "neighbourRadius");
-            DrawIfExists(serializedObject, "separationRadius");
+            DrawNeighbourhoodProperties(serializedObject);
 
-            DrawIfExists(serializedObject, "maxNeighbourChecks");
-            DrawIfExists(serializedObject, "maxFriendlySamples");
-            DrawIfExists(serializedObject, "maxSeparationSamples");
-
-            // Rule Weights (includes Influence)
-            DrawIfExists(serializedObject, "alignmentWeight");
-            DrawIfExists(serializedObject, "cohesionWeight");
-            DrawIfExists(serializedObject, "separationWeight");
-            DrawIfExists(serializedObject, "influenceWeight");
+            // Rule Weights
+            DrawRuleWeightProperties(serializedObject);
 
             // Relationships
-            DrawIfExists(serializedObject, "avoidanceWeight");
-            DrawIfExists(serializedObject, "neutralWeight");
-            DrawIfExists(serializedObject, "attractionResponse");
-            DrawIfExists(serializedObject, "avoidResponse");
+            DrawRelationshipProperties(serializedObject);
 
             // Split Behaviour
-            DrawIfExists(serializedObject, "splitPanicThreshold");
-            DrawIfExists(serializedObject, "splitLateralWeight");
-            DrawIfExists(serializedObject, "splitAccelBoost");
+            DrawSplitBehaviourProperties(serializedObject);
 
             // Attraction
-            DrawIfExists(serializedObject, "attractionWeight");
+            DrawAttractionProperties(serializedObject);
 
             // Bounds
-            DrawIfExists(serializedObject, "boundsWeight");
-            DrawIfExists(serializedObject, "boundsTangentialDamping");
-            DrawIfExists(serializedObject, "boundsInfluenceSuppression");
+            DrawBoundsProperties(serializedObject);
 
-            // Grouping (group flow + loner settings first, same as window)
-            DrawIfExists(serializedObject, "groupFlowWeight");
-            DrawIfExists(serializedObject, "minGroupSize");
-            DrawIfExists(serializedObject, "maxGroupSize");
-            DrawIfExists(serializedObject, "minGroupSizeWeight");
-            DrawIfExists(serializedObject, "maxGroupSizeWeight");
-            DrawIfExists(serializedObject, "groupRadiusMultiplier");
-            DrawIfExists(serializedObject, "lonerRadiusMultiplier");
-            DrawIfExists(serializedObject, "lonerCohesionBoost");
+            // Grouping
+            DrawGroupingProperties(serializedObject);
 
-            // Preferred Depth – same gating + order as window
-            var useDepth = serializedObject.FindProperty("usePreferredDepth");
-            if (useDepth != null) {
-                EditorGUILayout.PropertyField(useDepth);
-
-                using (new EditorGUI.DisabledScope(!useDepth.boolValue)) {
-                    DrawIfExists(serializedObject, "preferredDepthMin");
-                    DrawIfExists(serializedObject, "preferredDepthMax");
-                    DrawIfExists(serializedObject, "preferredDepthWeight");
-                    DrawIfExists(serializedObject, "depthBiasStrength");
-                    DrawIfExists(serializedObject, "depthWinsOverAttractor");
-                    DrawIfExists(serializedObject, "preferredDepthEdgeFraction");
-                }
-            }
+            // Preferred Depth
+            DrawPreferredDepthProperties(serializedObject);
 
             serializedObject.ApplyModifiedProperties();
         }
 
+        // Draws a property only if it exists on the serialized object.
+        private static void DrawPropertyIfExists(
+            SerializedObject targetSerializedObject,
+            string propertyName,
+            bool includeChildren = false) {
+            SerializedProperty serializedProperty = targetSerializedObject.FindProperty(propertyName);
+            if (serializedProperty == null) {
+                return;
+            }
+
+            EditorGUILayout.PropertyField(serializedProperty, includeChildren);
+        }
+
+        private static void DrawMovementProperties(SerializedObject targetSerializedObject) {
+            DrawPropertyIfExists(targetSerializedObject, "maxSpeed");
+            DrawPropertyIfExists(targetSerializedObject, "maxAcceleration");
+            DrawPropertyIfExists(targetSerializedObject, "desiredSpeed");
+        }
+
+        private static void DrawNoiseProperties(SerializedObject targetSerializedObject) {
+            // Noise (same as window)
+            DrawPropertyIfExists(targetSerializedObject, "wanderStrength");
+            DrawPropertyIfExists(targetSerializedObject, "wanderFrequency");
+            DrawPropertyIfExists(targetSerializedObject, "groupNoiseStrength");
+            DrawPropertyIfExists(targetSerializedObject, "groupNoiseDirectionRate");
+            DrawPropertyIfExists(targetSerializedObject, "groupNoiseSpeedWeight");
+            DrawPropertyIfExists(targetSerializedObject, "patternWeight");
+        }
+
+        private static void DrawSizeAndSchoolingProperties(SerializedObject targetSerializedObject) {
+            DrawPropertyIfExists(targetSerializedObject, "bodyRadius");
+            DrawPropertyIfExists(targetSerializedObject, "schoolingSpacingFactor");
+            DrawPropertyIfExists(targetSerializedObject, "schoolingOuterFactor");
+            DrawPropertyIfExists(targetSerializedObject, "schoolingStrength");
+            DrawPropertyIfExists(targetSerializedObject, "schoolingInnerSoftness");
+            DrawPropertyIfExists(targetSerializedObject, "schoolingRadialDamping");
+            DrawPropertyIfExists(targetSerializedObject, "schoolingDeadzoneFraction");
+        }
+
+        private static void DrawNeighbourhoodProperties(SerializedObject targetSerializedObject) {
+            DrawPropertyIfExists(targetSerializedObject, "neighbourRadius");
+            DrawPropertyIfExists(targetSerializedObject, "separationRadius");
+
+            DrawPropertyIfExists(targetSerializedObject, "maxNeighbourChecks");
+            DrawPropertyIfExists(targetSerializedObject, "maxFriendlySamples");
+            DrawPropertyIfExists(targetSerializedObject, "maxSeparationSamples");
+        }
+
+        private static void DrawRuleWeightProperties(SerializedObject targetSerializedObject) {
+            // Rule Weights (includes Influence)
+            DrawPropertyIfExists(targetSerializedObject, "alignmentWeight");
+            DrawPropertyIfExists(targetSerializedObject, "cohesionWeight");
+            DrawPropertyIfExists(targetSerializedObject, "separationWeight");
+            DrawPropertyIfExists(targetSerializedObject, "influenceWeight");
+        }
+
+        private static void DrawRelationshipProperties(SerializedObject targetSerializedObject) {
+            DrawPropertyIfExists(targetSerializedObject, "avoidanceWeight");
+            DrawPropertyIfExists(targetSerializedObject, "neutralWeight");
+            DrawPropertyIfExists(targetSerializedObject, "attractionResponse");
+            DrawPropertyIfExists(targetSerializedObject, "avoidResponse");
+        }
+
+        private static void DrawSplitBehaviourProperties(SerializedObject targetSerializedObject) {
+            DrawPropertyIfExists(targetSerializedObject, "splitPanicThreshold");
+            DrawPropertyIfExists(targetSerializedObject, "splitLateralWeight");
+            DrawPropertyIfExists(targetSerializedObject, "splitAccelBoost");
+        }
+
+        private static void DrawAttractionProperties(SerializedObject targetSerializedObject) {
+            DrawPropertyIfExists(targetSerializedObject, "attractionWeight");
+        }
+
+        private static void DrawBoundsProperties(SerializedObject targetSerializedObject) {
+            DrawPropertyIfExists(targetSerializedObject, "boundsWeight");
+            DrawPropertyIfExists(targetSerializedObject, "boundsTangentialDamping");
+            DrawPropertyIfExists(targetSerializedObject, "boundsInfluenceSuppression");
+        }
+
+        private static void DrawGroupingProperties(SerializedObject targetSerializedObject) {
+            // Grouping (group flow + loner settings first, same as window)
+            DrawPropertyIfExists(targetSerializedObject, "groupFlowWeight");
+            DrawPropertyIfExists(targetSerializedObject, "minGroupSize");
+            DrawPropertyIfExists(targetSerializedObject, "maxGroupSize");
+            DrawPropertyIfExists(targetSerializedObject, "minGroupSizeWeight");
+            DrawPropertyIfExists(targetSerializedObject, "maxGroupSizeWeight");
+            DrawPropertyIfExists(targetSerializedObject, "groupRadiusMultiplier");
+            DrawPropertyIfExists(targetSerializedObject, "lonerRadiusMultiplier");
+            DrawPropertyIfExists(targetSerializedObject, "lonerCohesionBoost");
+        }
+
+        private static void DrawPreferredDepthProperties(SerializedObject targetSerializedObject) {
+            // Preferred Depth – same gating + order as window
+            SerializedProperty usePreferredDepthProperty = targetSerializedObject.FindProperty("usePreferredDepth");
+            if (usePreferredDepthProperty == null) {
+                return;
+            }
+
+            EditorGUILayout.PropertyField(usePreferredDepthProperty);
+
+            using (new EditorGUI.DisabledScope(!usePreferredDepthProperty.boolValue)) {
+                DrawPropertyIfExists(targetSerializedObject, "preferredDepthMin");
+                DrawPropertyIfExists(targetSerializedObject, "preferredDepthMax");
+                DrawPropertyIfExists(targetSerializedObject, "preferredDepthWeight");
+                DrawPropertyIfExists(targetSerializedObject, "depthBiasStrength");
+                DrawPropertyIfExists(targetSerializedObject, "depthWinsOverAttractor");
+                DrawPropertyIfExists(targetSerializedObject, "preferredDepthEdgeFraction");
+            }
+        }
     }
 }
 #endif

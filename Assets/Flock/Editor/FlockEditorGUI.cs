@@ -8,8 +8,6 @@ namespace Flock.Editor {
     /// Keeps section headers / cards consistent across tools.
     /// </summary>
     internal static class FlockEditorGUI {
-        const float DefaultLabelWidth = 170f;
-
         static GUIStyle _sectionHeader;
         static GUIStyle _sectionBox;
         static GUIStyle _cardHeader;
@@ -21,8 +19,8 @@ namespace Flock.Editor {
             get {
                 if (_arrayElementBox == null) {
                     _arrayElementBox = new GUIStyle("HelpBox") {
-                        padding = new RectOffset(8, 8, 6, 6),
-                        margin = new RectOffset(0, 0, 2, 2)
+                        padding = FlockEditorUI.Copy(FlockEditorUI.ArrayElementPadding),
+                        margin = FlockEditorUI.Copy(FlockEditorUI.ArrayElementMargin)
                     };
                 }
                 return _arrayElementBox;
@@ -61,7 +59,7 @@ namespace Flock.Editor {
 
             // For foldout-like generic structs/classes, expand clip area left without shifting visuals right.
             bool needsFoldoutGutter = includeChildren && property.propertyType == SerializedPropertyType.Generic;
-            float gutter = needsFoldoutGutter ? 16f : 0f;
+            float gutter = needsFoldoutGutter ? FlockEditorUI.FoldoutGutterWidth : 0f;
 
             Rect groupRect = (gutter > 0f)
                 ? new Rect(r.x - gutter, r.y, r.width + gutter, r.height)
@@ -82,9 +80,9 @@ namespace Flock.Editor {
             if (!headerless) {
                 Rect header = EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight, GUILayout.ExpandWidth(true));
 
-                const float sizeWidth = 52f;
+                float sizeWidth = FlockEditorUI.ArraySizeFieldWidth;
                 Rect sizeRect = new Rect(header.xMax - sizeWidth, header.y, sizeWidth, header.height);
-                Rect foldoutRect = new Rect(header.x, header.y, header.width - sizeWidth - 4f, header.height);
+                Rect foldoutRect = new Rect(header.x, header.y, header.width - sizeWidth - FlockEditorUI.ArrayHeaderGap, header.height);
 
                 arrayProp.isExpanded = EditorGUI.Foldout(foldoutRect, arrayProp.isExpanded, label, true, ArrayFoldout);
 
@@ -121,18 +119,18 @@ namespace Flock.Editor {
             using (new EditorGUILayout.HorizontalScope()) {
                 GUILayout.FlexibleSpace();
 
-                if (GUILayout.Button("+", EditorStyles.miniButtonLeft, GUILayout.Width(26f))) {
-                    arrayProp.arraySize++;
+                if (GUILayout.Button("+", EditorStyles.miniButtonLeft, GUILayout.Width(FlockEditorUI.ArrayPlusMinusButtonWidth))) {
+                arrayProp.arraySize++;
                 }
 
                 using (new EditorGUI.DisabledScope(arrayProp.arraySize == 0)) {
-                    if (GUILayout.Button("-", EditorStyles.miniButtonRight, GUILayout.Width(26f))) {
+                    if (GUILayout.Button("-", EditorStyles.miniButtonRight, GUILayout.Width(FlockEditorUI.ArrayPlusMinusButtonWidth))) {
                         arrayProp.arraySize = Mathf.Max(0, arrayProp.arraySize - 1);
                     }
                 }
             }
 
-            EditorGUILayout.Space(2f);
+            EditorGUILayout.Space(FlockEditorUI.ArrayFooterSpace);
         }
 
         public static GUIStyle SectionHeader {
@@ -154,8 +152,8 @@ namespace Flock.Editor {
                 if (_sectionBox == null) {
                     // "Card" style body using HelpBox as a base
                     _sectionBox = new GUIStyle("HelpBox") {
-                        padding = new RectOffset(8, 8, 4, 6),
-                        margin = new RectOffset(0, 0, 2, 4)
+                        padding = FlockEditorUI.Copy(FlockEditorUI.SectionBoxPadding),
+                        margin = FlockEditorUI.Copy(FlockEditorUI.SectionBoxMargin)
                     };
                 }
 
@@ -192,7 +190,7 @@ namespace Flock.Editor {
         /// You MUST call EndSection() if this returns true.
         /// </summary>
         public static bool BeginSection(string title, ref bool expanded) {
-            Rect rect = GUILayoutUtility.GetRect(0f, 20f, GUILayout.ExpandWidth(true));
+            Rect rect = GUILayoutUtility.GetRect(0f, FlockEditorUI.SectionHeaderRowHeight, GUILayout.ExpandWidth(true));
 
             // Foldout that occupies the whole row
             expanded = EditorGUI.Foldout(rect, expanded, title, true, SectionHeader);
@@ -202,13 +200,13 @@ namespace Flock.Editor {
             }
 
             EditorGUILayout.BeginVertical(SectionBox);
-            EditorGUILayout.Space(2f);
+            EditorGUILayout.Space(FlockEditorUI.BeginSectionBodyTopSpace);
             return true;
         }
 
         public static void EndSection() {
             EditorGUILayout.EndVertical();
-            EditorGUILayout.Space(4f);
+            EditorGUILayout.Space(FlockEditorUI.EndSectionBottomSpace);
         }
 
         /// <summary>
@@ -240,42 +238,15 @@ namespace Flock.Editor {
         /// </summary>
         public static void BeginCard(string title) {
             EditorGUILayout.BeginVertical(SectionBox, GUILayout.ExpandWidth(true));
-            Rect r = GUILayoutUtility.GetRect(0f, 16f, GUILayout.ExpandWidth(true));
-            r.xMin += 2f;
+            Rect r = GUILayoutUtility.GetRect(0f, FlockEditorUI.CardTitleRowHeight, GUILayout.ExpandWidth(true));
+            r.xMin += FlockEditorUI.CardTitleLeftInset;
             EditorGUI.LabelField(r, title, CardHeader);
-            EditorGUILayout.Space(1f);
+            EditorGUILayout.Space(FlockEditorUI.CardAfterTitleSpace);
         }
 
         public static void EndCard() {
             EditorGUILayout.EndVertical();
-            EditorGUILayout.Space(4f);
-        }
-
-        public static void PropertyFieldClamped(SerializedProperty property, bool includeChildren = true) {
-            if (property == null) {
-                return;
-            }
-
-            float h = EditorGUI.GetPropertyHeight(property, includeChildren);
-
-            // This rect is already "inside" the current card/section layout.
-            Rect r = EditorGUILayout.GetControlRect(true, h, GUILayout.ExpandWidth(true));
-
-            // We reserve a left "gutter" ONLY for properties that actually need a foldout arrow (arrays/structs).
-            bool needsFoldoutGutter =
-                includeChildren &&
-                (property.isArray && property.propertyType != SerializedPropertyType.String
-                 || property.propertyType == SerializedPropertyType.Generic);
-
-            float gutter = needsFoldoutGutter ? 16f : 0f;
-
-            // Clamp drawing to this rect (Unity 6 array footer buttons stop bleeding outside).
-            GUI.BeginGroup(r);
-            {
-                Rect local = new Rect(gutter, 0f, r.width - gutter, r.height);
-                EditorGUI.PropertyField(local, property, includeChildren);
-            }
-            GUI.EndGroup();
+            EditorGUILayout.Space(FlockEditorUI.CardAfterCardSpace);
         }
     }
 }

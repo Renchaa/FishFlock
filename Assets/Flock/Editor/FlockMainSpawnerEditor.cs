@@ -1,5 +1,6 @@
 ﻿#if UNITY_EDITOR
 using Flock.Runtime;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -20,7 +21,6 @@ namespace Flock.Editor {
         public override void OnInspectorGUI() {
             serializedObject.Update();
 
-            DrawControllerSyncHeader();
 
             EditorGUILayout.Space();
 
@@ -29,22 +29,104 @@ namespace Flock.Editor {
             serializedObject.ApplyModifiedProperties();
         }
 
-        void DrawControllerSyncHeader() {
-            if (controller == null) {
-                EditorGUILayout.HelpBox(
-                    "No FlockController found on this GameObject or its parents.\n" +
-                    "Type lists will be driven by whatever the controller currently has.",
-                    MessageType.Warning);
+            public static void SyncTypesFromController(FlockMainSpawner spawner, FishTypePreset[] sourceTypes) {
+            if (spawner == null) {
                 return;
             }
 
-            var fishTypes = controller.FishTypes;
-            if (fishTypes == null || fishTypes.Length == 0) {
-                EditorGUILayout.HelpBox(
-                    "FlockController has no fish types.\n" +
-                    "Configure fish types in FlockSetup and apply to the controller.",
-                    MessageType.Warning);
+            Undo.RecordObject(spawner, "Sync Flock Spawner Types");
+
+            var so = new SerializedObject(spawner);
+            so.Update();
+
+            SerializedProperty pointSpawnsProp = so.FindProperty("pointSpawns");
+            SerializedProperty seedSpawnsProp = so.FindProperty("seedSpawns");
+
+            if (pointSpawnsProp != null && pointSpawnsProp.isArray) {
+                for (int i = 0; i < pointSpawnsProp.arraySize; i += 1) {
+                    SerializedProperty cfgProp = pointSpawnsProp.GetArrayElementAtIndex(i);
+                    if (cfgProp == null) {
+                        continue;
+                    }
+
+                    SerializedProperty typesProp = cfgProp.FindPropertyRelative("types");
+                    SyncTypeCountEntries(typesProp, sourceTypes);
+                }
+            }
+
+            if (seedSpawnsProp != null && seedSpawnsProp.isArray) {
+                for (int i = 0; i < seedSpawnsProp.arraySize; i += 1) {
+                    SerializedProperty cfgProp = seedSpawnsProp.GetArrayElementAtIndex(i);
+                    if (cfgProp == null) {
+                        continue;
+                    }
+
+                    SerializedProperty typesProp = cfgProp.FindPropertyRelative("types");
+                    SyncTypeCountEntries(typesProp, sourceTypes);
+                }
+            }
+
+            so.ApplyModifiedProperties();
+            EditorUtility.SetDirty(spawner);
+        }
+
+        static void SyncTypeCountEntries(SerializedProperty typesProp, FishTypePreset[] sourceTypes) {
+            if (typesProp == null || !typesProp.isArray) {
                 return;
+            }
+
+            if (sourceTypes == null || sourceTypes.Length == 0) {
+                typesProp.arraySize = 0;
+                return;
+            }
+
+            // Preserve existing counts by preset reference
+            var existingCounts = new Dictionary<FishTypePreset, int>(typesProp.arraySize);
+            for (int i = 0; i < typesProp.arraySize; i += 1) {
+                SerializedProperty entryProp = typesProp.GetArrayElementAtIndex(i);
+                if (entryProp == null) {
+                    continue;
+                }
+
+                SerializedProperty presetProp = entryProp.FindPropertyRelative("preset");
+                SerializedProperty countProp = entryProp.FindPropertyRelative("count");
+
+                var preset = presetProp != null
+                    ? presetProp.objectReferenceValue as FishTypePreset
+                    : null;
+
+                if (preset == null) {
+                    continue;
+                }
+
+                int count = (countProp != null) ? countProp.intValue : 0;
+
+                // First one wins (same as your prior logic effectively)
+                if (!existingCounts.ContainsKey(preset)) {
+                    existingCounts.Add(preset, count);
+                }
+            }
+
+            // Rebuild array to match controller FishTypes exactly
+            typesProp.arraySize = sourceTypes.Length;
+
+            for (int i = 0; i < sourceTypes.Length; i += 1) {
+                FishTypePreset preset = sourceTypes[i];
+
+                SerializedProperty entryProp = typesProp.GetArrayElementAtIndex(i);
+                SerializedProperty presetProp = entryProp.FindPropertyRelative("preset");
+                SerializedProperty countProp = entryProp.FindPropertyRelative("count");
+
+                if (presetProp != null) {
+                    presetProp.objectReferenceValue = preset;
+                }
+
+                if (countProp != null) {
+                    countProp.intValue =
+                        (preset != null && existingCounts.TryGetValue(preset, out int preserved))
+                            ? preserved
+                            : 0;
+                }
             }
         }
 

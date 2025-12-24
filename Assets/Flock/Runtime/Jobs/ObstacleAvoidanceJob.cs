@@ -1,4 +1,5 @@
-﻿namespace Flock.Runtime.Jobs {
+﻿// REPLACE FILE: Assets/Flock/Runtime/Jobs/ObstacleAvoidanceJob.cs
+namespace Flock.Runtime.Jobs {
     using Flock.Runtime.Data;
     using Unity.Burst;
     using Unity.Collections;
@@ -26,154 +27,198 @@
 
         [WriteOnly] public NativeArray<float3> ObstacleSteering;
 
-        public void Execute(int index) {
-            float3 pos = Positions[index];
-            float3 vel = Velocities[index];
+        public void Execute(int agentIndex) {
+            float3 agentPosition = Positions[agentIndex];
+            float3 agentVelocity = Velocities[agentIndex];
 
-            float speedSq = math.lengthsq(vel);
-            if (speedSq < 1e-8f) {
-                ObstacleSteering[index] = float3.zero;
+            if (!TryGetForwardAndSpeed(agentVelocity, out float3 forwardDir, out float speed)) {
+                ObstacleSteering[agentIndex] = float3.zero;
                 return;
             }
 
-            float invSpeed = math.rsqrt(speedSq);
-            float3 forward = vel * invSpeed; // normalized
-            float speed = 1.0f / invSpeed;
-
-            if (!BehaviourIds.IsCreated || (uint)index >= (uint)BehaviourIds.Length) {
-                ObstacleSteering[index] = float3.zero;
-                return;
-            }
-
-            int behaviourIndex = BehaviourIds[index];
-
-            if ((uint)behaviourIndex >= (uint)BehaviourMaxSpeed.Length
-                || (uint)behaviourIndex >= (uint)BehaviourMaxAcceleration.Length
-                || (uint)behaviourIndex >= (uint)BehaviourSeparationRadius.Length) {
-                ObstacleSteering[index] = float3.zero;
-                return;
-            }
+            int behaviourIndex = BehaviourIds[agentIndex];
 
             float maxSpeed = BehaviourMaxSpeed[behaviourIndex];
             float maxAcceleration = BehaviourMaxAcceleration[behaviourIndex];
             float separationRadius = BehaviourSeparationRadius[behaviourIndex];
 
-            float baseLookAhead = math.max(separationRadius * 2.0f, 0.5f);
-            float speedFactor = (maxSpeed > 1e-6f) ? math.saturate(speed / maxSpeed) : 1.0f;
-            float lookAhead = baseLookAhead + separationRadius * 3.0f * speedFactor;
+            float lookAhead = ComputeLookAhead(separationRadius, speed, maxSpeed);
+
+            float safeCellSize = math.max(CellSize, 0.0001f);
+            int3 gridRes = GridResolution;
+
+            int3 agentCell = GetCell(agentPosition, GridOrigin, gridRes, safeCellSize);
+
+            ComputeSearchBounds(
+                agentCell,
+                gridRes,
+                lookAhead,
+                safeCellSize,
+                out int minCellX,
+                out int maxCellX,
+                out int minCellY,
+                out int maxCellY,
+                out int minCellZ,
+                out int maxCellZ);
 
             float3 bestDir = float3.zero;
             float bestDanger = 0.0f;
 
-            float cellSize = math.max(CellSize, 0.0001f);
-            int3 res = GridResolution;
+            FixedList512Bytes<int> seenObstacleIndices = default;
 
-            int3 cell = GetCell(pos, GridOrigin, res, cellSize);
+            int layerSize = gridRes.x * gridRes.y;
 
-            // Search range depends only on how far ahead we care this frame.
-            int cellRange = (int)math.ceil(lookAhead / cellSize) + 1;
-            cellRange = math.clamp(cellRange, 1, math.cmax(res));
+            for (int cellZ = minCellZ; cellZ <= maxCellZ; cellZ += 1) {
+                for (int cellY = minCellY; cellY <= maxCellY; cellY += 1) {
+                    int rowBase = cellY * gridRes.x + cellZ * layerSize;
 
-            int layerSize = res.x * res.y;
+                    for (int cellX = minCellX; cellX <= maxCellX; cellX += 1) {
+                        int neighbourCellId = cellX + rowBase;
 
-            // Dedup obstacle indices for this agent (so same obstacle in multiple cells is evaluated once).
-            FixedList512Bytes<int> seen = default;
-
-            for (int dz = -cellRange; dz <= cellRange; dz += 1) {
-                int z = cell.z + dz;
-                if ((uint)z >= (uint)res.z) {
-                    continue;
-                }
-
-                for (int dy = -cellRange; dy <= cellRange; dy += 1) {
-                    int y = cell.y + dy;
-                    if ((uint)y >= (uint)res.y) {
-                        continue;
-                    }
-
-                    int rowBase = y * res.x + z * layerSize;
-
-                    for (int dx = -cellRange; dx <= cellRange; dx += 1) {
-                        int x = cell.x + dx;
-                        if ((uint)x >= (uint)res.x) {
-                            continue;
-                        }
-
-                        int neighbourCellId = x + rowBase;
-
-                        NativeParallelMultiHashMapIterator<int> it;
-                        int obstacleIndex;
-
-                        if (!CellToObstacles.TryGetFirstValue(neighbourCellId, out obstacleIndex, out it)) {
-                            continue;
-                        }
-
-                        do {
-                            if ((uint)obstacleIndex >= (uint)Obstacles.Length) {
-                                continue;
-                            }
-
-                            // Best-effort dedup (if seen list fills, we stop deduping but still stay correct).
-                            if (Contains(seen, obstacleIndex)) {
-                                continue;
-                            }
-
-                            if (seen.Length < seen.Capacity) {
-                                seen.Add(obstacleIndex);
-                            }
-
-                            FlockObstacleData obstacle = Obstacles[obstacleIndex];
-
-                            float broadR = math.max(0.0f, obstacle.Radius) + separationRadius;
-                            float maxRange = lookAhead + broadR;
-
-                            float3 toObstacle = obstacle.Position - pos;
-                            float distCenterSq = math.lengthsq(toObstacle);
-
-                            if (distCenterSq > (maxRange * maxRange)) {
-                                continue;
-                            }
-
-                            if (obstacle.Shape == FlockObstacleShape.Sphere) {
-                                EvaluateSphere(
-                                    pos,
-                                    forward,
-                                    lookAhead,
-                                    separationRadius,
-                                    obstacle.Position,
-                                    math.max(0.0f, obstacle.Radius),
-                                    ref bestDanger,
-                                    ref bestDir);
-                            } else {
-                                EvaluateBox(
-                                    pos,
-                                    forward,
-                                    lookAhead,
-                                    separationRadius,
-                                    obstacle.Position,
-                                    obstacle.BoxHalfExtents,
-                                    obstacle.BoxRotation,
-                                    ref bestDanger,
-                                    ref bestDir);
-                            }
-
-                        } while (CellToObstacles.TryGetNextValue(out obstacleIndex, ref it));
+                        ProcessCell(
+                            neighbourCellId,
+                            agentPosition,
+                            forwardDir,
+                            lookAhead,
+                            separationRadius,
+                            ref seenObstacleIndices,
+                            ref bestDanger,
+                            ref bestDir);
                     }
                 }
             }
 
             if (bestDanger <= 0.0f || math.lengthsq(bestDir) < 1e-8f) {
-                ObstacleSteering[index] = float3.zero;
+                ObstacleSteering[agentIndex] = float3.zero;
                 return;
             }
 
             float avoidAccel = bestDanger * maxAcceleration * math.max(0f, AvoidStrength);
-            ObstacleSteering[index] = math.normalizesafe(bestDir, float3.zero) * avoidAccel;
+            ObstacleSteering[agentIndex] = math.normalizesafe(bestDir, float3.zero) * avoidAccel;
+        }
+
+        static bool TryGetForwardAndSpeed(float3 velocity, out float3 forwardDir, out float speed) {
+            float speedSqr = math.lengthsq(velocity);
+            if (speedSqr < 1e-8f) {
+                forwardDir = float3.zero;
+                speed = 0f;
+                return false;
+            }
+
+            float inverseSpeed = math.rsqrt(speedSqr);
+            forwardDir = velocity * inverseSpeed;     // normalized
+            speed = speedSqr * inverseSpeed;          // == sqrt(speedSqr)
+            return true;
+        }
+
+        static float ComputeLookAhead(float separationRadius, float speed, float maxSpeed) {
+            float baseLookAhead = math.max(separationRadius * 2.0f, 0.5f);
+            float speedFactor = (maxSpeed > 1e-6f) ? math.saturate(speed / maxSpeed) : 1.0f;
+            return baseLookAhead + separationRadius * 3.0f * speedFactor;
+        }
+
+        static void ComputeSearchBounds(
+            int3 centerCell,
+            int3 gridRes,
+            float lookAhead,
+            float cellSize,
+            out int minCellX,
+            out int maxCellX,
+            out int minCellY,
+            out int maxCellY,
+            out int minCellZ,
+            out int maxCellZ) {
+
+            int cellRange = (int)math.ceil(lookAhead / cellSize) + 1;
+            cellRange = math.max(cellRange, 1);
+
+            minCellX = math.max(centerCell.x - cellRange, 0);
+            maxCellX = math.min(centerCell.x + cellRange, gridRes.x - 1);
+
+            minCellY = math.max(centerCell.y - cellRange, 0);
+            maxCellY = math.min(centerCell.y + cellRange, gridRes.y - 1);
+
+            minCellZ = math.max(centerCell.z - cellRange, 0);
+            maxCellZ = math.min(centerCell.z + cellRange, gridRes.z - 1);
+        }
+
+        void ProcessCell(
+            int cellId,
+            float3 agentPosition,
+            float3 forwardDir,
+            float lookAhead,
+            float separationRadius,
+            ref FixedList512Bytes<int> seenObstacleIndices,
+            ref float bestDanger,
+            ref float3 bestDir) {
+
+            if (!CellToObstacles.TryGetFirstValue(
+                    cellId,
+                    out int obstacleIndex,
+                    out NativeParallelMultiHashMapIterator<int> iterator)) {
+                return;
+            }
+
+            do {
+                if (Contains(seenObstacleIndices, obstacleIndex)) {
+                    continue;
+                }
+
+                if (seenObstacleIndices.Length < seenObstacleIndices.Capacity) {
+                    seenObstacleIndices.Add(obstacleIndex);
+                }
+
+                FlockObstacleData obstacle = Obstacles[obstacleIndex];
+
+                if (!IsWithinBroadRange(agentPosition, lookAhead, separationRadius, obstacle.Position, obstacle.Radius)) {
+                    continue;
+                }
+
+                if (obstacle.Shape == FlockObstacleShape.Sphere) {
+                    EvaluateSphere(
+                        agentPosition,
+                        forwardDir,
+                        lookAhead,
+                        separationRadius,
+                        obstacle.Position,
+                        math.max(0.0f, obstacle.Radius),
+                        ref bestDanger,
+                        ref bestDir);
+                } else {
+                    EvaluateBox(
+                        agentPosition,
+                        forwardDir,
+                        lookAhead,
+                        separationRadius,
+                        obstacle.Position,
+                        obstacle.BoxHalfExtents,
+                        obstacle.BoxRotation,
+                        ref bestDanger,
+                        ref bestDir);
+                }
+
+            } while (CellToObstacles.TryGetNextValue(out obstacleIndex, ref iterator));
+        }
+
+        static bool IsWithinBroadRange(
+            float3 agentPosition,
+            float lookAhead,
+            float separationRadius,
+            float3 obstaclePosition,
+            float obstacleRadius) {
+
+            float broadRadius = math.max(0.0f, obstacleRadius) + separationRadius;
+            float maxRange = lookAhead + broadRadius;
+
+            float3 toObstacle = obstaclePosition - agentPosition;
+            float distToCenterSqr = math.lengthsq(toObstacle);
+
+            return distToCenterSqr <= (maxRange * maxRange);
         }
 
         static bool Contains(in FixedList512Bytes<int> list, int value) {
-            for (int i = 0; i < list.Length; i += 1) {
-                if (list[i] == value) {
+            for (int listIndex = 0; listIndex < list.Length; listIndex += 1) {
+                if (list[listIndex] == value) {
                     return true;
                 }
             }
@@ -181,8 +226,8 @@
         }
 
         static void EvaluateSphere(
-            float3 pos,
-            float3 forward,
+            float3 agentPosition,
+            float3 forwardDir,
             float lookAhead,
             float separationRadius,
             float3 sphereCenter,
@@ -191,22 +236,23 @@
             ref float3 bestDir) {
 
             float expandedRadius = sphereRadius + separationRadius;
-            float expandedRadiusSq = expandedRadius * expandedRadius;
+            float expandedRadiusSqr = expandedRadius * expandedRadius;
 
-            float3 toCenter = sphereCenter - pos;
-            float distCenterSq = math.lengthsq(toCenter);
+            float3 toCenter = sphereCenter - agentPosition;
+            float distCenterSqr = math.lengthsq(toCenter);
 
             // Inside safety sphere: push out strongly
-            if (distCenterSq < expandedRadiusSq) {
-                float distCenter = math.sqrt(math.max(distCenterSq, 1e-6f));
+            if (distCenterSqr < expandedRadiusSqr) {
+                float distCenter = math.sqrt(math.max(distCenterSqr, 1e-6f));
                 float penetration = expandedRadius - distCenter;
+
                 if (penetration > 0.0f) {
                     float penetrationFactor = math.saturate(penetration / math.max(expandedRadius, 1e-3f));
                     float dangerInside = 0.5f + 0.5f * penetrationFactor;
 
                     float3 exitDir = math.normalizesafe(
-                        pos - sphereCenter,
-                        -forward);
+                        agentPosition - sphereCenter,
+                        -forwardDir);
 
                     if (dangerInside > bestDanger) {
                         bestDanger = dangerInside;
@@ -218,20 +264,20 @@
             }
 
             // Path-based intersection against expanded sphere
-            float forwardDist = math.dot(toCenter, forward);
+            float forwardDist = math.dot(toCenter, forwardDir);
             if (forwardDist < 0.0f || forwardDist > lookAhead) {
                 return;
             }
 
-            float3 projected = forward * forwardDist;
+            float3 projected = forwardDir * forwardDist;
             float3 lateral = toCenter - projected;
-            float lateralSq = math.lengthsq(lateral);
+            float lateralSqr = math.lengthsq(lateral);
 
-            if (lateralSq > expandedRadiusSq) {
+            if (lateralSqr > expandedRadiusSqr) {
                 return;
             }
 
-            float lateralDist = math.sqrt(math.max(lateralSq, 1e-6f));
+            float lateralDist = math.sqrt(math.max(lateralSqr, 1e-6f));
             float penetrationLateral = expandedRadius - lateralDist;
             if (penetrationLateral <= 0.0f) {
                 return;
@@ -244,7 +290,7 @@
 
             float3 lateralDir = math.normalizesafe(
                 -lateral,
-                -forward);
+                -forwardDir);
 
             if (danger > bestDanger) {
                 bestDanger = danger;
@@ -253,8 +299,8 @@
         }
 
         static void EvaluateBox(
-            float3 pos,
-            float3 forward,
+            float3 agentPosition,
+            float3 forwardDir,
             float lookAhead,
             float separationRadius,
             float3 boxCenter,
@@ -263,44 +309,48 @@
             ref float bestDanger,
             ref float3 bestDir) {
 
-            float3 he = new float3(
+            float3 expandedHalfExtents = new float3(
                 math.max(0.0f, boxHalfExtents.x) + separationRadius,
                 math.max(0.0f, boxHalfExtents.y) + separationRadius,
                 math.max(0.0f, boxHalfExtents.z) + separationRadius);
 
             // Degenerate box → ignore
-            if (he.x <= 0f || he.y <= 0f || he.z <= 0f) {
+            if (expandedHalfExtents.x <= 0f || expandedHalfExtents.y <= 0f || expandedHalfExtents.z <= 0f) {
                 return;
             }
 
-            quaternion invRot = math.inverse(boxRot);
+            quaternion inverseRot = math.inverse(boxRot);
 
-            float3 o = math.mul(invRot, pos - boxCenter);   // ray origin in box local
-            float3 d = math.mul(invRot, forward);           // ray dir in box local (normalized)
+            float3 originLocal = math.mul(inverseRot, agentPosition - boxCenter); // ray origin in box local
+            float3 directionLocal = math.mul(inverseRot, forwardDir);            // ray dir in box local (normalized)
 
-            float tHit;
-            float3 nLocal;
-            bool startsInside;
-
-            if (!RayAabbSegmentHit(o, d, he, lookAhead, out tHit, out nLocal, out startsInside)) {
+            if (!RayAabbSegmentHit(
+                    originLocal,
+                    directionLocal,
+                    expandedHalfExtents,
+                    lookAhead,
+                    out float hitTime,
+                    out float3 normalLocal,
+                    out bool startsInside)) {
                 return;
             }
 
             float danger;
             if (startsInside) {
                 // Inside: stronger response, scaled by how deep we are (approx).
-                float3 absO = math.abs(o);
-                float dx = he.x - absO.x;
-                float dy = he.y - absO.y;
-                float dz = he.z - absO.z;
+                float3 absOrigin = math.abs(originLocal);
 
-                float minFaceDist = math.min(dx, math.min(dy, dz));
-                float minHe = math.max(math.cmin(he), 1e-3f);
+                float distToFaceX = expandedHalfExtents.x - absOrigin.x;
+                float distToFaceY = expandedHalfExtents.y - absOrigin.y;
+                float distToFaceZ = expandedHalfExtents.z - absOrigin.z;
 
-                float penetrationFactor = 1.0f - math.saturate(minFaceDist / minHe);
+                float minFaceDist = math.min(distToFaceX, math.min(distToFaceY, distToFaceZ));
+                float minHalfExtent = math.max(math.cmin(expandedHalfExtents), 1e-3f);
+
+                float penetrationFactor = 1.0f - math.saturate(minFaceDist / minHalfExtent);
                 danger = 0.5f + 0.5f * penetrationFactor;
             } else {
-                float timeFactor = 1.0f - (tHit / math.max(lookAhead, 1e-3f));
+                float timeFactor = 1.0f - (hitTime / math.max(lookAhead, 1e-3f));
                 danger = math.saturate(timeFactor);
             }
 
@@ -308,143 +358,169 @@
                 return;
             }
 
-            float3 nWorld = math.mul(boxRot, nLocal);
-            if (math.lengthsq(nWorld) < 1e-8f) {
+            float3 normalWorld = math.mul(boxRot, normalLocal);
+            if (math.lengthsq(normalWorld) < 1e-8f) {
                 return;
             }
 
             bestDanger = danger;
-            bestDir = nWorld;
+            bestDir = normalWorld;
         }
 
         static bool RayAabbSegmentHit(
-            float3 o,
-            float3 d,
-            float3 he,
-            float maxT,
-            out float tHit,
+            float3 originLocal,
+            float3 directionLocal,
+            float3 halfExtents,
+            float maxTime,
+            out float hitTime,
             out float3 normalLocal,
             out bool startsInside) {
 
-            tHit = 0f;
+            hitTime = 0f;
             normalLocal = float3.zero;
 
             startsInside =
-                math.abs(o.x) <= he.x &&
-                math.abs(o.y) <= he.y &&
-                math.abs(o.z) <= he.z;
+                math.abs(originLocal.x) <= halfExtents.x &&
+                math.abs(originLocal.y) <= halfExtents.y &&
+                math.abs(originLocal.z) <= halfExtents.z;
 
             if (startsInside) {
-                // Choose outward normal of nearest face; if ambiguous, bias toward travel direction.
-                float3 absO = math.abs(o);
-                float dx = he.x - absO.x;
-                float dy = he.y - absO.y;
-                float dz = he.z - absO.z;
-
-                int axis = 0;
-                float minD = dx;
-
-                if (dy < minD) { minD = dy; axis = 1; }
-                if (dz < minD) { minD = dz; axis = 2; }
-
-                // If we're near the center (ties), bias by direction.
-                float3 absD = math.abs(d);
-                if (minD > math.cmin(he) * 0.999f) {
-                    axis = absD.x >= absD.y
-                        ? (absD.x >= absD.z ? 0 : 2)
-                        : (absD.y >= absD.z ? 1 : 2);
-                }
-
-                if (axis == 0) {
-                    float s = (o.x != 0f) ? math.sign(o.x) : (d.x >= 0f ? 1f : -1f);
-                    normalLocal = new float3(s, 0f, 0f);
-                } else if (axis == 1) {
-                    float s = (o.y != 0f) ? math.sign(o.y) : (d.y >= 0f ? 1f : -1f);
-                    normalLocal = new float3(0f, s, 0f);
-                } else {
-                    float s = (o.z != 0f) ? math.sign(o.z) : (d.z >= 0f ? 1f : -1f);
-                    normalLocal = new float3(0f, 0f, s);
-                }
-
-                tHit = 0f;
+                normalLocal = ComputeInsideExitNormal(originLocal, directionLocal, halfExtents);
+                hitTime = 0f;
                 return true;
             }
 
-            // Slab intersection against segment [0, maxT]
-            float tmin = 0f;
-            float tmax = maxT;
+            float timeEnter = 0f;
+            float timeExit = maxTime;
+            float3 enterNormal = float3.zero;
 
-            float3 n = float3.zero;
-            const float eps = 1e-8f;
+            const float parallelEpsilon = 1e-8f;
 
-            // X
-            if (math.abs(d.x) < eps) {
-                if (o.x < -he.x || o.x > he.x) return false;
-            } else {
-                float inv = 1.0f / d.x;
-                float t1 = (-he.x - o.x) * inv;
-                float t2 = (he.x - o.x) * inv;
-
-                float tNear = math.min(t1, t2);
-                float tFar = math.max(t1, t2);
-                float3 nNear = (t1 < t2) ? new float3(-1f, 0f, 0f) : new float3(1f, 0f, 0f);
-
-                if (tNear > tmin) { tmin = tNear; n = nNear; }
-                tmax = math.min(tmax, tFar);
-                if (tmin > tmax) return false;
+            if (!UpdateSlab(
+                    originLocal.x,
+                    directionLocal.x,
+                    halfExtents.x,
+                    new float3(-1f, 0f, 0f),
+                    new float3(1f, 0f, 0f),
+                    parallelEpsilon,
+                    ref timeEnter,
+                    ref timeExit,
+                    ref enterNormal)) {
+                return false;
             }
 
-            // Y
-            if (math.abs(d.y) < eps) {
-                if (o.y < -he.y || o.y > he.y) return false;
-            } else {
-                float inv = 1.0f / d.y;
-                float t1 = (-he.y - o.y) * inv;
-                float t2 = (he.y - o.y) * inv;
-
-                float tNear = math.min(t1, t2);
-                float tFar = math.max(t1, t2);
-                float3 nNear = (t1 < t2) ? new float3(0f, -1f, 0f) : new float3(0f, 1f, 0f);
-
-                if (tNear > tmin) { tmin = tNear; n = nNear; }
-                tmax = math.min(tmax, tFar);
-                if (tmin > tmax) return false;
+            if (!UpdateSlab(
+                    originLocal.y,
+                    directionLocal.y,
+                    halfExtents.y,
+                    new float3(0f, -1f, 0f),
+                    new float3(0f, 1f, 0f),
+                    parallelEpsilon,
+                    ref timeEnter,
+                    ref timeExit,
+                    ref enterNormal)) {
+                return false;
             }
 
-            // Z
-            if (math.abs(d.z) < eps) {
-                if (o.z < -he.z || o.z > he.z) return false;
-            } else {
-                float inv = 1.0f / d.z;
-                float t1 = (-he.z - o.z) * inv;
-                float t2 = (he.z - o.z) * inv;
-
-                float tNear = math.min(t1, t2);
-                float tFar = math.max(t1, t2);
-                float3 nNear = (t1 < t2) ? new float3(0f, 0f, -1f) : new float3(0f, 0f, 1f);
-
-                if (tNear > tmin) { tmin = tNear; n = nNear; }
-                tmax = math.min(tmax, tFar);
-                if (tmin > tmax) return false;
+            if (!UpdateSlab(
+                    originLocal.z,
+                    directionLocal.z,
+                    halfExtents.z,
+                    new float3(0f, 0f, -1f),
+                    new float3(0f, 0f, 1f),
+                    parallelEpsilon,
+                    ref timeEnter,
+                    ref timeExit,
+                    ref enterNormal)) {
+                return false;
             }
 
-            if (tmax < 0f) return false;
-            if (tmin > maxT) return false;
+            if (timeExit < 0f) return false;
+            if (timeEnter > maxTime) return false;
 
-            tHit = math.max(tmin, 0f);
-            normalLocal = n;
+            hitTime = math.max(timeEnter, 0f);
+            normalLocal = enterNormal;
 
             return math.lengthsq(normalLocal) > 1e-6f;
         }
 
-        static int3 GetCell(float3 position, float3 origin, int3 res, float cellSize) {
+        static bool UpdateSlab(
+            float originComponent,
+            float directionComponent,
+            float halfExtent,
+            float3 normalWhenMinIsNear,
+            float3 normalWhenMaxIsNear,
+            float parallelEpsilon,
+            ref float timeEnter,
+            ref float timeExit,
+            ref float3 enterNormal) {
+
+            if (math.abs(directionComponent) < parallelEpsilon) {
+                return !(originComponent < -halfExtent || originComponent > halfExtent);
+            }
+
+            float inverseDirection = 1.0f / directionComponent;
+
+            float timeToMinPlane = (-halfExtent - originComponent) * inverseDirection;
+            float timeToMaxPlane = (halfExtent - originComponent) * inverseDirection;
+
+            float nearTime = math.min(timeToMinPlane, timeToMaxPlane);
+            float farTime = math.max(timeToMinPlane, timeToMaxPlane);
+
+            float3 nearNormal = (timeToMinPlane < timeToMaxPlane) ? normalWhenMinIsNear : normalWhenMaxIsNear;
+
+            if (nearTime > timeEnter) {
+                timeEnter = nearTime;
+                enterNormal = nearNormal;
+            }
+
+            timeExit = math.min(timeExit, farTime);
+            return timeEnter <= timeExit;
+        }
+
+        static float3 ComputeInsideExitNormal(float3 originLocal, float3 directionLocal, float3 halfExtents) {
+            float3 absOrigin = math.abs(originLocal);
+
+            float distToFaceX = halfExtents.x - absOrigin.x;
+            float distToFaceY = halfExtents.y - absOrigin.y;
+            float distToFaceZ = halfExtents.z - absOrigin.z;
+
+            int axisIndex = 0;
+            float minDist = distToFaceX;
+
+            if (distToFaceY < minDist) { minDist = distToFaceY; axisIndex = 1; }
+            if (distToFaceZ < minDist) { minDist = distToFaceZ; axisIndex = 2; }
+
+            // If we're near the center (ties), bias by direction.
+            float3 absDir = math.abs(directionLocal);
+            if (minDist > math.cmin(halfExtents) * 0.999f) {
+                axisIndex = absDir.x >= absDir.y
+                    ? (absDir.x >= absDir.z ? 0 : 2)
+                    : (absDir.y >= absDir.z ? 1 : 2);
+            }
+
+            if (axisIndex == 0) {
+                float signValue = (originLocal.x != 0f) ? math.sign(originLocal.x) : (directionLocal.x >= 0f ? 1f : -1f);
+                return new float3(signValue, 0f, 0f);
+            }
+
+            if (axisIndex == 1) {
+                float signValue = (originLocal.y != 0f) ? math.sign(originLocal.y) : (directionLocal.y >= 0f ? 1f : -1f);
+                return new float3(0f, signValue, 0f);
+            }
+
+            float signValueZ = (originLocal.z != 0f) ? math.sign(originLocal.z) : (directionLocal.z >= 0f ? 1f : -1f);
+            return new float3(0f, 0f, signValueZ);
+        }
+
+        static int3 GetCell(float3 position, float3 origin, int3 gridRes, float cellSize) {
             float3 scaled = (position - origin) / cellSize;
             int3 cell = (int3)math.floor(scaled);
 
             return math.clamp(
                 cell,
                 new int3(0, 0, 0),
-                res - new int3(1, 1, 1));
+                gridRes - new int3(1, 1, 1));
         }
     }
 }
