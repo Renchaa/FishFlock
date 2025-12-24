@@ -56,6 +56,7 @@ namespace Flock.Editor {
             _setup.PatternAssets = new List<FlockLayer3PatternProfile>();
             _selectedNoiseIndex = -1;
             EditorUtility.SetDirty(_setup);
+
             _selectedSpeciesIndex = -1;
             _selectedTab = 0;
 

@@ -1,116 +1,123 @@
-// File: Assets/Flock/Runtime/FlockSpawnPoint.cs
-namespace Flock.Runtime {
-    using Unity.Mathematics;
-    using UnityEngine;
-    using Random = Unity.Mathematics.Random;
+using Unity.Mathematics;
+using UnityEngine;
+using Random = Unity.Mathematics.Random;
 
+namespace Flock.Runtime {
+    /**
+     * <summary>
+     * Supported geometric spawn shapes.
+     * </summary>
+     */
     public enum FlockSpawnShape {
         Point,
         Sphere,
         Box
     }
 
-    /// <summary>
-    /// Defines a geometric spawn region in world space.
-    /// Counts and fish types are defined on FlockMainSpawner, not here.
-    /// </summary>
+    /**
+     * <summary>
+     * Defines a geometric spawn region in world space.
+     * Counts and fish types are defined on <see cref="FlockMainSpawner"/>, not here.
+     * </summary>
+     */
     public sealed class FlockSpawnPoint : MonoBehaviour {
         [Header("Shape")]
-        [SerializeField] FlockSpawnShape shape = FlockSpawnShape.Point;
 
-        [SerializeField, Min(0f)]
-        float radius = 1.0f; // Used for Sphere
-
+        [Tooltip("Spawn shape used when sampling positions.")]
         [SerializeField]
-        Vector3 halfExtents = new Vector3(1.0f, 1.0f, 1.0f); // Used for Box
+        private FlockSpawnShape shape = FlockSpawnShape.Point;
 
-        public FlockSpawnShape Shape => shape;
-        public float Radius => radius;
-        public Vector3 HalfExtents => halfExtents;
+        [Tooltip("Sphere radius used when Shape is Sphere.")]
+        [SerializeField]
+        [Min(0f)]
+        private float radius = 1.0f;
 
-        /// <summary>
-        /// Samples a world-space position inside this spawn shape.
-        /// No clamping to flock bounds is done here.
-        /// </summary>
-        public float3 SamplePosition(ref Random rng) {
-            float3 center = (float3)transform.position;
+        [Tooltip("Box half-extents used when Shape is Box.")]
+        [SerializeField]
+        private Vector3 halfExtents = new Vector3(1.0f, 1.0f, 1.0f);
+
+        /**
+         * <summary>
+         * Samples a world-space position inside this spawn shape. No clamping to flock bounds is done here.
+         * </summary>
+         * <param name="random">Random generator used for sampling.</param>
+         * <returns>A sampled world-space position.</returns>
+         */
+        public float3 SamplePosition(ref Random random) {
+            float3 centerPosition = (float3)transform.position;
 
             switch (shape) {
                 case FlockSpawnShape.Point:
-                    return center;
+                    return centerPosition;
 
                 case FlockSpawnShape.Sphere:
-                    return SampleInsideSphere(ref rng, center, radius);
+                    return SampleInsideSphere(ref random, centerPosition, radius);
 
                 case FlockSpawnShape.Box:
-                    return SampleInsideBox(ref rng, center, transform.rotation, halfExtents);
+                    return SampleInsideBox(ref random, centerPosition, transform.rotation, halfExtents);
 
                 default:
-                    return center;
+                    return centerPosition;
             }
         }
 
-        static float3 SampleInsideSphere(ref Random rng, float3 center, float radius) {
+        private void OnDrawGizmosSelected() {
+            Gizmos.color = new Color(1f, 0f, 0f, 0.3f);
+
+            switch (shape) {
+                case FlockSpawnShape.Point:
+                    Gizmos.DrawSphere(transform.position, 0.1f);
+                    return;
+
+                case FlockSpawnShape.Sphere:
+                    Gizmos.DrawWireSphere(transform.position, radius);
+                    return;
+
+                case FlockSpawnShape.Box:
+                    Gizmos.DrawWireCube(transform.position, halfExtents * 2f);
+                    return;
+            }
+        }
+
+        private static float3 SampleInsideSphere(ref Random random, float3 centerPosition, float radius) {
             if (radius <= 0f) {
-                return center;
+                return centerPosition;
             }
 
-            // Uniform inside sphere: direction * radius * cbrt(u)
-            float3 dir = new float3(0f, 0f, 1f);
+            // Uniform inside sphere: direction * radius * cbrt(u).
+            float3 direction = new float3(0f, 0f, 1f);
 
-            for (int attempt = 0; attempt < 4; attempt += 1) {
+            for (int attemptIndex = 0; attemptIndex < 4; attemptIndex += 1) {
                 float3 candidate = new float3(
-                    rng.NextFloat(-1f, 1f),
-                    rng.NextFloat(-1f, 1f),
-                    rng.NextFloat(-1f, 1f));
+                    random.NextFloat(-1f, 1f),
+                    random.NextFloat(-1f, 1f),
+                    random.NextFloat(-1f, 1f));
 
-                float lenSq = math.lengthsq(candidate);
-                if (lenSq > 1e-6f) {
-                    dir = candidate / math.sqrt(lenSq);
+                float lengthSquared = math.lengthsq(candidate);
+                if (lengthSquared > 1e-6f) {
+                    direction = candidate / math.sqrt(lengthSquared);
                     break;
                 }
             }
 
-            float u = math.saturate(rng.NextFloat());
-            float r = radius * math.pow(u, 1f / 3f);
+            float unit = math.saturate(random.NextFloat());
+            float sampledRadius = radius * math.pow(unit, 1f / 3f);
 
-            return center + dir * r;
+            return centerPosition + direction * sampledRadius;
         }
 
-        static float3 SampleInsideBox(
-            ref Random rng,
-            float3 center,
+        private static float3 SampleInsideBox(
+            ref Random random,
+            float3 centerPosition,
             Quaternion rotation,
             Vector3 halfExtents) {
+            Vector3 localOffset = new Vector3(
+                random.NextFloat(-halfExtents.x, halfExtents.x),
+                random.NextFloat(-halfExtents.y, halfExtents.y),
+                random.NextFloat(-halfExtents.z, halfExtents.z));
 
-            Vector3 local = new Vector3(
-                rng.NextFloat(-halfExtents.x, halfExtents.x),
-                rng.NextFloat(-halfExtents.y, halfExtents.y),
-                rng.NextFloat(-halfExtents.z, halfExtents.z));
-
-            Vector3 worldOffset = rotation * local;
-            return center + (float3)worldOffset;
+            Vector3 worldOffset = rotation * localOffset;
+            return centerPosition + (float3)worldOffset;
         }
-
-        #region Gizmos
-        // Draw the spawn area based on shape
-        private void OnDrawGizmosSelected() {
-            Gizmos.color = new Color(1f, 0f, 0f, 0.3f);  // Red with transparency for visibility
-
-            switch (shape) {
-                case FlockSpawnShape.Point:
-                    Gizmos.DrawSphere(transform.position, 0.1f);  // Point visualized as a small sphere
-                    break;
-
-                case FlockSpawnShape.Sphere:
-                    Gizmos.DrawWireSphere(transform.position, radius);  // Draw a wireframe sphere for radius
-                    break;
-
-                case FlockSpawnShape.Box:
-                    Gizmos.DrawWireCube(transform.position, halfExtents * 2);  // Draw a wireframe box
-                    break;
-            }
-        }
-        #endregion
     }
 }

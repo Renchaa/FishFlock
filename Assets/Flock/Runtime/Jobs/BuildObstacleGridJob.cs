@@ -1,10 +1,15 @@
-namespace Flock.Runtime.Jobs {
-    using Flock.Runtime.Data;
-    using Unity.Burst;
-    using Unity.Collections;
-    using Unity.Jobs;
-    using Unity.Mathematics;
+using Flock.Runtime.Data;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 
+namespace Flock.Runtime.Jobs {
+    /**
+     * <summary>
+     * Clears a <see cref="NativeParallelMultiHashMap{TKey,TValue}"/> used for grid indexing.
+     * </summary>
+     */
     [BurstCompile]
     public struct ClearMultiHashMapJob : IJob {
         public NativeParallelMultiHashMap<int, int> Map;
@@ -14,56 +19,82 @@ namespace Flock.Runtime.Jobs {
         }
     }
 
+    /**
+     * <summary>
+     * Builds a cell-to-obstacle lookup by stamping each obstacle's broad-phase bounds into the grid.
+     * </summary>
+     */
     [BurstCompile]
     public struct BuildObstacleGridJob : IJobParallelFor {
-        [ReadOnly] public NativeArray<FlockObstacleData> Obstacles;
+        // Inputs
+        [ReadOnly]
+        public NativeArray<FlockObstacleData> Obstacles;
 
-        public NativeParallelMultiHashMap<int, int>.ParallelWriter CellToObstacles;
-
+        [ReadOnly]
         public float3 GridOrigin;
+
+        [ReadOnly]
         public int3 GridResolution;
+
+        [ReadOnly]
         public float CellSize;
 
+        // Outputs
+        public NativeParallelMultiHashMap<int, int>.ParallelWriter CellToObstacles;
+
         public void Execute(int obstacleIndex) {
-            float cellSize = math.max(CellSize, 0.0001f);
+            float safeCellSize = math.max(CellSize, 0.0001f);
+
             float3 origin = GridOrigin;
-            int3 res = GridResolution;
+            int3 resolution = GridResolution;
 
-            float3 gridMin = origin;
-            float3 gridMax = origin + (float3)res * cellSize;
+            float3 gridMinimum = origin;
+            float3 gridMaximum = origin + (float3)resolution * safeCellSize;
 
-            FlockObstacleData o = Obstacles[obstacleIndex];
+            FlockObstacleData obstacle = Obstacles[obstacleIndex];
 
-            float r = math.max(0.0f, o.Radius);
-            r = math.max(r, cellSize * 0.5f);
+            float radius = math.max(0.0f, obstacle.Radius);
+            radius = math.max(radius, safeCellSize * 0.5f);
 
-            float3 minW = o.Position - new float3(r);
-            float3 maxW = o.Position + new float3(r);
+            float3 obstacleMinimum = obstacle.Position - new float3(radius);
+            float3 obstacleMaximum = obstacle.Position + new float3(radius);
 
-            // Reject if completely outside grid bounds
-            if (maxW.x < gridMin.x || minW.x > gridMax.x ||
-                maxW.y < gridMin.y || minW.y > gridMax.y ||
-                maxW.z < gridMin.z || minW.z > gridMax.z) {
+            if (IsOutsideGridBounds(obstacleMinimum, obstacleMaximum, gridMinimum, gridMaximum)) {
                 return;
             }
 
-            float3 minLocal = (minW - origin) / cellSize;
-            float3 maxLocal = (maxW - origin) / cellSize;
+            int3 minimumCell = GetCellCoords(obstacleMinimum, origin, safeCellSize, resolution);
+            int3 maximumCell = GetCellCoords(obstacleMaximum, origin, safeCellSize, resolution);
 
-            int3 minCell = (int3)math.floor(minLocal);
-            int3 maxCell = (int3)math.floor(maxLocal);
+            StampCells(minimumCell, maximumCell, resolution, obstacleIndex);
+        }
 
-            minCell = math.clamp(minCell, new int3(0, 0, 0), res - new int3(1, 1, 1));
-            maxCell = math.clamp(maxCell, new int3(0, 0, 0), res - new int3(1, 1, 1));
+        private static bool IsOutsideGridBounds(float3 minimum, float3 maximum, float3 gridMinimum, float3 gridMaximum) {
+            return maximum.x < gridMinimum.x || minimum.x > gridMaximum.x
+                   || maximum.y < gridMinimum.y || minimum.y > gridMaximum.y
+                   || maximum.z < gridMinimum.z || minimum.z > gridMaximum.z;
+        }
 
-            int layerSize = res.x * res.y;
+        private static int3 GetCellCoords(float3 position, float3 origin, float cellSize, int3 resolution) {
+            float3 local = (position - origin) / cellSize;
 
-            for (int z = minCell.z; z <= maxCell.z; z += 1) {
-                for (int y = minCell.y; y <= maxCell.y; y += 1) {
-                    int rowBase = y * res.x + z * layerSize;
+            int3 cell = (int3)math.floor(local);
 
-                    for (int x = minCell.x; x <= maxCell.x; x += 1) {
-                        int cellIndex = x + rowBase;
+            return math.clamp(
+                cell,
+                new int3(0, 0, 0),
+                resolution - new int3(1, 1, 1));
+        }
+
+        private void StampCells(int3 minimumCell, int3 maximumCell, int3 resolution, int obstacleIndex) {
+            int layerSize = resolution.x * resolution.y;
+
+            for (int zIndex = minimumCell.z; zIndex <= maximumCell.z; zIndex += 1) {
+                for (int yIndex = minimumCell.y; yIndex <= maximumCell.y; yIndex += 1) {
+                    int rowBase = yIndex * resolution.x + zIndex * layerSize;
+
+                    for (int xIndex = minimumCell.x; xIndex <= maximumCell.x; xIndex += 1) {
+                        int cellIndex = xIndex + rowBase;
                         CellToObstacles.Add(cellIndex, obstacleIndex);
                     }
                 }

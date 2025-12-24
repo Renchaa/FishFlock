@@ -27,31 +27,20 @@ namespace Flock.Editor {
         int selectedFishIndex = -1;
 
         void OnEnable() {
-            matrix = (FishInteractionMatrix)target;
-
-            headerStyle = new GUIStyle(EditorStyles.miniLabel) {
-                alignment = TextAnchor.MiddleCenter,
-                wordWrap = false
-            };
+            // Don’t assume Unity’s timing; just init defensively.
+            EnsureInit();
         }
 
         GUIStyle CellStyle {
             get {
-                if (cellToggleStyle == null) {
-                    cellToggleStyle = new GUIStyle(EditorStyles.toggle) {
-                        fixedWidth = CellSize,
-                        fixedHeight = CellSize,
-                        margin = new RectOffset(0, 0, 0, 0),
-                        padding = new RectOffset(0, 0, 0, 0)
-                    };
-                }
+                EnsureInit();
                 return cellToggleStyle;
             }
         }
 
-
         // ===== REPLACE OnInspectorGUI WITH THIS VERSION =====
         public override void OnInspectorGUI() {
+            EnsureInit();
             if (matrix == null) {
                 return;
             }
@@ -353,22 +342,28 @@ namespace Flock.Editor {
 
         // ===== vertical header label helper (unchanged) =====
         void DrawVerticalHeaderLabel(Rect rect, string label) {
+            EnsureInit();
+
             Matrix4x4 oldMatrix = GUI.matrix;
+            try {
+                GUIStyle style = headerStyle ?? EditorStyles.miniLabel;
 
-            Vector2 labelSize = headerStyle.CalcSize(new GUIContent(label));
-            float desiredWidth = Mathf.Max(labelSize.x, ColumnHeaderHeight);
-            float diff = desiredWidth - rect.width;
-            if (diff > 0f) {
-                rect.x -= diff * 0.5f;
-                rect.width += diff;
+                Vector2 labelSize = style.CalcSize(new GUIContent(label ?? string.Empty));
+                float desiredWidth = Mathf.Max(labelSize.x, ColumnHeaderHeight);
+                float diff = desiredWidth - rect.width;
+                if (diff > 0f) {
+                    rect.x -= diff * 0.5f;
+                    rect.width += diff;
+                }
+
+                Vector2 pivot = rect.center;
+                GUIUtility.RotateAroundPivot(-90f, pivot);
+
+                GUI.Label(rect, label, style);
+            } finally {
+                // Always restore, even if something throws later.
+                GUI.matrix = oldMatrix;
             }
-
-            Vector2 pivot = rect.center;
-            GUIUtility.RotateAroundPivot(-90f, pivot);
-
-            GUI.Label(rect, label, headerStyle);
-
-            GUI.matrix = oldMatrix;
         }
 
         static string GetTypeName(FishTypePreset preset) {
@@ -382,6 +377,28 @@ namespace Flock.Editor {
 
             return preset.name;
         }
+        void EnsureInit() {
+            if (matrix == null) {
+                matrix = (FishInteractionMatrix)target;
+            }
+
+            if (headerStyle == null) {
+                headerStyle = new GUIStyle(EditorStyles.miniLabel) {
+                    alignment = TextAnchor.MiddleCenter,
+                    wordWrap = false
+                };
+            }
+
+            if (cellToggleStyle == null) {
+                cellToggleStyle = new GUIStyle(EditorStyles.toggle) {
+                    fixedWidth = CellSize,
+                    fixedHeight = CellSize,
+                    margin = new RectOffset(0, 0, 0, 0),
+                    padding = new RectOffset(0, 0, 0, 0)
+                };
+            }
+        }
+
     }
 }
 #endif

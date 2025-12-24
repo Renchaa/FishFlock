@@ -1,20 +1,14 @@
 ﻿#if UNITY_EDITOR
 using Flock.Runtime;
 using Flock.Runtime.Data;
-using System;
-using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
+using UnityEditor.Rendering.HighDefinition;
 using UnityEngine;
 
 namespace Flock.Editor {
     /// <summary>
     /// Top-level flock editor window.
-    /// - Select / create a FlockSetup asset.
-    /// - Manage Species (FishTypePreset assets) + Behaviour profiles.
-    /// - Interactions matrix.
-    /// - Noise / Patterns.
-    /// - Scene / Simulation wiring + sync.
     /// </summary>
     public sealed partial class FlockEditorWindow : EditorWindow {
         // ---------------- Serialized window state ----------------
@@ -25,6 +19,7 @@ namespace Flock.Editor {
         [SerializeField] private int _speciesInspectorMode = 0;
         [SerializeField] private int _selectedNoiseIndex = -1; // -1 = Group Noise Pattern, >=0 = PatternAssets[i]
         [SerializeField] private int _noiseInspectorMode = 0;  // 0 = Group Noise, 1 = Pattern Assets
+        [SerializeField] private FlockSetupControllerSync _sync = new FlockSetupControllerSync();
 
         // ---------------- Scroll ----------------
         private Vector2 _speciesListScroll;
@@ -43,37 +38,12 @@ namespace Flock.Editor {
 
         // ---------------- Scene tab state ----------------
         private Vector2 sceneScroll;
-        private bool _isSceneAutoSyncing = false;
-        private double _nextSceneAutoSyncTime = 0.0;
 
         // ---------------- Pattern dropdown ----------------
         private AdvancedDropdownState _createPatternDropdownState;
         private CreatePatternDropdown _createPatternDropdown;
-
-        // ---------------- Scene sync conflict resolution ----------------
-        enum SyncSource {
-            None,
-            Setup,
-            Controller
-        }
-
-        // Last-synced instanceID snapshots for fish / patterns
-        int[] _lastSyncedSetupFishIds;
-        int[] _lastSyncedControllerFishIds;
-        int[] _lastSyncedSetupPatternIds;
-        int[] _lastSyncedControllerPatternIds;
-
-        // Single-ID tracking for InteractionMatrix and GroupNoise
-        int _lastSetupMatrixId;
-        int _lastControllerMatrixId;
-        int _lastSetupNoiseId;
-        int _lastControllerNoiseId;
-
-        // Remember last winner to resolve conflicts when both changed
-        SyncSource _lastFishSyncSource = SyncSource.None;
-        SyncSource _lastPatternSyncSource = SyncSource.None;
-        SyncSource _lastMatrixSyncSource = SyncSource.None;
-        SyncSource _lastNoiseSyncSource = SyncSource.None;
+        // Global sync throttle (EditorApplication.update)
+        double _nextSceneAutoSyncTime = 0;
 
         [MenuItem("Window/Flock/Flock Editor")]
         public static void Open() {
@@ -81,12 +51,24 @@ namespace Flock.Editor {
         }
 
         private void OnEnable() {
+            EnsureTabs();
+
+            // Keep a valid active index on domain reloads.
+            _activeTabIndex = Mathf.Clamp(_selectedTab, 0, _tabs.Length - 1);
+            SetActiveTab(_activeTabIndex, fireCallbacks: false);
+
             EditorApplication.update += OnEditorUpdate;
+
+            // Keep existing behavior.
             ResetSceneSyncState();
         }
 
+
         private void OnDisable() {
             EditorApplication.update -= OnEditorUpdate;
+
+            var active = GetActiveTabOrNull();
+            active?.OnDeactivated(this);
 
             DestroySpeciesEditor();
             DestroyInteractionMatrixEditor();
@@ -103,39 +85,24 @@ namespace Flock.Editor {
                 return;
             }
 
-            EditorGUILayout.Space();
-
-            _selectedTab = GUILayout.Toolbar(
-                _selectedTab,
-                new[] { "Species", "Interactions", "Noise / Patterns", "Scene / Simulation" });
+            EnsureTabs();
 
             EditorGUILayout.Space();
 
-            switch (_selectedTab) {
-                case 0: // Species
-                    using (new EditorGUILayout.HorizontalScope()) {
-                        DrawSpeciesListPanel();
-                        DrawSpeciesDetailPanel();
-                    }
-                    break;
+            int newTab = GUILayout.Toolbar(
+                Mathf.Clamp(_selectedTab, 0, _tabs.Length - 1),
+                _tabLabels);
 
-                case 1: // Interactions
-                    DrawInteractionsPanel();
-                    break;
-
-                case 2: // Noise / Patterns
-                    DrawNoiseModeToolbar();
-                    using (new EditorGUILayout.HorizontalScope()) {
-                        DrawNoiseListPanel();
-                        DrawNoiseDetailPanel();
-                    }
-                    HandleGroupNoiseObjectPicker();
-                    break;
-
-                case 3: // Scene / Simulation
-                    DrawSceneSimulationPanel();
-                    break;
+            if (newTab != _selectedTab) {
+                SetActiveTab(newTab, fireCallbacks: true);
+            } else if (_activeTabIndex != _selectedTab) {
+                // Safety: keep active index consistent if something external changed _selectedTab.
+                SetActiveTab(_selectedTab, fireCallbacks: false);
             }
+
+            EditorGUILayout.Space();
+
+            _tabs[_activeTabIndex].Draw(this);
         }
 
         private static void DrawNoSetupHelp() {

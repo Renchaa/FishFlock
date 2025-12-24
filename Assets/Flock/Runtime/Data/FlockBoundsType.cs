@@ -1,7 +1,11 @@
-// File: Assets/Flock/Runtime/Data/FlockBoundsType.cs
 namespace Flock.Runtime.Data {
+    /**
+     * <summary>
+     * Supported simulation bounds volume types.
+     * </summary>
+     */
     public enum FlockBoundsType {
         Box = 0,
-        Sphere = 1
+        Sphere = 1,
     }
 }

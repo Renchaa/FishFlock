@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: TestFishInteractionMatrix
   m_EditorClassIdentifier: 
   fishTypes:
-  - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
+  - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
-  interactionFlags: 000000000000000000
-  relationTypes: 000000000000000000000000000000000000000000000000000000000000000000000000
+  interactionFlags: 010000000000000000
+  relationTypes: 010000000000000000000000000000000000000000000000000000000000000000000000
   neutralWeights:
   - 1
   - 1

@@ -1,197 +1,216 @@
-﻿// File: Assets/Flock/Runtime/Jobs/BoundsProbeJob.cs
-namespace Flock.Runtime.Jobs {
-    using Flock.Runtime.Data;
-    using Unity.Burst;
-    using Unity.Collections;
-    using Unity.Jobs;
-    using Unity.Mathematics;
+﻿using Flock.Runtime.Data;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 
-    /// <summary>
-    /// Computes per–agent wall direction + danger based only on position and bounds.
-    /// No velocity, no obstacles. Pure environment probe.
-    /// </summary>
+namespace Flock.Runtime.Jobs {
+    /**
+     * <summary>
+     * Computes per-agent wall direction + danger based only on position and bounds.
+     * No velocity, no obstacles. Pure environment probe.
+     * </summary>
+     */
     [BurstCompile]
     public struct BoundsProbeJob : IJobParallelFor {
-        [ReadOnly] public NativeArray<float3> Positions;
-        [ReadOnly] public NativeArray<int> BehaviourIds;
-        [ReadOnly] public NativeArray<float> BehaviourSeparationRadius;
+        // Inputs
+        [ReadOnly]
+        public NativeArray<float3> Positions;
 
-        [ReadOnly] public FlockEnvironmentData EnvironmentData;
+        [ReadOnly]
+        public NativeArray<int> BehaviourIds;
 
-        [WriteOnly] public NativeArray<float3> WallDirections; // inward direction
-        [WriteOnly] public NativeArray<float> WallDangers;     // 0..1 (or slightly >1 if outside)
+        [ReadOnly]
+        public NativeArray<float> BehaviourSeparationRadius;
+
+        [ReadOnly]
+        public FlockEnvironmentData EnvironmentData;
+
+        // Outputs
+        [WriteOnly]
+        public NativeArray<float3> WallDirections;
+
+        [WriteOnly]
+        public NativeArray<float> WallDangers;
 
         public void Execute(int index) {
-            float3 pos = Positions[index];
+            float3 position = Positions[index];
 
             WallDirections[index] = float3.zero;
             WallDangers[index] = 0f;
 
-            int behaviourIndex = BehaviourIds[index];
-            if ((uint)behaviourIndex >= (uint)BehaviourSeparationRadius.Length) {
+            if (!TryGetSeparationMargin(index, out float margin)) {
                 return;
             }
 
-            // Use separation radius as "danger margin" near the boundary
-            float separationRadius = math.max(BehaviourSeparationRadius[behaviourIndex], 0.01f);
-            float margin = separationRadius;
-
-            if (EnvironmentData.BoundsType == FlockBoundsType.Box) {
-                float3 center = EnvironmentData.BoundsCenter;
-                float3 extents = EnvironmentData.BoundsExtents;
-
-                if (extents.x <= 0f && extents.y <= 0f && extents.z <= 0f) {
+            switch (EnvironmentData.BoundsType) {
+                case FlockBoundsType.Box:
+                    TryProbeBoxBounds(index, position, margin);
                     return;
-                }
 
-                float3 min = center - extents;
-                float3 max = center + extents;
-
-                float3 accumDir = float3.zero;
-                float maxDanger = 0f;
-
-                // X min wall (normal +X)
-                AccumulateWallContribution(
-                    posComponent: pos.x,
-                    wallMin: min.x,
-                    wallMax: max.x,
-                    margin: margin,
-                    inwardNormal: new float3(1f, 0f, 0f),
-                    ref accumDir,
-                    ref maxDanger);
-
-                // X max wall (normal -X)
-                AccumulateWallContribution(
-                    posComponent: pos.x,
-                    wallMin: min.x,
-                    wallMax: max.x,
-                    margin: margin,
-                    inwardNormal: new float3(-1f, 0f, 0f),
-                    ref accumDir,
-                    ref maxDanger,
-                    isMaxSide: true);
-
-                // Y min wall (normal +Y)
-                AccumulateWallContribution(
-                    posComponent: pos.y,
-                    wallMin: min.y,
-                    wallMax: max.y,
-                    margin: margin,
-                    inwardNormal: new float3(0f, 1f, 0f),
-                    ref accumDir,
-                    ref maxDanger);
-
-                // Y max wall (normal -Y)
-                AccumulateWallContribution(
-                    posComponent: pos.y,
-                    wallMin: min.y,
-                    wallMax: max.y,
-                    margin: margin,
-                    inwardNormal: new float3(0f, -1f, 0f),
-                    ref accumDir,
-                    ref maxDanger,
-                    isMaxSide: true);
-
-                // Z min wall (normal +Z)
-                AccumulateWallContribution(
-                    posComponent: pos.z,
-                    wallMin: min.z,
-                    wallMax: max.z,
-                    margin: margin,
-                    inwardNormal: new float3(0f, 0f, 1f),
-                    ref accumDir,
-                    ref maxDanger);
-
-                // Z max wall (normal -Z)
-                AccumulateWallContribution(
-                    posComponent: pos.z,
-                    wallMin: min.z,
-                    wallMax: max.z,
-                    margin: margin,
-                    inwardNormal: new float3(0f, 0f, -1f),
-                    ref accumDir,
-                    ref maxDanger,
-                    isMaxSide: true);
-
-                if (math.lengthsq(accumDir) < 1e-8f || maxDanger <= 0f) {
+                case FlockBoundsType.Sphere:
+                    TryProbeSphereBounds(index, position, margin);
                     return;
-                }
-
-                WallDirections[index] = math.normalizesafe(accumDir, float3.zero);
-                WallDangers[index] = maxDanger;
-            } else if (EnvironmentData.BoundsType == FlockBoundsType.Sphere) {
-                float radius = EnvironmentData.BoundsRadius;
-                if (radius <= 0f) {
-                    return;
-                }
-
-                float3 center = EnvironmentData.BoundsCenter;
-                float3 offset = pos - center;
-                float distSq = math.lengthsq(offset);
-
-                if (distSq < 1e-8f) {
-                    // At center: no meaningful wall direction
-                    return;
-                }
-
-                float dist = math.sqrt(distSq);
-                float distanceToSurface = radius - dist; // >0 inside, <0 outside
-
-                // Far from the wall, no danger
-                if (distanceToSurface >= margin) {
-                    return;
-                }
-
-                // 0 at margin, 1 on or beyond surface
-                float t = 1f - math.saturate(distanceToSurface / math.max(margin, 0.0001f));
-                if (t <= 0f) {
-                    return;
-                }
-
-                // Inward = towards center
-                float3 inwardNormal = -offset / dist;
-
-                WallDirections[index] = inwardNormal;
-                WallDangers[index] = t;
             }
         }
 
-        /// <summary>
-        /// Adds contribution of a single axis wall pair (min/max) to accumDir/maxDanger.
-        /// This is symmetric for min/max, we just flip which side is "near".
-        /// </summary>
-        void AccumulateWallContribution(
-            float posComponent,
-            float wallMin,
-            float wallMax,
-            float margin,
-            float3 inwardNormal,
-            ref float3 accumDir,
-            ref float maxDanger,
-            bool isMaxSide = false) {
+        private bool TryGetSeparationMargin(int index, out float margin) {
+            int behaviourIndex = BehaviourIds[index];
 
-            // Distance to the relevant wall (inside: positive)
-            float distInterior = isMaxSide
-                ? (wallMax - posComponent)
-                : (posComponent - wallMin);
+            if ((uint)behaviourIndex >= (uint)BehaviourSeparationRadius.Length) {
+                margin = 0f;
+                return false;
+            }
 
-            // If far from this wall, ignore
-            if (distInterior >= margin) {
+            // Use separation radius as "danger margin" near the boundary.
+            float separationRadius = math.max(BehaviourSeparationRadius[behaviourIndex], 0.01f);
+            margin = separationRadius;
+            return true;
+        }
+
+        private void TryProbeBoxBounds(int index, float3 position, float margin) {
+            float3 center = EnvironmentData.BoundsCenter;
+            float3 extents = EnvironmentData.BoundsExtents;
+
+            if (extents.x <= 0f && extents.y <= 0f && extents.z <= 0f) {
                 return;
             }
 
-            // distInterior < margin means we are inside the margin band or even outside.
-            // Normalised closeness 0..1 (0 = at margin, 1 = on wall or outside)
-            float t = 1f - math.saturate(distInterior / math.max(margin, 0.0001f));
+            float3 minimum = center - extents;
+            float3 maximum = center + extents;
 
-            // If already outside, distInterior will be negative → t will clamp to 1.
+            float3 accumulatedDirection = float3.zero;
+            float maximumDanger = 0f;
+
+            AccumulateWallContribution(
+                positionComponent: position.x,
+                wallMinimum: minimum.x,
+                wallMaximum: maximum.x,
+                margin: margin,
+                inwardNormal: new float3(1f, 0f, 0f),
+                accumulatedDirection: ref accumulatedDirection,
+                maximumDanger: ref maximumDanger);
+
+            AccumulateWallContribution(
+                positionComponent: position.x,
+                wallMinimum: minimum.x,
+                wallMaximum: maximum.x,
+                margin: margin,
+                inwardNormal: new float3(-1f, 0f, 0f),
+                accumulatedDirection: ref accumulatedDirection,
+                maximumDanger: ref maximumDanger,
+                isMaximumSide: true);
+
+            AccumulateWallContribution(
+                positionComponent: position.y,
+                wallMinimum: minimum.y,
+                wallMaximum: maximum.y,
+                margin: margin,
+                inwardNormal: new float3(0f, 1f, 0f),
+                accumulatedDirection: ref accumulatedDirection,
+                maximumDanger: ref maximumDanger);
+
+            AccumulateWallContribution(
+                positionComponent: position.y,
+                wallMinimum: minimum.y,
+                wallMaximum: maximum.y,
+                margin: margin,
+                inwardNormal: new float3(0f, -1f, 0f),
+                accumulatedDirection: ref accumulatedDirection,
+                maximumDanger: ref maximumDanger,
+                isMaximumSide: true);
+
+            AccumulateWallContribution(
+                positionComponent: position.z,
+                wallMinimum: minimum.z,
+                wallMaximum: maximum.z,
+                margin: margin,
+                inwardNormal: new float3(0f, 0f, 1f),
+                accumulatedDirection: ref accumulatedDirection,
+                maximumDanger: ref maximumDanger);
+
+            AccumulateWallContribution(
+                positionComponent: position.z,
+                wallMinimum: minimum.z,
+                wallMaximum: maximum.z,
+                margin: margin,
+                inwardNormal: new float3(0f, 0f, -1f),
+                accumulatedDirection: ref accumulatedDirection,
+                maximumDanger: ref maximumDanger,
+                isMaximumSide: true);
+
+            if (math.lengthsq(accumulatedDirection) < 1e-8f || maximumDanger <= 0f) {
+                return;
+            }
+
+            WallDirections[index] = math.normalizesafe(accumulatedDirection, float3.zero);
+            WallDangers[index] = maximumDanger;
+        }
+
+        private void TryProbeSphereBounds(int index, float3 position, float margin) {
+            float radius = EnvironmentData.BoundsRadius;
+
+            if (radius <= 0f) {
+                return;
+            }
+
+            float3 center = EnvironmentData.BoundsCenter;
+            float3 offset = position - center;
+
+            float distanceSquared = math.lengthsq(offset);
+
+            if (distanceSquared < 1e-8f) {
+                // At center: no meaningful wall direction.
+                return;
+            }
+
+            float distance = math.sqrt(distanceSquared);
+            float distanceToSurface = radius - distance; // >0 inside, <0 outside
+
+            if (distanceToSurface >= margin) {
+                return;
+            }
+
+            float t = 1f - math.saturate(distanceToSurface / math.max(margin, 0.0001f));
+
             if (t <= 0f) {
                 return;
             }
 
-            accumDir += inwardNormal * t;
-            if (t > maxDanger) {
-                maxDanger = t;
+            float3 inwardNormal = -offset / distance;
+
+            WallDirections[index] = inwardNormal;
+            WallDangers[index] = t;
+        }
+
+        // Adds contribution of a single wall side to accumulatedDirection/maximumDanger.
+        private void AccumulateWallContribution(
+            float positionComponent,
+            float wallMinimum,
+            float wallMaximum,
+            float margin,
+            float3 inwardNormal,
+            ref float3 accumulatedDirection,
+            ref float maximumDanger,
+            bool isMaximumSide = false) {
+            float distanceInterior = isMaximumSide
+                ? (wallMaximum - positionComponent)
+                : (positionComponent - wallMinimum);
+
+            if (distanceInterior >= margin) {
+                return;
+            }
+
+            float t = 1f - math.saturate(distanceInterior / math.max(margin, 0.0001f));
+
+            if (t <= 0f) {
+                return;
+            }
+
+            accumulatedDirection += inwardNormal * t;
+
+            if (t > maximumDanger) {
+                maximumDanger = t;
             }
         }
     }

@@ -1,9 +1,11 @@
-// REPLACE FILE: Assets/Flock/Runtime/Data/FlockObstacleData.cs
 namespace Flock.Runtime.Data {
-    using Unity.Mathematics;
-
+    /**
+     * <summary>
+     * Supported obstacle volume shapes.
+     * </summary>
+     */
     public enum FlockObstacleShape : byte {
         Sphere = 0,
-        Box = 1
+        Box = 1,
     }
 }

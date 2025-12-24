@@ -1,22 +1,27 @@
-// ==============================
-// 1) FlockEnvironmentData.cs
-// REPLACE the struct body with this (small struct, safe to paste as-is)
-// ==============================
-namespace Flock.Runtime.Data {
-    using Unity.Mathematics;
+using Unity.Mathematics;
 
+namespace Flock.Runtime.Data {
+    /**
+     * <summary>
+     * Runtime environment snapshot used by the simulation and jobs.
+     * </summary>
+     */
     public struct FlockEnvironmentData {
+        // Bounds
         public FlockBoundsType BoundsType;
         public float3 BoundsCenter;
         public float3 BoundsExtents;
         public float BoundsRadius;
 
+        // Grid
         public float CellSize;
         public float3 GridOrigin;
         public int3 GridResolution;
 
+        // Global
         public float GlobalDamping;
 
-        public  FlockGroupNoisePatternSettings GroupNoisePattern;
+        // Group Noise
+        public FlockGroupNoisePatternSettings GroupNoisePattern;
     }
 }

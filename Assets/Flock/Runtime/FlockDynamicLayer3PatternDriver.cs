@@ -19,46 +19,61 @@ namespace Flock.Runtime.Testing {
      * </summary>
      */
     public sealed class FlockDynamicLayer3PatternDriver : MonoBehaviour {
+        [Tooltip("Bitmask used to affect all fish types.")]
         private const uint AllAffectedTypesMask = uint.MaxValue;
+
+        [Tooltip("Log message used when no FlockController can be found.")]
         private const string MissingControllerLogMessage = "Controller is null";
 
         [Header("Target")]
+
         [Tooltip("Pattern will track this transform. If null, uses this GameObject.")]
         [SerializeField]
         private Transform target;
 
         [Header("Shape")]
+
+        [Tooltip("Which runtime shell shape to generate and update.")]
         [SerializeField]
         private RuntimePatternShape shape = RuntimePatternShape.BoxShell;
 
         [Header("Sphere Settings")]
+
+        [Tooltip("Radius of the sphere shell.")]
         [SerializeField]
         [Min(0f)]
         private float sphereRadius = 10f;
 
-        [Tooltip("<= 0 means 'auto' = radius * 0.25")]
+        [Tooltip("Shell thickness. <= 0 means 'auto' = radius * 0.25.")]
         [SerializeField]
         private float sphereThickness = -1f;
 
         [Header("Box Settings")]
+
+        [Tooltip("Half-extents of the box shell in local XYZ size units.")]
         [SerializeField]
         private Vector3 boxHalfExtents = new Vector3(10f, 5f, 10f);
 
-        [Tooltip("<= 0 means 'auto' = min(halfExtents)*0.25")]
+        [Tooltip("Shell thickness. <= 0 means 'auto' = min(halfExtents) * 0.25.")]
         [SerializeField]
         private float boxThickness = -1f;
 
         [Header("Pattern")]
+
+        [Tooltip("Overall strength applied by the pattern updates.")]
         [SerializeField]
         [Min(0f)]
         private float strength = 1f;
 
+        [Tooltip("If true, attempts to create the pattern automatically on enable.")]
         [SerializeField]
         private bool createOnEnable = true;
 
+        [Tooltip("Flock controller used to start, update, and stop runtime patterns. If null, fetched from this GameObject.")]
         [SerializeField]
         private FlockController controller;
 
+        [Tooltip("Handle to the currently running runtime pattern (invalid when not running).")]
         private FlockLayer3PatternHandle handle = FlockLayer3PatternHandle.Invalid;
 
         private void OnEnable() {

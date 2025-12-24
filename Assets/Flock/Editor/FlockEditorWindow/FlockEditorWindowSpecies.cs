@@ -200,6 +200,7 @@ namespace Flock.Editor {
                 _setup.FishTypes == null ||
                 _selectedSpeciesIndex < 0 ||
                 _selectedSpeciesIndex >= _setup.FishTypes.Count) {
+
                 DestroySpeciesEditor();
                 return;
             }

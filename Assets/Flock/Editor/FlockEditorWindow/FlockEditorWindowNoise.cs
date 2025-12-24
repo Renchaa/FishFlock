@@ -256,27 +256,15 @@ namespace Flock.Editor {
         }
 
         void HandleGroupNoiseObjectPicker() {
-            if (_noiseInspectorMode != 0 || _setup == null) {
-                return;
-            }
+            if (_noiseInspectorMode != 0 || _setup == null) return;
 
             Event e = Event.current;
-            if (e == null) {
-                return;
-            }
-
-            if (e.commandName != "ObjectSelectorClosed") {
-                return;
-            }
-
-            if (EditorGUIUtility.GetObjectPickerControlID() != FlockEditorUI.GroupNoisePickerControlId) {
-                return;
-            }
+            if (e == null) return;
+            if (e.commandName != "ObjectSelectorClosed") return;
+            if (EditorGUIUtility.GetObjectPickerControlID() != FlockEditorUI.GroupNoisePickerControlId) return;
 
             var picked = EditorGUIUtility.GetObjectPickerObject() as GroupNoisePatternProfile;
-            if (picked == _setup.GroupNoiseSettings) {
-                return;
-            }
+            if (picked == _setup.GroupNoiseSettings) return;
 
             _setup.GroupNoiseSettings = picked;
             EditorUtility.SetDirty(_setup);
@@ -284,9 +272,7 @@ namespace Flock.Editor {
         }
 
         void CreatePatternAssetOfType(Type patternType) {
-            if (_setup == null || patternType == null) {
-                return;
-            }
+            if (_setup == null || patternType == null) return;
 
             string defaultName = patternType.Name;
             string path = EditorUtility.SaveFilePanelInProject(
@@ -295,9 +281,7 @@ namespace Flock.Editor {
                 "asset",
                 "Choose a location for the new pattern asset");
 
-            if (string.IsNullOrEmpty(path)) {
-                return;
-            }
+            if (string.IsNullOrEmpty(path)) return;
 
             var asset = ScriptableObject.CreateInstance(patternType) as FlockLayer3PatternProfile;
             if (asset == null) {
@@ -432,9 +416,7 @@ namespace Flock.Editor {
         }
 
         void DrawPatternAssetInspectorCards(FlockLayer3PatternProfile target) {
-            if (target == null) {
-                return;
-            }
+            if (target == null) return;
 
             var so = new SerializedObject(target);
             so.Update();
@@ -450,13 +432,8 @@ namespace Flock.Editor {
                 while (it.NextVisible(enterChildren)) {
                     enterChildren = false;
 
-                    if (it.depth != 0) {
-                        continue;
-                    }
-
-                    if (it.propertyPath == "m_Script") {
-                        continue;
-                    }
+                    if (it.depth != 0) continue;
+                    if (it.propertyPath == "m_Script") continue;
 
                     if (TryGetHeaderForPropertyPath(rootType, it.propertyPath, out string header)) {
                         if (!sectionOpen || !string.Equals(currentSection, header, StringComparison.Ordinal)) {
@@ -475,8 +452,10 @@ namespace Flock.Editor {
                     }
 
                     var prop = it.Copy();
+
                     GUIContent labelOverride =
-                        (!string.IsNullOrEmpty(currentSection) && string.Equals(prop.displayName, currentSection, StringComparison.Ordinal))
+                        (!string.IsNullOrEmpty(currentSection) &&
+                         string.Equals(prop.displayName, currentSection, StringComparison.Ordinal))
                             ? GUIContent.none
                             : null;
 
@@ -527,9 +506,7 @@ namespace Flock.Editor {
 
                 for (int i = 0; i < _types.Length; i++) {
                     var t = _types[i];
-                    if (t == null || t.IsAbstract) {
-                        continue;
-                    }
+                    if (t == null || t.IsAbstract) continue;
 
                     string group = GetGroupName(t);
                     if (!groups.TryGetValue(group, out var list)) {
@@ -575,9 +552,7 @@ namespace Flock.Editor {
             }
 
             protected override void ItemSelected(AdvancedDropdownItem item) {
-                if (item == null) {
-                    return;
-                }
+                if (item == null) return;
 
                 if (_idToType.TryGetValue(item.id, out var t)) {
                     _onPicked?.Invoke(t);
@@ -586,9 +561,7 @@ namespace Flock.Editor {
 
             static string GetGroupName(Type t) {
                 string ns = t.Namespace ?? "";
-                if (string.IsNullOrEmpty(ns)) {
-                    return "Patterns";
-                }
+                if (string.IsNullOrEmpty(ns)) return "Patterns";
 
                 int lastDot = ns.LastIndexOf('.');
                 return (lastDot >= 0 && lastDot < ns.Length - 1) ? ns.Substring(lastDot + 1) : ns;

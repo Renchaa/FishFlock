@@ -59,9 +59,7 @@ namespace Flock.Editor {
         }
 
         private void SyncMatrixFishTypesFromSetup() {
-            if (_setup == null || _setup.InteractionMatrix == null) {
-                return;
-            }
+            if (_setup == null || _setup.InteractionMatrix == null) return;
 
             FishInteractionMatrix matrix = _setup.InteractionMatrix;
             var list = _setup.FishTypes;
@@ -70,21 +68,15 @@ namespace Flock.Editor {
 
             SerializedObject so = new SerializedObject(matrix);
             SerializedProperty fishTypesProp = so.FindProperty("fishTypes");
-
-            if (fishTypesProp == null) {
-                return;
-            }
+            if (fishTypesProp == null) return;
 
             int currentSize = fishTypesProp.arraySize;
-            bool changed = false;
+            bool changed = (currentSize != desiredSize);
 
-            if (currentSize != desiredSize) {
-                changed = true;
-            } else {
+            if (!changed) {
                 for (int i = 0; i < currentSize; i++) {
                     Object currentRef = fishTypesProp.GetArrayElementAtIndex(i).objectReferenceValue;
                     Object desiredRef = (list != null && i < list.Count) ? list[i] : null;
-
                     if (currentRef != desiredRef) {
                         changed = true;
                         break;
@@ -92,14 +84,12 @@ namespace Flock.Editor {
                 }
             }
 
-            if (!changed) {
-                return;
-            }
+            if (!changed) return;
 
             fishTypesProp.arraySize = desiredSize;
 
             for (int i = 0; i < desiredSize; i++) {
-                FishTypePreset preset = (list != null && i < list.Count) ? list[i] : null;
+                var preset = (list != null && i < list.Count) ? list[i] : null;
                 fishTypesProp.GetArrayElementAtIndex(i).objectReferenceValue = preset;
             }
 
@@ -116,8 +106,7 @@ namespace Flock.Editor {
                 "asset",
                 "Choose a location for the FishInteractionMatrix asset");
 
-            if (string.IsNullOrEmpty(path))
-                return;
+            if (string.IsNullOrEmpty(path)) return;
 
             var asset = ScriptableObject.CreateInstance<FishInteractionMatrix>();
             AssetDatabase.CreateAsset(asset, path);

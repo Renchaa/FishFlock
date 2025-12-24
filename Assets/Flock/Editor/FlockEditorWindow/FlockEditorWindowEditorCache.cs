@@ -6,7 +6,7 @@ namespace Flock.Editor {
     public sealed partial class FlockEditorWindow {
         static void DestroyEditor(ref UnityEditor.Editor ed) {
             if (ed == null) return;
-            DestroyImmediate(ed);
+            Object.DestroyImmediate(ed);
             ed = null;
         }
 
@@ -17,7 +17,7 @@ namespace Flock.Editor {
             }
 
             if (ed != null && ed.target == target) {
-                return; // already correct
+                return;
             }
 
             DestroyEditor(ref ed);

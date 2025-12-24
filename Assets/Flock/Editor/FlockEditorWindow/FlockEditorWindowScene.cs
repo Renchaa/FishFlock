@@ -73,68 +73,51 @@ namespace Flock.Editor {
             EditorGUI.BeginChangeCheck();
             DrawSceneControllerInspectorCards(sceneController);
             if (EditorGUI.EndChangeCheck()) {
-                TryPullControllerRefsIntoSetup(sceneController);
+                // Two-way sync + centralized cross-tab refresh
+                if (TryAutoSyncSetupToController(sceneController)) {
+                    Repaint();
+                }
             }
 
             EditorGUILayout.EndScrollView();
         }
 
         private void OnEditorUpdate() {
-            if (_setup == null || sceneController == null) {
-                return;
+            bool repaint = false;
+
+            // 1) GLOBAL sync tick (NOT tab-gated)
+            if (_setup != null && sceneController != null && !EditorApplication.isPlayingOrWillChangePlaymode) {
+                double now = EditorApplication.timeSinceStartup;
+                if (now >= _nextSceneAutoSyncTime) {
+                    _nextSceneAutoSyncTime = now + FlockEditorUI.SceneAutoSyncIntervalSeconds;
+
+                    // This now also performs cross-tab UI refresh (see section 2)
+                    repaint |= TryAutoSyncSetupToController(sceneController);
+                }
             }
 
-            if (EditorApplication.isPlayingOrWillChangePlaymode) {
-                return;
+            // 2) Active tab update stays as-is
+            var active = GetActiveTabOrNull();
+            if (active != null) {
+                repaint |= active.OnEditorUpdate(this);
             }
 
-            // throttle to avoid hammering serialization every frame
-            double now = EditorApplication.timeSinceStartup;
-            if (now < _nextSceneAutoSyncTime) {
-                return;
-            }
-            _nextSceneAutoSyncTime = now + FlockEditorUI.SceneAutoSyncIntervalSeconds;
-
-            if (TryAutoSyncSetupToController(sceneController)) {
+            if (repaint) {
                 Repaint();
             }
         }
 
 
-        void ResetSceneSyncState() {
-            _lastSyncedSetupFishIds = null;
-            _lastSyncedControllerFishIds = null;
-            _lastSyncedSetupPatternIds = null;
-            _lastSyncedControllerPatternIds = null;
-
-            _lastSetupMatrixId = 0;
-            _lastControllerMatrixId = 0;
-            _lastSetupNoiseId = 0;
-            _lastControllerNoiseId = 0;
-
-            _lastFishSyncSource = SyncSource.None;
-            _lastPatternSyncSource = SyncSource.None;
-            _lastMatrixSyncSource = SyncSource.None;
-            _lastNoiseSyncSource = SyncSource.None;
-        }
-
-        private bool TrySyncSpawnerFromController(FlockController controller) {
-            if (controller == null) {
-                return false;
-            }
+        private void TrySyncSpawnerFromController(FlockController controller) {
+            if (controller == null) return;
 
             var spawner = controller.MainSpawner;
-            if (spawner == null) {
-                return false;
-            }
+            if (spawner == null) return;
 
             var types = controller.FishTypes;
-            if (types == null || types.Length == 0) {
-                return false;
-            }
+            if (types == null || types.Length == 0) return;
 
             FlockMainSpawnerEditor.SyncTypesFromController(spawner, types);
-            return true;
         }
 
         private void RebuildSceneControllerEditor() {

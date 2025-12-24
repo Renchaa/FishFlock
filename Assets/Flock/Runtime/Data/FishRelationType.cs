@@ -1,4 +1,3 @@
-// File: Assets/Flock/Runtime/FishRelationType.cs
 namespace Flock.Runtime {
     /// <summary>
     /// Relationship between two fish types in the interaction matrix.

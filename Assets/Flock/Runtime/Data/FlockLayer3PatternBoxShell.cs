@@ -1,7 +1,15 @@
 using Unity.Mathematics;
 
-public struct FlockLayer3PatternBoxShell {
-    public float3 Center;
-    public float3 HalfExtents;
-    public float Thickness;
+namespace Flock.Runtime.Data {
+    /**
+     * <summary>
+     * Runtime payload for a Layer-3 box shell pattern.
+     * </summary>
+     */
+    public struct FlockLayer3PatternBoxShell {
+        // BoxShell
+        public float3 Center;
+        public float3 HalfExtents;
+        public float Thickness;
+    }
 }

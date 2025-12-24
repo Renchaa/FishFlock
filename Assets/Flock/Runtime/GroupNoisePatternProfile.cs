@@ -1,100 +1,162 @@
-﻿// =====================================
-// NEW FILE: GroupNoisePatternProfile.cs
-// File: Assets/Flock/Runtime/GroupNoisePatternProfile.cs
-// NO CHANGES NEEDED – just showing for completeness
-// =====================================
-namespace Flock.Runtime {
-    using Flock.Runtime.Data;
-    using UnityEngine;
-    using Unity.Mathematics;
+﻿using Flock.Runtime.Data;
+using Unity.Mathematics;
+using UnityEngine;
 
+namespace Flock.Runtime {
+    /**
+     * <summary>
+     * Supported procedural group-noise pattern types.
+     * </summary>
+     */
     public enum FlockGroupNoisePatternType {
         SimpleSine = 0,
         VerticalBands = 1,
         Vortex = 2,
-        SphereShell = 3   // NEW: spherical shell pattern
+        SphereShell = 3,
     }
 
+    /**
+     * <summary>
+     * ScriptableObject that stores group-noise pattern parameters and can be converted into runtime settings/payloads.
+     * </summary>
+     */
     [CreateAssetMenu(
         fileName = "GroupNoisePattern",
         menuName = "Flock/Group Noise Pattern")]
     public sealed class GroupNoisePatternProfile : ScriptableObject {
-
         [Header("Common")]
-        [SerializeField] float baseFrequency = 1.0f;
-        [SerializeField] Vector3 timeScale = new Vector3(1.0f, 1.1f, 1.3f);
-        [SerializeField] Vector3 phaseOffset = Vector3.zero;
-        [SerializeField] float worldScale = 10.0f;
-        [SerializeField] uint seed = 1234567u;
+
+        [Tooltip("Base frequency multiplier applied to the selected pattern.")]
+        [SerializeField]
+        private float baseFrequency = 1.0f;
+
+        [Tooltip("Per-axis time scaling applied to pattern animation.")]
+        [SerializeField]
+        private Vector3 timeScale = new Vector3(1.0f, 1.1f, 1.3f);
+
+        [Tooltip("Per-axis phase offset applied to the pattern.")]
+        [SerializeField]
+        private Vector3 phaseOffset = Vector3.zero;
+
+        [Tooltip("World-space scale used when sampling the pattern (must be > 0).")]
+        [SerializeField]
+        private float worldScale = 10.0f;
+
+        [Tooltip("Seed for deterministic pattern sampling (0 is coerced to 1).")]
+        [SerializeField]
+        private uint seed = 1234567u;
 
         [Header("Pattern Type")]
+
+        [Tooltip("Which pattern implementation to use when sampling the group noise field.")]
         [SerializeField]
-        FlockGroupNoisePatternType patternType =
-            FlockGroupNoisePatternType.SimpleSine;
+        private FlockGroupNoisePatternType patternType = FlockGroupNoisePatternType.SimpleSine;
 
         [Header("Simple / Bands Extras")]
-        [SerializeField] float swirlStrength = 0.0f;
-        [SerializeField] float verticalBias = 0.0f;
+
+        [Tooltip("Swirl strength used by patterns that support swirl.")]
+        [SerializeField]
+        private float swirlStrength = 0.0f;
+
+        [Tooltip("Vertical bias applied by patterns that support vertical banding/bias.")]
+        [SerializeField]
+        private float verticalBias = 0.0f;
 
         [Header("Vortex Settings")]
-        [SerializeField] Vector3 vortexCenterNorm = new Vector3(0.5f, 0.5f, 0.5f);
-        [SerializeField] float vortexRadius = 10.0f;
-        [SerializeField] float vortexTightness = 1.0f;
 
-        // NEW: spherical shell pattern
-        [Header("Sphere Shell Settings")]
-        [SerializeField] float sphereRadius = 8.0f;
-        [SerializeField] float sphereThickness = 2.0f;
-        [SerializeField] float sphereSwirlStrength = 1.0f;
+        [Tooltip("Normalised vortex center in bounds space [0..1].")]
         [SerializeField]
-        Vector3 sphereCenterNorm = new Vector3(0.5f, 0.5f, 0.5f);
+        private Vector3 vortexCenterNorm = new Vector3(0.5f, 0.5f, 0.5f);
 
+        [Tooltip("Vortex radius in world units.")]
+        [SerializeField]
+        private float vortexRadius = 10.0f;
+
+        [Tooltip("Vortex tightness multiplier.")]
+        [SerializeField]
+        private float vortexTightness = 1.0f;
+
+        [Header("Sphere Shell Settings")]
+
+        [Tooltip("Sphere shell radius in world units.")]
+        [SerializeField]
+        private float sphereRadius = 8.0f;
+
+        [Tooltip("Sphere shell thickness in world units (must be > 0).")]
+        [SerializeField]
+        private float sphereThickness = 2.0f;
+
+        [Tooltip("Swirl strength applied within the sphere shell pattern.")]
+        [SerializeField]
+        private float sphereSwirlStrength = 1.0f;
+
+        [Tooltip("Normalised sphere shell center in bounds space [0..1].")]
+        [SerializeField]
+        private Vector3 sphereCenterNorm = new Vector3(0.5f, 0.5f, 0.5f);
+
+        /**
+         * <summary>
+         * Gets the configured pattern type.
+         * </summary>
+         */
         public FlockGroupNoisePatternType PatternType => patternType;
 
+        /**
+         * <summary>
+         * Converts this profile into a runtime <see cref="FlockGroupNoisePatternSettings"/> snapshot.
+         * </summary>
+         * <returns>The populated <see cref="FlockGroupNoisePatternSettings"/>.</returns>
+         */
         public FlockGroupNoisePatternSettings ToSettings() {
-            FlockGroupNoisePatternSettings s;
+            FlockGroupNoisePatternSettings settings;
 
-            s.BaseFrequency = Mathf.Max(0f, baseFrequency);
+            settings.BaseFrequency = Mathf.Max(0f, baseFrequency);
 
-            s.TimeScale = new float3(
+            settings.TimeScale = new float3(
                 timeScale.x,
                 timeScale.y,
                 timeScale.z);
 
-            s.PhaseOffset = new float3(
+            settings.PhaseOffset = new float3(
                 phaseOffset.x,
                 phaseOffset.y,
                 phaseOffset.z);
 
-            s.WorldScale = Mathf.Max(0.001f, worldScale);
+            settings.WorldScale = Mathf.Max(0.001f, worldScale);
 
-            s.Seed = seed == 0u ? 1u : seed;
+            settings.Seed = seed == 0u ? 1u : seed;
 
-            s.PatternType = (int)patternType;
+            settings.PatternType = (int)patternType;
 
-            s.SwirlStrength = Mathf.Max(0f, swirlStrength);
-            s.VerticalBias = verticalBias;
+            settings.SwirlStrength = Mathf.Max(0f, swirlStrength);
+            settings.VerticalBias = verticalBias;
 
-            s.VortexCenterNorm = new float3(
+            settings.VortexCenterNorm = new float3(
                 Mathf.Clamp01(vortexCenterNorm.x),
                 Mathf.Clamp01(vortexCenterNorm.y),
                 Mathf.Clamp01(vortexCenterNorm.z));
 
-            s.VortexRadius = Mathf.Max(0f, vortexRadius);
-            s.VortexTightness = Mathf.Max(0f, vortexTightness);
+            settings.VortexRadius = Mathf.Max(0f, vortexRadius);
+            settings.VortexTightness = Mathf.Max(0f, vortexTightness);
 
-            // NEW: spherical shell settings
-            s.SphereRadius = Mathf.Max(0f, sphereRadius);
-            s.SphereThickness = Mathf.Max(0.001f, sphereThickness);
-            s.SphereSwirlStrength = Mathf.Max(0f, sphereSwirlStrength);
-            s.SphereCenterNorm = new float3(
+            settings.SphereRadius = Mathf.Max(0f, sphereRadius);
+            settings.SphereThickness = Mathf.Max(0.001f, sphereThickness);
+            settings.SphereSwirlStrength = Mathf.Max(0f, sphereSwirlStrength);
+
+            settings.SphereCenterNorm = new float3(
                 Mathf.Clamp01(sphereCenterNorm.x),
                 Mathf.Clamp01(sphereCenterNorm.y),
                 Mathf.Clamp01(sphereCenterNorm.z));
 
-            return s;
+            return settings;
         }
 
+        /**
+         * <summary>
+         * Converts the common (type-agnostic) settings into a runtime <see cref="FlockGroupNoiseCommonSettings"/> snapshot.
+         * </summary>
+         * <returns>The populated <see cref="FlockGroupNoiseCommonSettings"/>.</returns>
+         */
         public FlockGroupNoiseCommonSettings ToCommonSettings() {
             return new FlockGroupNoiseCommonSettings {
                 BaseFrequency = Mathf.Max(0f, baseFrequency),
@@ -105,18 +167,36 @@ namespace Flock.Runtime {
             };
         }
 
+        /**
+         * <summary>
+         * Converts simple-sine-specific settings into a runtime payload.
+         * </summary>
+         * <returns>The populated <see cref="FlockGroupNoiseSimpleSinePayload"/>.</returns>
+         */
         public FlockGroupNoiseSimpleSinePayload ToSimpleSinePayload() {
             return new FlockGroupNoiseSimpleSinePayload {
                 SwirlStrength = Mathf.Max(0f, swirlStrength),
             };
         }
 
+        /**
+         * <summary>
+         * Converts vertical-bands-specific settings into a runtime payload.
+         * </summary>
+         * <returns>The populated <see cref="FlockGroupNoiseVerticalBandsPayload"/>.</returns>
+         */
         public FlockGroupNoiseVerticalBandsPayload ToVerticalBandsPayload() {
             return new FlockGroupNoiseVerticalBandsPayload {
                 VerticalBias = verticalBias,
             };
         }
 
+        /**
+         * <summary>
+         * Converts vortex-specific settings into a runtime payload.
+         * </summary>
+         * <returns>The populated <see cref="FlockGroupNoiseVortexPayload"/>.</returns>
+         */
         public FlockGroupNoiseVortexPayload ToVortexPayload() {
             return new FlockGroupNoiseVortexPayload {
                 CenterNorm = new float3(
@@ -129,6 +209,12 @@ namespace Flock.Runtime {
             };
         }
 
+        /**
+         * <summary>
+         * Converts sphere-shell-specific settings into a runtime payload.
+         * </summary>
+         * <returns>The populated <see cref="FlockGroupNoiseSphereShellPayload"/>.</returns>
+         */
         public FlockGroupNoiseSphereShellPayload ToSphereShellPayload() {
             return new FlockGroupNoiseSphereShellPayload {
                 CenterNorm = new float3(

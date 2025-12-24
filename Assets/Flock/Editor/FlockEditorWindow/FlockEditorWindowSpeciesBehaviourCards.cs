@@ -2,14 +2,11 @@
 using Flock.Runtime;
 using Flock.Runtime.Data;
 using UnityEditor;
-using UnityEngine;
 
 namespace Flock.Editor {
     public sealed partial class FlockEditorWindow {
         void DrawBehaviourProfileInspectorCards(FishBehaviourProfile target) {
-            if (target == null) {
-                return;
-            }
+            if (target == null) return;
 
             var so = new SerializedObject(target);
             so.Update();

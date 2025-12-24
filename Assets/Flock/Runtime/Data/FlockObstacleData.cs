@@ -1,20 +1,20 @@
-// File: Assets/Flock/Runtime/Data/FlockObstacleData.cs
-namespace Flock.Runtime.Data {
-    using Unity.Mathematics;
+using Unity.Mathematics;
 
+namespace Flock.Runtime.Data {
+    /**
+     * <summary>
+     * Runtime representation of an obstacle used by the simulation.
+     * </summary>
+     */
     public struct FlockObstacleData {
-        // Shape type for branching in jobs
+        // Shape
         public FlockObstacleShape Shape;
 
         // Common
         public float3 Position;
-
-        // Used as:
-        // - Sphere radius (for Sphere)
-        // - Bounding sphere radius (for Box) for cheap broad-phase
         public float Radius;
 
-        // Box data (used only when Shape == Box)
+        // Box
         public float3 BoxHalfExtents;
         public quaternion BoxRotation;
     }

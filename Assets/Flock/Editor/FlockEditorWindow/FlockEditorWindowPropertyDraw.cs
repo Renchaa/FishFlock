@@ -18,7 +18,6 @@ namespace Flock.Editor {
                 return false;
             }
 
-            // Anything that changes UI/validation needs the real PropertyField path.
             if (fi.GetCustomAttribute<RangeAttribute>(inherit: true) != null) return true;
             if (fi.GetCustomAttribute<MinAttribute>(inherit: true) != null) return true;
 
@@ -37,6 +36,7 @@ namespace Flock.Editor {
                         if (EditorGUI.EndChangeCheck()) p.boolValue = v;
                         break;
                     }
+
                 case SerializedPropertyType.Integer: {
                         if (ShouldUseAttributeDrivenDrawer(p)) {
                             FlockEditorGUI.PropertyFieldClamped(p, includeChildren: true, labelOverride: labelOverride);
@@ -60,26 +60,29 @@ namespace Flock.Editor {
                         if (EditorGUI.EndChangeCheck()) p.floatValue = v;
                         break;
                     }
+
                 case SerializedPropertyType.Enum: {
                         EditorGUI.BeginChangeCheck();
                         int v = EditorGUILayout.Popup(label, p.enumValueIndex, p.enumDisplayNames);
                         if (EditorGUI.EndChangeCheck()) p.enumValueIndex = v;
                         break;
                     }
+
                 case SerializedPropertyType.Vector2: {
                         EditorGUI.BeginChangeCheck();
                         Vector2 v = EditorGUILayout.Vector2Field(label, p.vector2Value);
                         if (EditorGUI.EndChangeCheck()) p.vector2Value = v;
                         break;
                     }
+
                 case SerializedPropertyType.Vector3: {
                         EditorGUI.BeginChangeCheck();
                         Vector3 v = EditorGUILayout.Vector3Field(label, p.vector3Value);
                         if (EditorGUI.EndChangeCheck()) p.vector3Value = v;
                         break;
                     }
+
                 default:
-                    // Fallback uses your clamped drawer (now includes the fixed array rendering).
                     FlockEditorGUI.PropertyFieldClamped(p, includeChildren: true, labelOverride: labelOverride);
                     break;
             }
@@ -116,7 +119,6 @@ namespace Flock.Editor {
                 if (part.StartsWith("data[", StringComparison.Ordinal)) {
                     if (currentField == null) return false;
 
-                    // move to element type for lists/arrays
                     Type ft = currentField.FieldType;
                     if (ft.IsArray) currentType = ft.GetElementType();
                     else if (ft.IsGenericType && ft.GetGenericTypeDefinition() == typeof(List<>))
