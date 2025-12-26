@@ -41,6 +41,12 @@ namespace Flock.Runtime {
                 allocator,
                 NativeArrayOptions.ClearMemory);
 
+            neighbourAggregates = new NativeArray<NeighbourAggregate>(
+                AgentCount,
+                allocator,
+                NativeArrayOptions.ClearMemory);
+
+
             for (int index = 0; index < AgentCount; index += 1) {
                 behaviourIds[index] = 0;
             }

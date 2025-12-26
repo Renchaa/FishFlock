@@ -143,6 +143,7 @@ namespace Flock.Runtime {
         readonly List<IndexedAttractorChange> pendingAttractorChanges =
             new List<IndexedAttractorChange>(32);
 
+        NativeArray<Flock.Runtime.Data.NeighbourAggregate> neighbourAggregates;
         public void Initialize(
             int agentCount,
             FlockEnvironmentData environment,
@@ -343,10 +344,22 @@ namespace Flock.Runtime {
             }
 
             // Main flock step
-            JobHandle flockHandle = ScheduleFlockStep(deltaTime, velRead, velWrite, useObstacleAvoidance, useAttraction, flockDeps);
+            // Phase 2: neighbour aggregates (depends on packed agent grid)
+            JobHandle neighbourAggHandle = ScheduleNeighbourAggregate(velRead, assignHandle);
+
+            // Phase 2: steering + integrate velocities (depends on aggregates + environment fields)
+            JobHandle steeringHandle = ScheduleSteeringIntegrate(
+                deltaTime,
+                velRead,
+                velWrite,
+                useObstacleAvoidance,
+                useAttraction,
+                neighbourAggHandle,
+                flockDeps);
 
             // Integrate positions
-            JobHandle integrateHandle = ScheduleIntegrate(deltaTime, velWrite, flockHandle);
+            JobHandle integrateHandle = ScheduleIntegrate(deltaTime, velWrite, steeringHandle);
+
 
             // Swap buffers for next frame
             velocities = velWrite;
@@ -356,6 +369,85 @@ namespace Flock.Runtime {
             inFlightHandle = integrateHandle;
 
             return integrateHandle;
+        }
+
+        // ADD: schedules neighbour aggregation
+        JobHandle ScheduleNeighbourAggregate(NativeArray<float3> velRead, JobHandle deps) {
+            var job = new Flock.Runtime.Jobs.NeighbourAggregateJob {
+                Positions = positions,
+                PrevVelocities = velRead,
+
+                BehaviourIds = behaviourIds,
+                BehaviourSettings = behaviourSettings,
+                BehaviourCellSearchRadius = behaviourCellSearchRadius,
+
+                CellAgentStarts = cellAgentStarts,
+                CellAgentCounts = cellAgentCounts,
+                CellAgentPairs = cellAgentPairs,
+
+                GridOrigin = environmentData.GridOrigin,
+                GridResolution = environmentData.GridResolution,
+                CellSize = environmentData.CellSize,
+
+                OutAggregates = neighbourAggregates,
+            };
+
+            return job.Schedule(AgentCount, 64, deps);
+        }
+
+        // ADD: schedules steering/integration using aggregates
+        JobHandle ScheduleSteeringIntegrate(
+            float deltaTime,
+            NativeArray<float3> velRead,
+            NativeArray<float3> velWrite,
+            bool useObstacleAvoidance,
+            bool useAttraction,
+            JobHandle neighbourAggHandle,
+            JobHandle deps) {
+
+            // steering job depends on everything that affects steering:
+            // deps already includes obstacle/attractor/bounds/pattern clears etc in your flow,
+            // and we explicitly add neighbourAggHandle.
+            JobHandle steeringDeps = JobHandle.CombineDependencies(deps, neighbourAggHandle);
+
+            var job = new Flock.Runtime.Jobs.SteeringIntegrateJob {
+                NeighbourAggregates = neighbourAggregates,
+
+                Positions = positions,
+                PrevVelocities = velRead,
+                Velocities = velWrite,
+
+                WallDirections = wallDirections,
+                WallDangers = wallDangers,
+
+                BehaviourIds = behaviourIds,
+                BehaviourSettings = behaviourSettings,
+
+                GridOrigin = environmentData.GridOrigin,
+                GridResolution = environmentData.GridResolution,
+                CellSize = environmentData.CellSize,
+
+                EnvironmentData = environmentData,
+                DeltaTime = deltaTime,
+
+                NoiseTime = simulationTime,
+                GlobalWanderMultiplier = GlobalWanderMultiplier,
+                GlobalGroupNoiseMultiplier = GlobalGroupNoiseMultiplier,
+                GlobalPatternMultiplier = GlobalPatternMultiplier,
+
+                PatternSteering = patternSteering,
+                CellGroupNoise = cellGroupNoise,
+
+                UseObstacleAvoidance = useObstacleAvoidance,
+                ObstacleAvoidWeight = DefaultObstacleAvoidWeight,
+                ObstacleSteering = obstacleSteering,
+
+                UseAttraction = useAttraction,
+                GlobalAttractionWeight = DefaultAttractionWeight,
+                AttractionSteering = attractionSteering,
+            };
+
+            return job.Schedule(AgentCount, 64, steeringDeps);
         }
 
         // -----------------------------
@@ -953,73 +1045,6 @@ namespace Flock.Runtime {
             return patternHandle;
         }
 
-        // -----------------------------
-        // Main flock step + integrate
-        // -----------------------------
-        JobHandle ScheduleFlockStep(
-            float deltaTime,
-            NativeArray<float3> velRead,
-            NativeArray<float3> velWrite,
-            bool useObstacleAvoidance,
-            bool useAttraction,
-            JobHandle deps) {
-
-            var flockJob = new FlockStepJob {
-                // Core agent data
-                Positions = positions,
-                PrevVelocities = velRead,
-                Velocities = velWrite,
-
-                // Bounds probe outputs (per-agent)
-                WallDirections = wallDirections,
-                WallDangers = wallDangers,
-
-                // Per-agent behaviour index
-                BehaviourIds = behaviourIds,
-
-                // Phase 1: per-behaviour parameter block (replaces all BehaviourXxx arrays)
-                BehaviourSettings = behaviourSettings,
-
-                // Keep as derived per-behaviour runtime param
-                BehaviourCellSearchRadius = behaviourCellSearchRadius,
-
-                // Spatial grid
-                CellAgentStarts = cellAgentStarts,
-                CellAgentCounts = cellAgentCounts,
-                CellAgentPairs = cellAgentPairs,
-
-                GridOrigin = environmentData.GridOrigin,
-                GridResolution = environmentData.GridResolution,
-                CellSize = environmentData.CellSize,
-
-                // Environment + timestep
-                EnvironmentData = environmentData,
-                DeltaTime = deltaTime,
-
-                // Noise globals + pattern steering
-                NoiseTime = simulationTime,
-                GlobalWanderMultiplier = GlobalWanderMultiplier,
-                GlobalGroupNoiseMultiplier = GlobalGroupNoiseMultiplier,
-                GlobalPatternMultiplier = GlobalPatternMultiplier,
-
-                PatternSteering = patternSteering,
-                CellGroupNoise = cellGroupNoise,
-
-                // Obstacles
-                UseObstacleAvoidance = useObstacleAvoidance,
-                ObstacleAvoidWeight = DefaultObstacleAvoidWeight,
-                ObstacleSteering = obstacleSteering,
-
-                // Attractors
-                UseAttraction = useAttraction,
-                GlobalAttractionWeight = DefaultAttractionWeight,
-                AttractionSteering = attractionSteering,
-            };
-
-
-            return flockJob.Schedule(AgentCount, 64, deps);
-        }
-
         JobHandle ScheduleIntegrate(float deltaTime, NativeArray<float3> velWrite, JobHandle deps) {
             var integrateJob = new IntegrateJob {
                 Positions = positions,
@@ -1079,6 +1104,8 @@ namespace Flock.Runtime {
 
             DisposeArray(ref behaviourSettings);
             DisposeArray(ref behaviourCellSearchRadius);
+
+            DisposeArray(ref neighbourAggregates);
 
             AgentCount = 0;
 
