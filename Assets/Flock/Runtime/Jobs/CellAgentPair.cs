@@ -1,141 +1,198 @@
-namespace Flock.Runtime.Jobs {
-    using System;
-    using Unity.Burst;
-    using Unity.Collections;
-    using Unity.Jobs;
+using System;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
 
-    // Sorted by CellId (then AgentIndex)
+namespace Flock.Runtime.Jobs {
+    /**
+     * <summary>
+     * Pair of (cell id, agent index) used for sorting and building per-cell agent ranges.
+     * Sorting is by <see cref="CellId"/>, then <see cref="AgentIndex"/>.
+     * </summary>
+     */
     public struct CellAgentPair : IComparable<CellAgentPair> {
         public int CellId;
+
         public int AgentIndex;
 
         public int CompareTo(CellAgentPair other) {
-            int c = CellId.CompareTo(other.CellId);
-            return c != 0 ? c : AgentIndex.CompareTo(other.AgentIndex);
+            int cellComparison = CellId.CompareTo(other.CellId);
+            return cellComparison != 0 ? cellComparison : AgentIndex.CompareTo(other.AgentIndex);
         }
     }
 
+    /**
+     * <summary>
+     * Computes an exclusive prefix sum over <see cref="Counts"/> into <see cref="Starts"/>,
+     * and writes the final sum into <see cref="Total"/>[0].
+     * </summary>
+     */
     [BurstCompile]
     public struct ExclusivePrefixSumIntJob : IJob {
-        [ReadOnly] public NativeArray<int> Counts; // length N
-        public NativeArray<int> Starts;            // length N
-        public NativeArray<int> Total;             // length 1
+        [ReadOnly]
+        public NativeArray<int> Counts;
+
+        public NativeArray<int> Starts;
+
+        public NativeArray<int> Total;
 
         public void Execute() {
-            int running = 0;
+            int runningTotal = 0;
 
-            for (int i = 0; i < Counts.Length; i += 1) {
-                Starts[i] = running;
-                running += Counts[i];
+            for (int index = 0; index < Counts.Length; index += 1) {
+                Starts[index] = runningTotal;
+                runningTotal += Counts[index];
             }
 
-            Total[0] = running;
+            Total[0] = runningTotal;
         }
     }
 
+    /**
+     * <summary>
+     * Expands per-agent cell assignments into a flat <see cref="CellAgentPair"/> array.
+     * </summary>
+     */
     [BurstCompile]
     public struct FillCellAgentPairsJob : IJobParallelFor {
-        [ReadOnly] public int MaxCellsPerAgent;
+        [ReadOnly]
+        public int MaxCellsPerAgent;
 
-        [ReadOnly] public NativeArray<int> AgentCellCounts;
-        [ReadOnly] public NativeArray<int> AgentCellIds;
-        [ReadOnly] public NativeArray<int> AgentEntryStarts;
+        [ReadOnly]
+        public NativeArray<int> AgentCellCounts;
+
+        [ReadOnly]
+        public NativeArray<int> AgentCellIds;
+
+        [ReadOnly]
+        public NativeArray<int> AgentEntryStarts;
 
         [NativeDisableParallelForRestriction]
         public NativeArray<CellAgentPair> OutPairs;
 
         public void Execute(int agentIndex) {
-            int count = AgentCellCounts[agentIndex];
-            if (count <= 0) {
+            int cellCount = AgentCellCounts[agentIndex];
+
+            if (cellCount <= 0) {
                 return;
             }
 
             int baseCellOffset = agentIndex * MaxCellsPerAgent;
-            int outStart = AgentEntryStarts[agentIndex];
+            int outputStartIndex = AgentEntryStarts[agentIndex];
 
-            for (int i = 0; i < count; i += 1) {
-                int cellId = AgentCellIds[baseCellOffset + i];
-                OutPairs[outStart + i] = new CellAgentPair {
-                    CellId = cellId,
-                    AgentIndex = agentIndex,
-                };
+            for (int offsetIndex = 0; offsetIndex < cellCount; offsetIndex += 1) {
+                int cellId = AgentCellIds[baseCellOffset + offsetIndex];
+                OutPairs[outputStartIndex + offsetIndex] = CreatePair(cellId, agentIndex);
             }
+        }
+
+        private static CellAgentPair CreatePair(int cellId, int agentIndex) {
+            return new CellAgentPair {
+                CellId = cellId,
+                AgentIndex = agentIndex,
+            };
         }
     }
 
+    /**
+     * <summary>
+     * Sorts the first <see cref="Total"/>[0] pairs by cell id, then agent index.
+     * </summary>
+     */
     [BurstCompile]
     public struct SortCellAgentPairsJob : IJob {
         public NativeArray<CellAgentPair> Pairs;
-        [ReadOnly] public NativeArray<int> Total; // length 1
+
+        [ReadOnly]
+        public NativeArray<int> Total;
 
         public void Execute() {
-            int n = Total[0];
-            if (n <= 1) {
+            int pairCount = Total[0];
+
+            if (pairCount <= 1) {
                 return;
             }
 
-            var slice = new NativeSlice<CellAgentPair>(Pairs, 0, n);
+            NativeSlice<CellAgentPair> slice = new NativeSlice<CellAgentPair>(Pairs, 0, pairCount);
             NativeSortExtension.Sort(slice);
         }
     }
 
+    /**
+     * <summary>
+     * Builds per-cell ranges (start/count) into <see cref="CellStarts"/> and <see cref="CellCounts"/>
+     * from a sorted <see cref="Pairs"/> list, and records which cells were touched.
+     * </summary>
+     */
     [BurstCompile]
     public struct BuildCellAgentRangesJob : IJob {
-        [ReadOnly] public NativeArray<CellAgentPair> Pairs;
-        [ReadOnly] public NativeArray<int> Total; // length 1
+        [ReadOnly]
+        public NativeArray<CellAgentPair> Pairs;
+
+        [ReadOnly]
+        public NativeArray<int> Total;
 
         public NativeArray<int> CellStarts;
+
         public NativeArray<int> CellCounts;
 
         public NativeArray<int> TouchedCells;
-        public NativeArray<int> TouchedCount; // length 1
+
+        public NativeArray<int> TouchedCount;
 
         public void Execute() {
-            int n = Total[0];
-            int touched = 0;
+            int pairCount = Total[0];
 
-            if (n <= 0) {
+            if (pairCount <= 0) {
                 TouchedCount[0] = 0;
                 return;
             }
 
-            int runCell = Pairs[0].CellId;
-            int runStart = 0;
-            int runLen = 1;
+            int touchedCellCount = 0;
 
-            for (int i = 1; i < n; i += 1) {
-                int cell = Pairs[i].CellId;
+            int runningCellId = Pairs[0].CellId;
+            int runningStartIndex = 0;
+            int runningLength = 1;
 
-                if (cell == runCell) {
-                    runLen += 1;
+            for (int pairIndex = 1; pairIndex < pairCount; pairIndex += 1) {
+                int cellId = Pairs[pairIndex].CellId;
+
+                if (cellId == runningCellId) {
+                    runningLength += 1;
                     continue;
                 }
 
-                CellStarts[runCell] = runStart;
-                CellCounts[runCell] = runLen;
+                WriteRun(ref touchedCellCount, runningCellId, runningStartIndex, runningLength);
 
-                TouchedCells[touched] = runCell;
-                touched += 1;
-
-                runCell = cell;
-                runStart = i;
-                runLen = 1;
+                runningCellId = cellId;
+                runningStartIndex = pairIndex;
+                runningLength = 1;
             }
 
-            CellStarts[runCell] = runStart;
-            CellCounts[runCell] = runLen;
+            WriteRun(ref touchedCellCount, runningCellId, runningStartIndex, runningLength);
+            TouchedCount[0] = touchedCellCount;
+        }
 
-            TouchedCells[touched] = runCell;
-            touched += 1;
+        private void WriteRun(ref int touchedCellCount, int cellId, int startIndex, int length) {
+            CellStarts[cellId] = startIndex;
+            CellCounts[cellId] = length;
 
-            TouchedCount[0] = touched;
+            TouchedCells[touchedCellCount] = cellId;
+            touchedCellCount += 1;
         }
     }
 
+    /**
+     * <summary>
+     * Clears <see cref="CellStarts"/> and <see cref="CellCounts"/> for the cells recorded in <see cref="TouchedCells"/>.
+     * </summary>
+     */
     [BurstCompile]
     public struct ClearTouchedAgentCellsJob : IJob {
-        [ReadOnly] public NativeArray<int> TouchedCells;
-        public NativeArray<int> TouchedCount; // length 1
+        [ReadOnly]
+        public NativeArray<int> TouchedCells;
+
+        public NativeArray<int> TouchedCount;
 
         [NativeDisableParallelForRestriction]
         public NativeArray<int> CellStarts;
@@ -144,10 +201,10 @@ namespace Flock.Runtime.Jobs {
         public NativeArray<int> CellCounts;
 
         public void Execute() {
-            int n = TouchedCount[0];
+            int touchedCellCount = TouchedCount[0];
 
-            for (int i = 0; i < n; i += 1) {
-                int cellId = TouchedCells[i];
+            for (int index = 0; index < touchedCellCount; index += 1) {
+                int cellId = TouchedCells[index];
                 CellStarts[cellId] = -1;
                 CellCounts[cellId] = 0;
             }

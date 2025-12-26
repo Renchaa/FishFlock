@@ -3,6 +3,7 @@ using Flock.Runtime.Data;
 using UnityEngine;
 
 namespace Flock.Runtime {
+
     /**
      * <summary>
      * Defines per-species interaction configuration, including NxN interaction/relationship matrices and
@@ -16,12 +17,10 @@ namespace Flock.Runtime {
         [SerializeField]
         private FishTypePreset[] fishTypes = Array.Empty<FishTypePreset>();
 
-        // N x N symmetric interaction flags (row * N + col).
         [SerializeField]
         [HideInInspector]
         private bool[] interactionFlags = Array.Empty<bool>();
 
-        // N x N symmetric relationship types (row * N + col).
         [SerializeField]
         [HideInInspector]
         private FishRelationType[] relationTypes = Array.Empty<FishRelationType>();
@@ -30,17 +29,14 @@ namespace Flock.Runtime {
         [HideInInspector]
         private float[] neutralWeights = Array.Empty<float>();
 
-        // Per-fish leadership weights (size N, one per fish type).
         [SerializeField]
         [HideInInspector]
         private float[] leadershipWeights = Array.Empty<float>();
 
-        // Per-fish avoidance weights (size N, one per fish type).
         [SerializeField]
         [HideInInspector]
         private float[] avoidanceWeights = Array.Empty<float>();
 
-        // Default weights used when a slot is zero / uninitialised.
         [SerializeField]
         [Min(0f)]
         private float defaultLeadershipWeight = 1.0f;
@@ -361,7 +357,6 @@ namespace Flock.Runtime {
         }
 
         private void ClearRelationWhenInteractionDisabled(int typeCount, bool enabled, int indexAB, int indexBA) {
-            // If interaction is turned off, clear relationship too.
             if (enabled || relationTypes == null || relationTypes.Length != typeCount * typeCount) {
                 return;
             }

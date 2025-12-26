@@ -1,4 +1,4 @@
-﻿// REPLACE FILE: Assets/Flock/Runtime/Jobs/ObstacleAvoidanceJob.cs
+﻿// File: Assets/Flock/Runtime/Jobs/ObstacleAvoidanceJob.cs
 namespace Flock.Runtime.Jobs {
     using Flock.Runtime.Data;
     using Unity.Burst;
@@ -6,32 +6,61 @@ namespace Flock.Runtime.Jobs {
     using Unity.Jobs;
     using Unity.Mathematics;
 
+    /**
+     * <summary>
+     * Computes per-agent obstacle avoidance steering using a grid broad-phase over obstacles.
+     * </summary>
+     */
     [BurstCompile]
     public struct ObstacleAvoidanceJob : IJobParallelFor {
-        [ReadOnly] public NativeArray<float3> Positions;
-        [ReadOnly] public NativeArray<float3> Velocities;
+        #region Inputs
 
-        [ReadOnly] public NativeArray<int> BehaviourIds;
-        [ReadOnly] public NativeArray<float> BehaviourMaxSpeed;
-        [ReadOnly] public NativeArray<float> BehaviourMaxAcceleration;
-        [ReadOnly] public NativeArray<float> BehaviourSeparationRadius;
+        [ReadOnly]
+        public NativeArray<float3> Positions;
 
-        [ReadOnly] public NativeArray<FlockObstacleData> Obstacles;
-        [ReadOnly] public NativeParallelMultiHashMap<int, int> CellToObstacles;
+        [ReadOnly]
+        public NativeArray<float3> Velocities;
+
+        [ReadOnly]
+        public NativeArray<int> BehaviourIds;
+
+        [ReadOnly]
+        public NativeArray<float> BehaviourMaxSpeed;
+
+        [ReadOnly]
+        public NativeArray<float> BehaviourMaxAcceleration;
+
+        [ReadOnly]
+        public NativeArray<float> BehaviourSeparationRadius;
+
+        [ReadOnly]
+        public NativeArray<FlockObstacleData> Obstacles;
+
+        [ReadOnly]
+        public NativeParallelMultiHashMap<int, int> CellToObstacles;
 
         public float3 GridOrigin;
+
         public int3 GridResolution;
+
         public float CellSize;
 
         public float AvoidStrength;
 
-        [WriteOnly] public NativeArray<float3> ObstacleSteering;
+        #endregion
+
+        #region Outputs
+
+        [WriteOnly]
+        public NativeArray<float3> ObstacleSteering;
+
+        #endregion
 
         public void Execute(int agentIndex) {
             float3 agentPosition = Positions[agentIndex];
             float3 agentVelocity = Velocities[agentIndex];
 
-            if (!TryGetForwardAndSpeed(agentVelocity, out float3 forwardDir, out float speed)) {
+            if (!TryGetForwardAndSpeed(agentVelocity, out float3 forwardDirection, out float speed)) {
                 ObstacleSteering[agentIndex] = float3.zero;
                 return;
             }
@@ -45,112 +74,112 @@ namespace Flock.Runtime.Jobs {
             float lookAhead = ComputeLookAhead(separationRadius, speed, maxSpeed);
 
             float safeCellSize = math.max(CellSize, 0.0001f);
-            int3 gridRes = GridResolution;
+            int3 gridResolution = GridResolution;
 
-            int3 agentCell = GetCell(agentPosition, GridOrigin, gridRes, safeCellSize);
+            int3 agentCell = GetCell(agentPosition, GridOrigin, gridResolution, safeCellSize);
 
             ComputeSearchBounds(
                 agentCell,
-                gridRes,
+                gridResolution,
                 lookAhead,
                 safeCellSize,
-                out int minCellX,
-                out int maxCellX,
-                out int minCellY,
-                out int maxCellY,
-                out int minCellZ,
-                out int maxCellZ);
+                out int minimumCellX,
+                out int maximumCellX,
+                out int minimumCellY,
+                out int maximumCellY,
+                out int minimumCellZ,
+                out int maximumCellZ);
 
-            float3 bestDir = float3.zero;
+            float3 bestDirection = float3.zero;
             float bestDanger = 0.0f;
 
             FixedList512Bytes<int> seenObstacleIndices = default;
 
-            int layerSize = gridRes.x * gridRes.y;
+            int layerSize = gridResolution.x * gridResolution.y;
 
-            for (int cellZ = minCellZ; cellZ <= maxCellZ; cellZ += 1) {
-                for (int cellY = minCellY; cellY <= maxCellY; cellY += 1) {
-                    int rowBase = cellY * gridRes.x + cellZ * layerSize;
+            for (int cellZ = minimumCellZ; cellZ <= maximumCellZ; cellZ += 1) {
+                for (int cellY = minimumCellY; cellY <= maximumCellY; cellY += 1) {
+                    int rowBase = cellY * gridResolution.x + cellZ * layerSize;
 
-                    for (int cellX = minCellX; cellX <= maxCellX; cellX += 1) {
+                    for (int cellX = minimumCellX; cellX <= maximumCellX; cellX += 1) {
                         int neighbourCellId = cellX + rowBase;
 
                         ProcessCell(
                             neighbourCellId,
                             agentPosition,
-                            forwardDir,
+                            forwardDirection,
                             lookAhead,
                             separationRadius,
                             ref seenObstacleIndices,
                             ref bestDanger,
-                            ref bestDir);
+                            ref bestDirection);
                     }
                 }
             }
 
-            if (bestDanger <= 0.0f || math.lengthsq(bestDir) < 1e-8f) {
+            if (bestDanger <= 0.0f || math.lengthsq(bestDirection) < 1e-8f) {
                 ObstacleSteering[agentIndex] = float3.zero;
                 return;
             }
 
-            float avoidAccel = bestDanger * maxAcceleration * math.max(0f, AvoidStrength);
-            ObstacleSteering[agentIndex] = math.normalizesafe(bestDir, float3.zero) * avoidAccel;
+            float avoidAcceleration = bestDanger * maxAcceleration * math.max(0f, AvoidStrength);
+            ObstacleSteering[agentIndex] = math.normalizesafe(bestDirection, float3.zero) * avoidAcceleration;
         }
 
-        static bool TryGetForwardAndSpeed(float3 velocity, out float3 forwardDir, out float speed) {
-            float speedSqr = math.lengthsq(velocity);
-            if (speedSqr < 1e-8f) {
-                forwardDir = float3.zero;
+        private static bool TryGetForwardAndSpeed(float3 velocity, out float3 forwardDirection, out float speed) {
+            float speedSquared = math.lengthsq(velocity);
+            if (speedSquared < 1e-8f) {
+                forwardDirection = float3.zero;
                 speed = 0f;
                 return false;
             }
 
-            float inverseSpeed = math.rsqrt(speedSqr);
-            forwardDir = velocity * inverseSpeed;     // normalized
-            speed = speedSqr * inverseSpeed;          // == sqrt(speedSqr)
+            float inverseSpeed = math.rsqrt(speedSquared);
+            forwardDirection = velocity * inverseSpeed;
+            speed = speedSquared * inverseSpeed;
             return true;
         }
 
-        static float ComputeLookAhead(float separationRadius, float speed, float maxSpeed) {
+        private static float ComputeLookAhead(float separationRadius, float speed, float maxSpeed) {
             float baseLookAhead = math.max(separationRadius * 2.0f, 0.5f);
             float speedFactor = (maxSpeed > 1e-6f) ? math.saturate(speed / maxSpeed) : 1.0f;
             return baseLookAhead + separationRadius * 3.0f * speedFactor;
         }
 
-        static void ComputeSearchBounds(
+        private static void ComputeSearchBounds(
             int3 centerCell,
-            int3 gridRes,
+            int3 gridResolution,
             float lookAhead,
             float cellSize,
-            out int minCellX,
-            out int maxCellX,
-            out int minCellY,
-            out int maxCellY,
-            out int minCellZ,
-            out int maxCellZ) {
+            out int minimumCellX,
+            out int maximumCellX,
+            out int minimumCellY,
+            out int maximumCellY,
+            out int minimumCellZ,
+            out int maximumCellZ) {
 
             int cellRange = (int)math.ceil(lookAhead / cellSize) + 1;
             cellRange = math.max(cellRange, 1);
 
-            minCellX = math.max(centerCell.x - cellRange, 0);
-            maxCellX = math.min(centerCell.x + cellRange, gridRes.x - 1);
+            minimumCellX = math.max(centerCell.x - cellRange, 0);
+            maximumCellX = math.min(centerCell.x + cellRange, gridResolution.x - 1);
 
-            minCellY = math.max(centerCell.y - cellRange, 0);
-            maxCellY = math.min(centerCell.y + cellRange, gridRes.y - 1);
+            minimumCellY = math.max(centerCell.y - cellRange, 0);
+            maximumCellY = math.min(centerCell.y + cellRange, gridResolution.y - 1);
 
-            minCellZ = math.max(centerCell.z - cellRange, 0);
-            maxCellZ = math.min(centerCell.z + cellRange, gridRes.z - 1);
+            minimumCellZ = math.max(centerCell.z - cellRange, 0);
+            maximumCellZ = math.min(centerCell.z + cellRange, gridResolution.z - 1);
         }
 
-        void ProcessCell(
+        private void ProcessCell(
             int cellId,
             float3 agentPosition,
-            float3 forwardDir,
+            float3 forwardDirection,
             float lookAhead,
             float separationRadius,
             ref FixedList512Bytes<int> seenObstacleIndices,
             ref float bestDanger,
-            ref float3 bestDir) {
+            ref float3 bestDirection) {
 
             if (!CellToObstacles.TryGetFirstValue(
                     cellId,
@@ -177,30 +206,30 @@ namespace Flock.Runtime.Jobs {
                 if (obstacle.Shape == FlockObstacleShape.Sphere) {
                     EvaluateSphere(
                         agentPosition,
-                        forwardDir,
+                        forwardDirection,
                         lookAhead,
                         separationRadius,
                         obstacle.Position,
                         math.max(0.0f, obstacle.Radius),
                         ref bestDanger,
-                        ref bestDir);
+                        ref bestDirection);
                 } else {
                     EvaluateBox(
                         agentPosition,
-                        forwardDir,
+                        forwardDirection,
                         lookAhead,
                         separationRadius,
                         obstacle.Position,
                         obstacle.BoxHalfExtents,
                         obstacle.BoxRotation,
                         ref bestDanger,
-                        ref bestDir);
+                        ref bestDirection);
                 }
 
             } while (CellToObstacles.TryGetNextValue(out obstacleIndex, ref iterator));
         }
 
-        static bool IsWithinBroadRange(
+        private static bool IsWithinBroadRange(
             float3 agentPosition,
             float lookAhead,
             float separationRadius,
@@ -211,118 +240,116 @@ namespace Flock.Runtime.Jobs {
             float maxRange = lookAhead + broadRadius;
 
             float3 toObstacle = obstaclePosition - agentPosition;
-            float distToCenterSqr = math.lengthsq(toObstacle);
+            float distanceToCenterSquared = math.lengthsq(toObstacle);
 
-            return distToCenterSqr <= (maxRange * maxRange);
+            return distanceToCenterSquared <= (maxRange * maxRange);
         }
 
-        static bool Contains(in FixedList512Bytes<int> list, int value) {
+        private static bool Contains(in FixedList512Bytes<int> list, int value) {
             for (int listIndex = 0; listIndex < list.Length; listIndex += 1) {
                 if (list[listIndex] == value) {
                     return true;
                 }
             }
+
             return false;
         }
 
-        static void EvaluateSphere(
+        private static void EvaluateSphere(
             float3 agentPosition,
-            float3 forwardDir,
+            float3 forwardDirection,
             float lookAhead,
             float separationRadius,
             float3 sphereCenter,
             float sphereRadius,
             ref float bestDanger,
-            ref float3 bestDir) {
+            ref float3 bestDirection) {
 
             float expandedRadius = sphereRadius + separationRadius;
-            float expandedRadiusSqr = expandedRadius * expandedRadius;
+            float expandedRadiusSquared = expandedRadius * expandedRadius;
 
             float3 toCenter = sphereCenter - agentPosition;
-            float distCenterSqr = math.lengthsq(toCenter);
+            float distanceCenterSquared = math.lengthsq(toCenter);
 
-            // Inside safety sphere: push out strongly
-            if (distCenterSqr < expandedRadiusSqr) {
-                float distCenter = math.sqrt(math.max(distCenterSqr, 1e-6f));
-                float penetration = expandedRadius - distCenter;
+            if (distanceCenterSquared < expandedRadiusSquared) {
+                float distanceCenter = math.sqrt(math.max(distanceCenterSquared, 1e-6f));
+                float penetration = expandedRadius - distanceCenter;
 
                 if (penetration > 0.0f) {
                     float penetrationFactor = math.saturate(penetration / math.max(expandedRadius, 1e-3f));
                     float dangerInside = 0.5f + 0.5f * penetrationFactor;
 
-                    float3 exitDir = math.normalizesafe(
+                    float3 exitDirection = math.normalizesafe(
                         agentPosition - sphereCenter,
-                        -forwardDir);
+                        -forwardDirection);
 
                     if (dangerInside > bestDanger) {
                         bestDanger = dangerInside;
-                        bestDir = exitDir;
+                        bestDirection = exitDirection;
                     }
                 }
 
                 return;
             }
 
-            // Path-based intersection against expanded sphere
-            float forwardDist = math.dot(toCenter, forwardDir);
-            if (forwardDist < 0.0f || forwardDist > lookAhead) {
+            float forwardDistance = math.dot(toCenter, forwardDirection);
+            if (forwardDistance < 0.0f || forwardDistance > lookAhead) {
                 return;
             }
 
-            float3 projected = forwardDir * forwardDist;
+            float3 projected = forwardDirection * forwardDistance;
             float3 lateral = toCenter - projected;
-            float lateralSqr = math.lengthsq(lateral);
+            float lateralSquared = math.lengthsq(lateral);
 
-            if (lateralSqr > expandedRadiusSqr) {
+            if (lateralSquared > expandedRadiusSquared) {
                 return;
             }
 
-            float lateralDist = math.sqrt(math.max(lateralSqr, 1e-6f));
-            float penetrationLateral = expandedRadius - lateralDist;
+            float lateralDistance = math.sqrt(math.max(lateralSquared, 1e-6f));
+            float penetrationLateral = expandedRadius - lateralDistance;
             if (penetrationLateral <= 0.0f) {
                 return;
             }
 
-            float timeFactor = 1.0f - (forwardDist / math.max(lookAhead, 1e-3f));
+            float timeFactor = 1.0f - (forwardDistance / math.max(lookAhead, 1e-3f));
             float penetrationFactorLateral = penetrationLateral / math.max(expandedRadius, 1e-3f);
 
             float danger = timeFactor * penetrationFactorLateral;
 
-            float3 lateralDir = math.normalizesafe(
+            float3 lateralDirection = math.normalizesafe(
                 -lateral,
-                -forwardDir);
+                -forwardDirection);
 
             if (danger > bestDanger) {
                 bestDanger = danger;
-                bestDir = lateralDir;
+                bestDirection = lateralDirection;
             }
         }
 
-        static void EvaluateBox(
+        private static void EvaluateBox(
             float3 agentPosition,
-            float3 forwardDir,
+            float3 forwardDirection,
             float lookAhead,
             float separationRadius,
             float3 boxCenter,
             float3 boxHalfExtents,
-            quaternion boxRot,
+            quaternion boxRotation,
             ref float bestDanger,
-            ref float3 bestDir) {
+            ref float3 bestDirection) {
 
             float3 expandedHalfExtents = new float3(
                 math.max(0.0f, boxHalfExtents.x) + separationRadius,
                 math.max(0.0f, boxHalfExtents.y) + separationRadius,
                 math.max(0.0f, boxHalfExtents.z) + separationRadius);
 
-            // Degenerate box → ignore
             if (expandedHalfExtents.x <= 0f || expandedHalfExtents.y <= 0f || expandedHalfExtents.z <= 0f) {
                 return;
             }
 
-            quaternion inverseRot = math.inverse(boxRot);
+            quaternion inverseRotation = math.inverse(boxRotation);
 
-            float3 originLocal = math.mul(inverseRot, agentPosition - boxCenter); // ray origin in box local
-            float3 directionLocal = math.mul(inverseRot, forwardDir);            // ray dir in box local (normalized)
+            float3 originLocal = math.mul(inverseRotation, agentPosition - boxCenter);
+            float3 directionLocal = math.mul(inverseRotation, forwardDirection);
 
             if (!RayAabbSegmentHit(
                     originLocal,
@@ -337,7 +364,6 @@ namespace Flock.Runtime.Jobs {
 
             float danger;
             if (startsInside) {
-                // Inside: stronger response, scaled by how deep we are (approx).
                 float3 absOrigin = math.abs(originLocal);
 
                 float distToFaceX = expandedHalfExtents.x - absOrigin.x;
@@ -358,16 +384,16 @@ namespace Flock.Runtime.Jobs {
                 return;
             }
 
-            float3 normalWorld = math.mul(boxRot, normalLocal);
+            float3 normalWorld = math.mul(boxRotation, normalLocal);
             if (math.lengthsq(normalWorld) < 1e-8f) {
                 return;
             }
 
             bestDanger = danger;
-            bestDir = normalWorld;
+            bestDirection = normalWorld;
         }
 
-        static bool RayAabbSegmentHit(
+        private static bool RayAabbSegmentHit(
             float3 originLocal,
             float3 directionLocal,
             float3 halfExtents,
@@ -435,8 +461,13 @@ namespace Flock.Runtime.Jobs {
                 return false;
             }
 
-            if (timeExit < 0f) return false;
-            if (timeEnter > maxTime) return false;
+            if (timeExit < 0f) {
+                return false;
+            }
+
+            if (timeEnter > maxTime) {
+                return false;
+            }
 
             hitTime = math.max(timeEnter, 0f);
             normalLocal = enterNormal;
@@ -444,7 +475,7 @@ namespace Flock.Runtime.Jobs {
             return math.lengthsq(normalLocal) > 1e-6f;
         }
 
-        static bool UpdateSlab(
+        private static bool UpdateSlab(
             float originComponent,
             float directionComponent,
             float halfExtent,
@@ -478,7 +509,7 @@ namespace Flock.Runtime.Jobs {
             return timeEnter <= timeExit;
         }
 
-        static float3 ComputeInsideExitNormal(float3 originLocal, float3 directionLocal, float3 halfExtents) {
+        private static float3 ComputeInsideExitNormal(float3 originLocal, float3 directionLocal, float3 halfExtents) {
             float3 absOrigin = math.abs(originLocal);
 
             float distToFaceX = halfExtents.x - absOrigin.x;
@@ -491,7 +522,6 @@ namespace Flock.Runtime.Jobs {
             if (distToFaceY < minDist) { minDist = distToFaceY; axisIndex = 1; }
             if (distToFaceZ < minDist) { minDist = distToFaceZ; axisIndex = 2; }
 
-            // If we're near the center (ties), bias by direction.
             float3 absDir = math.abs(directionLocal);
             if (minDist > math.cmin(halfExtents) * 0.999f) {
                 axisIndex = absDir.x >= absDir.y
@@ -513,14 +543,14 @@ namespace Flock.Runtime.Jobs {
             return new float3(0f, 0f, signValueZ);
         }
 
-        static int3 GetCell(float3 position, float3 origin, int3 gridRes, float cellSize) {
+        private static int3 GetCell(float3 position, float3 origin, int3 gridResolution, float cellSize) {
             float3 scaled = (position - origin) / cellSize;
             int3 cell = (int3)math.floor(scaled);
 
             return math.clamp(
                 cell,
                 new int3(0, 0, 0),
-                gridRes - new int3(1, 1, 1));
+                gridResolution - new int3(1, 1, 1));
         }
     }
 }

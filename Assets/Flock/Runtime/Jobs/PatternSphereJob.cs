@@ -1,31 +1,51 @@
 ﻿// File: Assets/Flock/Runtime/Jobs/PatternSphereJob.cs
-// FULL struct – updated so it COMBINES with other layer-3 patterns instead of wiping them
-namespace Flock.Runtime.Jobs {
-    using Flock.Runtime.Data;
-    using Unity.Burst;
-    using Unity.Collections;
-    using Unity.Jobs;
-    using Unity.Mathematics;
+using Flock.Runtime.Data;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 
-    /// <summary>
-    /// Layer-3 pattern: soft radial constraint towards a spherical band.
-    /// No global swirl – tangential motion comes from wander / group-noise / boids.
-    /// </summary>
+namespace Flock.Runtime.Jobs {
+    /**
+     * <summary>
+     * Layer-3 pattern that applies a soft radial constraint towards a spherical band.
+     * Steering is accumulated into <see cref="PatternSteering"/> so multiple patterns can stack.
+     * </summary>
+     */
     [BurstCompile]
     public struct PatternSphereJob : IJobParallelFor, IFlockLayer3PatternJob {
-        [ReadOnly] public NativeArray<float3> Positions;
-        [ReadOnly] public NativeArray<int> BehaviourIds;
+        private const float MinimumDistanceEpsilon = 1e-5f;
+        private const float MinimumThicknessEpsilon = 0.0001f;
+        private const float ComfortBandCorrectionStrength = 0.25f;
 
-        // Written by this job, used in FlockStepJob together with BehaviourPatternWeight & GlobalPatternMultiplier
+        [ReadOnly]
+        public NativeArray<float3> Positions;
+
+        [ReadOnly] 
+        public NativeArray<int> BehaviourIds;
+
+        [ReadOnly] 
+        public float3 Center;
+
+        [ReadOnly] 
+        public float Radius;
+
+        [ReadOnly] 
+        public float Thickness;
+
+        [ReadOnly] 
+        public float Strength;
+
+        [ReadOnly] 
+        public uint BehaviourMask;
+
         public NativeArray<float3> PatternSteering;
 
-        [ReadOnly] public float3 Center;
-        [ReadOnly] public float Radius;       // target radius of the band
-        [ReadOnly] public float Thickness;    // half-width of the band
-        [ReadOnly] public float Strength;     // overall intensity (before per-behaviour weights)
-        [ReadOnly] public uint BehaviourMask; // bitmask over behaviour indices
-
-        // Shared wiring for all layer-3 jobs via IFlockLayer3PatternJob
+        /**
+         * <summary>
+         * Sets common data shared across all Layer-3 pattern jobs.
+         * </summary>
+         */
         public void SetCommonData(
             NativeArray<float3> positions,
             NativeArray<int> behaviourIds,
@@ -40,79 +60,85 @@ namespace Flock.Runtime.Jobs {
             Strength = strength;
         }
 
+        /**
+         * <summary>
+         * Computes and accumulates sphere-shell steering for a single agent.
+         * </summary>
+         */
         public void Execute(int index) {
-            if (!PatternSteering.IsCreated
-                || !Positions.IsCreated
-                || index < 0
-                || index >= Positions.Length
-                || index >= PatternSteering.Length) {
+            if (!IsIndexValid(index) || !IsPatternEnabled() || !IsBehaviourAllowed(index)) {
                 return;
             }
 
-            // If this pattern is disabled → do nothing (DO NOT zero existing steering)
-            if (Radius <= 0f || Strength <= 0f || Thickness <= 0f) {
+            float3 position = Positions[index];
+            float3 relativePosition = position - Center;
+
+            float distanceFromCenter = math.length(relativePosition);
+            if (distanceFromCenter < MinimumDistanceEpsilon) {
                 return;
             }
 
-            // Per-pattern behaviour mask
-            if (BehaviourIds.IsCreated) {
-                int behaviourIndex = 0;
+            float3 radialDirection = relativePosition / distanceFromCenter;
+            float radialScalar = ComputeRadialScalar(distanceFromCenter);
 
-                if (index >= 0 && index < BehaviourIds.Length) {
-                    behaviourIndex = BehaviourIds[index];
-                }
+            PatternSteering[index] += radialDirection * radialScalar * Strength;
+        }
 
-                // BehaviourMask == uint.MaxValue → affect all behaviours
-                if (BehaviourMask != uint.MaxValue) {
-                    if (behaviourIndex < 0 || behaviourIndex >= 32) {
-                        return;
-                    }
+        private bool IsIndexValid(int index) {
+            return PatternSteering.IsCreated
+                && Positions.IsCreated
+                && index >= 0
+                && index < Positions.Length
+                && index < PatternSteering.Length;
+        }
 
-                    uint bit = 1u << behaviourIndex;
-                    if ((BehaviourMask & bit) == 0u) {
-                        return;
-                    }
-                }
+        private bool IsPatternEnabled() {
+            return Radius > 0f && Strength > 0f && Thickness > 0f;
+        }
+
+        private bool IsBehaviourAllowed(int index) {
+            if (!BehaviourIds.IsCreated) {
+                return true;
             }
 
-            float3 pos = Positions[index];
-            float3 rel = pos - Center;
-            float dist = math.length(rel);
-
-            // If exactly at center – no radial direction, so skip (keep whatever other patterns did)
-            if (dist < 1e-5f) {
-                return;
+            int behaviourIndex = 0;
+            if (index >= 0 && index < BehaviourIds.Length) {
+                behaviourIndex = BehaviourIds[index];
             }
 
-            float3 radialDir = rel / dist;
-
-            // Band [inner, outer] where fish are "happy"
-            float inner = math.max(Radius - Thickness, 0f);
-            float outer = Radius + Thickness;
-            float bandWidth = math.max(Thickness, 0.0001f);
-
-            float radialScalar = 0f;
-
-            if (dist < inner) {
-                // Too close to center → push outward
-                float tInner = math.saturate((inner - dist) / bandWidth);
-                radialScalar = +tInner;
-            } else if (dist > outer) {
-                // Too far outside → pull inward
-                float tOuter = math.saturate((dist - outer) / bandWidth);
-                radialScalar = -tOuter;
-            } else {
-                // Inside the comfortable band: soft bias toward exact Radius
-                float delta = dist - Radius;                          // -Thickness..+Thickness
-                float norm = math.saturate(math.abs(delta) / bandWidth);
-                float soften = 1f - norm;                             // 1 near Radius, 0 near edges
-                float sign = delta > 0f ? -1f : 1f;                   // inwards/outwards
-                radialScalar = sign * soften * 0.25f;                 // weak correction
+            if (BehaviourMask == uint.MaxValue) {
+                return true;
             }
 
-            // IMPORTANT: accumulate, don't overwrite –
-            // this lets multiple layer-3 patterns stack in PatternSteering.
-            PatternSteering[index] += radialDir * radialScalar * Strength;
+            if (behaviourIndex < 0 || behaviourIndex >= 32) {
+                return false;
+            }
+
+            uint bit = 1u << behaviourIndex;
+            return (BehaviourMask & bit) != 0u;
+        }
+
+        private float ComputeRadialScalar(float distanceFromCenter) {
+            float innerRadius = math.max(Radius - Thickness, 0f);
+            float outerRadius = Radius + Thickness;
+            float bandWidth = math.max(Thickness, MinimumThicknessEpsilon);
+
+            if (distanceFromCenter < innerRadius) {
+                float innerT = math.saturate((innerRadius - distanceFromCenter) / bandWidth);
+                return +innerT;
+            }
+
+            if (distanceFromCenter > outerRadius) {
+                float outerT = math.saturate((distanceFromCenter - outerRadius) / bandWidth);
+                return -outerT;
+            }
+
+            float delta = distanceFromCenter - Radius;
+            float normalized = math.saturate(math.abs(delta) / bandWidth);
+            float soften = 1f - normalized;
+            float sign = delta > 0f ? -1f : 1f;
+
+            return sign * soften * ComfortBandCorrectionStrength;
         }
     }
 }

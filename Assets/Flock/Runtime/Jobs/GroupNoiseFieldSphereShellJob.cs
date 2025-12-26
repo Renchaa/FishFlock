@@ -5,17 +5,30 @@ using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace Flock.Runtime.Jobs {
+    /**
+     * <summary>
+     * Generates per-cell noise directions that form a spherical shell field with radial push/pull and tangential swirl.
+     * </summary>
+     */
     [BurstCompile]
     public struct GroupNoiseFieldSphereShellJob : IJobParallelFor {
-        [ReadOnly] public float Time;
-        [ReadOnly] public float Frequency;
-        [ReadOnly] public int3 GridResolution;
+        [ReadOnly]
+        public float Time;
+
+        [ReadOnly]
+        public float Frequency;
+
+        [ReadOnly]
+        public int3 GridResolution;
+
+        [ReadOnly]
+        public FlockGroupNoiseCommonSettings Common;
+
+        [ReadOnly]
+        public FlockGroupNoiseSphereShellPayload Payload;
 
         [NativeDisableParallelForRestriction]
         public NativeArray<float3> CellNoise;
-
-        [ReadOnly] public FlockGroupNoiseCommonSettings Common;
-        [ReadOnly] public FlockGroupNoiseSphereShellPayload Payload;
 
         public void Execute(int index) {
             if (!CellNoise.IsCreated || (uint)index >= (uint)CellNoise.Length) {
@@ -24,78 +37,96 @@ namespace Flock.Runtime.Jobs {
 
             int3 cell = GroupNoiseFieldMath.IndexToCell(index, GridResolution);
             float3 uvw = GroupNoiseFieldMath.CellToUVW(cell, GridResolution);
-            float3 p = GroupNoiseFieldMath.UVWToP(uvw, math.max(0.001f, Common.WorldScale));
-            float t = GroupNoiseFieldMath.ComputeT(Time, Frequency, Common.BaseFrequency);
-            float3 phase = GroupNoiseFieldMath.ComputeHashPhase(Common.Seed == 0u ? 1u : Common.Seed, cell);
 
-            float3 dir = Evaluate(p, t, phase);
-            CellNoise[index] = math.normalizesafe(dir, float3.zero);
+            float worldScale = math.max(0.001f, Common.WorldScale);
+            float3 position = GroupNoiseFieldMath.UVWToP(uvw, worldScale);
+
+            float timeScaled = GroupNoiseFieldMath.ComputeT(Time, Frequency, Common.BaseFrequency);
+
+            uint seed = Common.Seed == 0u ? 1u : Common.Seed;
+            float3 hashPhase = GroupNoiseFieldMath.ComputeHashPhase(seed, cell);
+
+            float3 direction = EvaluateDirection(position, timeScaled, hashPhase);
+            CellNoise[index] = math.normalizesafe(direction, float3.zero);
         }
 
-        float3 Evaluate(float3 p, float t, float3 hashPhase) {
+        private float3 EvaluateDirection(float3 position, float timeScaled, float3 hashPhase) {
             float worldScale = math.max(0.001f, Common.WorldScale);
 
-            float3 centerNorm = new float3(
+            float3 centerNormalised = new float3(
                 math.saturate(Payload.CenterNorm.x),
                 math.saturate(Payload.CenterNorm.y),
                 math.saturate(Payload.CenterNorm.z));
 
-            float3 center = (centerNorm - 0.5f) * 2f * worldScale;
+            float3 center = (centerNormalised - 0.5f) * 2f * worldScale;
 
             float radius = math.max(0f, Payload.Radius);
             float thickness = math.max(0.001f, Payload.Thickness);
 
-            float3 rel = p - center;
-            float dist = math.length(rel);
+            float3 relative = position - center;
+            float distance = math.length(relative);
 
-            if (dist < 1e-5f || radius <= 0f) {
+            if (distance < 1e-5f || radius <= 0f) {
                 return new float3(0f, 1f, 0f);
             }
 
-            float3 radialDir = rel / dist;
+            float3 radialDirection = relative / distance;
 
-            float inner = math.max(radius - thickness, 0f);
-            float outer = radius + thickness;
+            float innerRadius = math.max(radius - thickness, 0f);
+            float outerRadius = radius + thickness;
 
-            float radialScalar;
+            float radialScalar = ComputeRadialScalar(distance, radius, thickness, innerRadius, outerRadius);
+            float3 radial = radialDirection * radialScalar;
 
-            if (dist < inner) {
-                float tInner = math.saturate((inner - dist) / thickness);
-                radialScalar = +math.lerp(0.5f, 1f, tInner);
-            } else if (dist > outer) {
-                float tOuter = math.saturate((dist - outer) / thickness);
-                radialScalar = -math.lerp(0.5f, 1f, tOuter);
-            } else {
-                float delta = dist - radius;
-                float norm = math.saturate(math.abs(delta) / thickness);
-                float soften = 1f - norm;
-                float sign = delta > 0f ? -1f : 1f;
-                radialScalar = sign * soften * 0.35f;
+            float3 swirlDirection = ComputeSwirlDirection(radialDirection, timeScaled, hashPhase.x);
+
+            float distanceFromRadius = math.abs(distance - radius);
+            float swirlFalloff = 1f - math.saturate(distanceFromRadius / (thickness * 2f));
+
+            float swirlStrength = math.max(0f, Payload.SwirlStrength) * swirlFalloff;
+            float3 swirl = swirlDirection * swirlStrength;
+
+            float3 combined = radial + swirl;
+            return math.normalizesafe(combined, radialDirection);
+        }
+
+        private static float ComputeRadialScalar(
+            float distance,
+            float radius,
+            float thickness,
+            float innerRadius,
+            float outerRadius) {
+            if (distance < innerRadius) {
+                float innerT = math.saturate((innerRadius - distance) / thickness);
+                return +math.lerp(0.5f, 1f, innerT);
             }
 
-            float3 radial = radialDir * radialScalar;
+            if (distance > outerRadius) {
+                float outerT = math.saturate((distance - outerRadius) / thickness);
+                return -math.lerp(0.5f, 1f, outerT);
+            }
 
-            float3 any = math.abs(radialDir.y) < 0.8f
+            float delta = distance - radius;
+            float normalised = math.saturate(math.abs(delta) / thickness);
+            float soften = 1f - normalised;
+
+            float sign = delta > 0f ? -1f : 1f;
+            return sign * soften * 0.35f;
+        }
+
+        private static float3 ComputeSwirlDirection(float3 radialDirection, float timeScaled, float hashPhaseX) {
+            float3 referenceAxis = math.abs(radialDirection.y) < 0.8f
                 ? new float3(0f, 1f, 0f)
                 : new float3(1f, 0f, 0f);
 
-            float3 tangent1 = math.normalizesafe(math.cross(radialDir, any), float3.zero);
-            float3 tangent2 = math.normalizesafe(math.cross(radialDir, tangent1), float3.zero);
+            float3 tangent1 = math.normalizesafe(math.cross(radialDirection, referenceAxis), float3.zero);
+            float3 tangent2 = math.normalizesafe(math.cross(radialDirection, tangent1), float3.zero);
 
-            float angle = t + hashPhase.x;
-            float sa = math.sin(angle);
-            float ca = math.cos(angle);
+            float angle = timeScaled + hashPhaseX;
+            float sine = math.sin(angle);
+            float cosine = math.cos(angle);
 
-            float3 swirlDir = tangent1 * ca + tangent2 * sa;
-
-            float distFromRadius = math.abs(dist - radius);
-            float swirlFalloff = 1f - math.saturate(distFromRadius / (thickness * 2f));
-
-            float swirlStrength = math.max(0f, Payload.SwirlStrength) * swirlFalloff;
-            float3 swirl = swirlDir * swirlStrength;
-
-            float3 dir = radial + swirl;
-            return math.normalizesafe(dir, radialDir);
+            return tangent1 * cosine + tangent2 * sine;
         }
     }
 }

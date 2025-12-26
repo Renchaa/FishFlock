@@ -1,30 +1,53 @@
 ﻿// File: Assets/Flock/Runtime/Jobs/PatternBoxJob.cs
-namespace Flock.Runtime.Jobs {
-    using Flock.Runtime.Data;
-    using Unity.Burst;
-    using Unity.Collections;
-    using Unity.Jobs;
-    using Unity.Mathematics;
+using Flock.Runtime.Data;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 
-    /// <summary>
-    /// Layer-3 pattern: soft constraint towards an axis-aligned box "shell".
-    /// Agents are nudged towards the faces of the box, with a configurable
-    /// band thickness on either side of the faces.
-    /// </summary>
+namespace Flock.Runtime.Jobs {
+    /**
+     * <summary>
+     * Layer-3 pattern: soft constraint towards an axis-aligned box shell.
+     * Agents are nudged towards the faces of the box, with a configurable band thickness
+     * on either side of each face.
+     * </summary>
+     */
     [BurstCompile]
     public struct PatternBoxJob : IJobParallelFor, IFlockLayer3PatternJob {
-        [ReadOnly] public NativeArray<float3> Positions;
-        [ReadOnly] public NativeArray<int> BehaviourIds;
+        private const float MinimumVectorLengthSquared = 1e-8f;
+        private const float MinimumComponentEpsilon = 1e-5f;
+        private const float MinimumThicknessEpsilon = 0.0001f;
+        private const float ComfortBandCorrectionStrength = 0.25f;
 
-        // Written by this job, accumulated in FlockStepJob
+        [ReadOnly]
+        public NativeArray<float3> Positions;
+
+        [ReadOnly]
+        public NativeArray<int> BehaviourIds;
+
+        [ReadOnly]
+        public float3 Center;
+
+        [ReadOnly]
+        public float3 HalfExtents;
+
+        [ReadOnly]
+        public float Thickness;
+
+        [ReadOnly]
+        public float Strength;
+
+        [ReadOnly]
+        public uint BehaviourMask;
+
         public NativeArray<float3> PatternSteering;
 
-        [ReadOnly] public float3 Center;
-        [ReadOnly] public float3 HalfExtents;   // positive per-axis half-size
-        [ReadOnly] public float Thickness;      // band half-width around each face
-        [ReadOnly] public float Strength;       // overall intensity
-        [ReadOnly] public uint BehaviourMask;   // bitmask over behaviour indices
-
+        /**
+         * <summary>
+         * Sets common data shared across all Layer-3 pattern jobs.
+         * </summary>
+         */
         public void SetCommonData(
             NativeArray<float3> positions,
             NativeArray<int> behaviourIds,
@@ -40,137 +63,166 @@ namespace Flock.Runtime.Jobs {
         }
 
         public void Execute(int index) {
-            if (!PatternSteering.IsCreated
-                || !Positions.IsCreated
-                || index < 0
-                || index >= Positions.Length
-                || index >= PatternSteering.Length) {
+            if (!IsIndexValid(index)) {
                 return;
             }
 
-            // Disabled / degenerate box → do nothing, keep existing steering.
-            if (Strength <= 0f
-                || Thickness <= 0f
-                || HalfExtents.x <= 0f
-                || HalfExtents.y <= 0f
-                || HalfExtents.z <= 0f) {
+            if (!IsBoxShellEnabled()) {
                 return;
             }
 
-            // Per-pattern behaviour mask
-            if (BehaviourIds.IsCreated) {
-                int behaviourIndex = 0;
-
-                if (index >= 0 && index < BehaviourIds.Length) {
-                    behaviourIndex = BehaviourIds[index];
-                }
-
-                // BehaviourMask == uint.MaxValue → affect all behaviours
-                if (BehaviourMask != uint.MaxValue) {
-                    if (behaviourIndex < 0 || behaviourIndex >= 32) {
-                        return;
-                    }
-
-                    uint bit = 1u << behaviourIndex;
-                    if ((BehaviourMask & bit) == 0u) {
-                        return;
-                    }
-                }
+            if (!PassesBehaviourMask(index)) {
+                return;
             }
 
-            float3 pos = Positions[index];
-            float3 rel = pos - Center;
-            float3 absRel = math.abs(rel);
-            float3 he = HalfExtents;
+            float3 position = Positions[index];
+            float3 relative = position - Center;
 
-            // Normalised distance to center per axis (1.0 = exactly on that face)
-            float3 norm = new float3(
-                absRel.x / math.max(he.x, 1e-5f),
-                absRel.y / math.max(he.y, 1e-5f),
-                absRel.z / math.max(he.z, 1e-5f));
+            float3 absoluteRelative = math.abs(relative);
+            float3 halfExtents = HalfExtents;
 
-            // Choose dominant axis (closest to / crossing a face)
+            int dominantAxis = GetDominantAxis(absoluteRelative, halfExtents, out float dominantAxisNormalizedDistance);
+            GetAxisDistance(relative, halfExtents, dominantAxis, out float signedAxisDistance, out float axisHalfExtent);
+
+            float axisDistance = math.abs(signedAxisDistance);
+
+            if (axisDistance < MinimumComponentEpsilon && dominantAxisNormalizedDistance < 1f) {
+                return;
+            }
+
+            float radialScalar = ComputeRadialScalar(axisDistance, axisHalfExtent, Thickness);
+            float3 radialDirection = GetAxisDirection(dominantAxis, signedAxisDistance);
+
+            PatternSteering[index] += radialDirection * radialScalar * Strength;
+        }
+
+        private bool IsIndexValid(int index) {
+            return PatternSteering.IsCreated
+                   && Positions.IsCreated
+                   && index >= 0
+                   && index < Positions.Length
+                   && index < PatternSteering.Length;
+        }
+
+        private bool IsBoxShellEnabled() {
+            return Strength > 0f
+                   && Thickness > 0f
+                   && HalfExtents.x > 0f
+                   && HalfExtents.y > 0f
+                   && HalfExtents.z > 0f;
+        }
+
+        private bool PassesBehaviourMask(int index) {
+            if (!BehaviourIds.IsCreated) {
+                return true;
+            }
+
+            int behaviourIndex = 0;
+            if (index >= 0 && index < BehaviourIds.Length) {
+                behaviourIndex = BehaviourIds[index];
+            }
+
+            if (BehaviourMask == uint.MaxValue) {
+                return true;
+            }
+
+            if (behaviourIndex < 0 || behaviourIndex >= 32) {
+                return false;
+            }
+
+            uint bit = 1u << behaviourIndex;
+            return (BehaviourMask & bit) != 0u;
+        }
+
+        private static int GetDominantAxis(
+            float3 absoluteRelative,
+            float3 halfExtents,
+            out float dominantAxisNormalizedDistance) {
+
+            float3 normalized = new float3(
+                absoluteRelative.x / math.max(halfExtents.x, MinimumComponentEpsilon),
+                absoluteRelative.y / math.max(halfExtents.y, MinimumComponentEpsilon),
+                absoluteRelative.z / math.max(halfExtents.z, MinimumComponentEpsilon));
+
             int axis = 0;
-            float axisNorm = norm.x;
+            float axisValue = normalized.x;
 
-            if (norm.y > axisNorm) {
+            if (normalized.y > axisValue) {
                 axis = 1;
-                axisNorm = norm.y;
+                axisValue = normalized.y;
             }
 
-            if (norm.z > axisNorm) {
+            if (normalized.z > axisValue) {
                 axis = 2;
-                axisNorm = norm.z;
+                axisValue = normalized.z;
             }
 
-            float signedD;
-            float halfExtentAxis;
+            dominantAxisNormalizedDistance = axisValue;
+            return axis;
+        }
+
+        private static void GetAxisDistance(
+            float3 relative,
+            float3 halfExtents,
+            int axis,
+            out float signedAxisDistance,
+            out float axisHalfExtent) {
 
             switch (axis) {
                 case 0:
-                    signedD = rel.x;
-                    halfExtentAxis = he.x;
-                    break;
+                    signedAxisDistance = relative.x;
+                    axisHalfExtent = halfExtents.x;
+                    return;
+
                 case 1:
-                    signedD = rel.y;
-                    halfExtentAxis = he.y;
-                    break;
+                    signedAxisDistance = relative.y;
+                    axisHalfExtent = halfExtents.y;
+                    return;
+
                 default:
-                    signedD = rel.z;
-                    halfExtentAxis = he.z;
-                    break;
+                    signedAxisDistance = relative.z;
+                    axisHalfExtent = halfExtents.z;
+                    return;
+            }
+        }
+
+        private static float ComputeRadialScalar(float axisDistance, float axisHalfExtent, float thickness) {
+            float bandWidth = math.max(thickness, MinimumThicknessEpsilon);
+
+            float inner = math.max(axisHalfExtent - thickness, 0f);
+            float outer = axisHalfExtent + thickness;
+
+            if (axisDistance < inner) {
+                float tInner = math.saturate((inner - axisDistance) / bandWidth);
+                return +tInner;
             }
 
-            float d = math.abs(signedD);
-
-            // If we're basically at the center and not near any face, skip
-            if (d < 1e-5f && axisNorm < 1f) {
-                return;
+            if (axisDistance > outer) {
+                float tOuter = math.saturate((axisDistance - outer) / bandWidth);
+                return -tOuter;
             }
 
-            float bandWidth = math.max(Thickness, 0.0001f);
+            float delta = axisDistance - axisHalfExtent;
+            float normalizedDelta = math.saturate(math.abs(delta) / bandWidth);
+            float soften = 1f - normalizedDelta;
+            float sign = delta > 0f ? -1f : 1f;
 
-            // 1D "shell" band around |axis| = halfExtentAxis
-            float inner = math.max(halfExtentAxis - Thickness, 0f);
-            float outer = halfExtentAxis + Thickness;
+            return sign * soften * ComfortBandCorrectionStrength;
+        }
 
-            float radialScalar = 0f;
+        private static float3 GetAxisDirection(int axis, float signedAxisDistance) {
+            float signAxis = signedAxisDistance >= 0f ? 1f : -1f;
 
-            if (d < inner) {
-                // Too close to center → push outward towards face
-                float tInner = math.saturate((inner - d) / bandWidth);
-                radialScalar = +tInner;
-            } else if (d > outer) {
-                // Too far outside → pull inward back to shell
-                float tOuter = math.saturate((d - outer) / bandWidth);
-                radialScalar = -tOuter;
-            } else {
-                // Inside comfort band: soft bias toward exact face position
-                float delta = d - halfExtentAxis;                 // -Thickness..+Thickness
-                float normDelta = math.saturate(math.abs(delta) / bandWidth);
-                float soften = 1f - normDelta;                    // 1 near the face, 0 near band edges
-                float sign = delta > 0f ? -1f : 1f;               // inward/outward
-                radialScalar = sign * soften * 0.25f;             // weak correction
-            }
-
-            // Axis-aligned normal for the chosen face
-            float signAxis = signedD >= 0f ? 1f : -1f;
-
-            float3 radialDir;
             switch (axis) {
                 case 0:
-                    radialDir = new float3(signAxis, 0f, 0f);
-                    break;
-                case 1:
-                    radialDir = new float3(0f, signAxis, 0f);
-                    break;
-                default:
-                    radialDir = new float3(0f, 0f, signAxis);
-                    break;
-            }
+                    return new float3(signAxis, 0f, 0f);
 
-            // Accumulate into pattern steering so multiple patterns can stack
-            PatternSteering[index] += radialDir * radialScalar * Strength;
+                case 1:
+                    return new float3(0f, signAxis, 0f);
+
+                default:
+                    return new float3(0f, 0f, signAxis);
+            }
         }
     }
 }

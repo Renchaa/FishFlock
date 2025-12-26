@@ -1,3 +1,4 @@
+// File: Assets/Flock/Runtime/Jobs/RebuildAttractorGridJob.cs
 namespace Flock.Runtime.Jobs {
     using Flock.Runtime.Data;
     using Unity.Burst;
@@ -5,9 +6,21 @@ namespace Flock.Runtime.Jobs {
     using Unity.Jobs;
     using Unity.Mathematics;
 
+    /**
+     * <summary>
+     * Rebuilds per-cell attractor lookup tables, selecting the highest-priority attractor per cell
+     * separately for Individual and Group usage.
+     * </summary>
+     */
     [BurstCompile]
     public struct RebuildAttractorGridJob : IJob {
-        [ReadOnly] public NativeArray<FlockAttractorData> Attractors;
+        private const int InvalidIndex = -1;
+        private const float MinimumCellSize = 0.0001f;
+
+        [ReadOnly] 
+        public NativeArray<FlockAttractorData> Attractors;
+
+        [ReadOnly] 
         public int AttractorCount;
 
         public float3 GridOrigin;
@@ -20,68 +33,98 @@ namespace Flock.Runtime.Jobs {
         public NativeArray<float> CellGroupPriority;
 
         public void Execute() {
-            int3 res = GridResolution;
-            int gridCellCount = res.x * res.y * res.z;
+            int3 gridResolution = GridResolution;
+            int gridCellCount = gridResolution.x * gridResolution.y * gridResolution.z;
 
             if (gridCellCount <= 0) {
                 return;
             }
 
-            // Reset per-cell mappings
-            for (int i = 0; i < gridCellCount; i += 1) {
-                CellToIndividualAttractor[i] = -1;
-                CellToGroupAttractor[i] = -1;
-                CellIndividualPriority[i] = float.NegativeInfinity;
-                CellGroupPriority[i] = float.NegativeInfinity;
-            }
+            ResetCellMappings(gridCellCount);
 
             if (!Attractors.IsCreated || AttractorCount <= 0) {
                 return;
             }
 
-            float cellSize = math.max(CellSize, 0.0001f);
-            float3 origin = GridOrigin;
-            int layerSize = res.x * res.y;
+            float safeCellSize = math.max(CellSize, MinimumCellSize);
+            float3 gridOrigin = GridOrigin;
+            int layerCellCount = gridResolution.x * gridResolution.y;
 
-            for (int index = 0; index < AttractorCount; index += 1) {
-                FlockAttractorData data = Attractors[index];
+            int3 minClamp = new int3(0, 0, 0);
+            int3 maxClamp = gridResolution - new int3(1, 1, 1);
 
-                float radius = math.max(data.Radius, cellSize);
-                float3 minPos = data.Position - new float3(radius);
-                float3 maxPos = data.Position + new float3(radius);
+            for (int attractorIndex = 0; attractorIndex < AttractorCount; attractorIndex += 1) {
+                FlockAttractorData attractorData = Attractors[attractorIndex];
 
-                float3 minLocal = (minPos - origin) / cellSize;
-                float3 maxLocal = (maxPos - origin) / cellSize;
+                StampAttractorCells(
+                    attractorIndex,
+                    attractorData,
+                    gridOrigin,
+                    gridResolution,
+                    layerCellCount,
+                    safeCellSize,
+                    minClamp,
+                    maxClamp);
+            }
+        }
 
-                int3 minCell = (int3)math.floor(minLocal);
-                int3 maxCell = (int3)math.floor(maxLocal);
+        private void ResetCellMappings(int gridCellCount) {
+            for (int cellIndex = 0; cellIndex < gridCellCount; cellIndex += 1) {
+                CellToIndividualAttractor[cellIndex] = InvalidIndex;
+                CellToGroupAttractor[cellIndex] = InvalidIndex;
 
-                int3 minClamp = new int3(0, 0, 0);
-                int3 maxClamp = res - new int3(1, 1, 1);
+                CellIndividualPriority[cellIndex] = float.NegativeInfinity;
+                CellGroupPriority[cellIndex] = float.NegativeInfinity;
+            }
+        }
 
-                minCell = math.clamp(minCell, minClamp, maxClamp);
-                maxCell = math.clamp(maxCell, minClamp, maxClamp);
+        private void StampAttractorCells(
+            int attractorIndex,
+            FlockAttractorData attractorData,
+            float3 gridOrigin,
+            int3 gridResolution,
+            int layerCellCount,
+            float cellSize,
+            int3 minClamp,
+            int3 maxClamp) {
 
-                for (int z = minCell.z; z <= maxCell.z; z += 1) {
-                    for (int y = minCell.y; y <= maxCell.y; y += 1) {
-                        int rowBase = y * res.x + z * layerSize;
+            float radius = math.max(attractorData.Radius, cellSize);
 
-                        for (int x = minCell.x; x <= maxCell.x; x += 1) {
-                            int cellIndex = x + rowBase;
+            float3 minPosition = attractorData.Position - new float3(radius);
+            float3 maxPosition = attractorData.Position + new float3(radius);
 
-                            if (data.Usage == FlockAttractorUsage.Individual) {
-                                if (data.CellPriority > CellIndividualPriority[cellIndex]) {
-                                    CellIndividualPriority[cellIndex] = data.CellPriority;
-                                    CellToIndividualAttractor[cellIndex] = index;
-                                }
-                            } else if (data.Usage == FlockAttractorUsage.Group) {
-                                if (data.CellPriority > CellGroupPriority[cellIndex]) {
-                                    CellGroupPriority[cellIndex] = data.CellPriority;
-                                    CellToGroupAttractor[cellIndex] = index;
-                                }
-                            }
-                        }
+            float3 minLocal = (minPosition - gridOrigin) / cellSize;
+            float3 maxLocal = (maxPosition - gridOrigin) / cellSize;
+
+            int3 minCell = math.clamp((int3)math.floor(minLocal), minClamp, maxClamp);
+            int3 maxCell = math.clamp((int3)math.floor(maxLocal), minClamp, maxClamp);
+
+            for (int cellZ = minCell.z; cellZ <= maxCell.z; cellZ += 1) {
+                for (int cellY = minCell.y; cellY <= maxCell.y; cellY += 1) {
+                    int rowBase = cellY * gridResolution.x + cellZ * layerCellCount;
+
+                    for (int cellX = minCell.x; cellX <= maxCell.x; cellX += 1) {
+                        int cellIndex = cellX + rowBase;
+                        TryWriteCellWinner(attractorIndex, attractorData, cellIndex);
                     }
+                }
+            }
+        }
+
+        private void TryWriteCellWinner(int attractorIndex, FlockAttractorData attractorData, int cellIndex) {
+            if (attractorData.Usage == FlockAttractorUsage.Individual) {
+                if (attractorData.CellPriority > CellIndividualPriority[cellIndex]) {
+                    CellIndividualPriority[cellIndex] = attractorData.CellPriority;
+                    CellToIndividualAttractor[cellIndex] = attractorIndex;
+                }
+
+                return;
+            }
+
+            if (attractorData.Usage == FlockAttractorUsage.Group) {
+                if (attractorData.CellPriority > CellGroupPriority[cellIndex]) {
+                    CellGroupPriority[cellIndex] = attractorData.CellPriority;
+                    CellToGroupAttractor[cellIndex] = attractorIndex;
                 }
             }
         }
