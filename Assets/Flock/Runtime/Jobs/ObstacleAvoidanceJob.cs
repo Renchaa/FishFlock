@@ -24,14 +24,8 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly]
         public NativeArray<int> BehaviourIds;
 
-        [ReadOnly]
-        public NativeArray<float> BehaviourMaxSpeed;
-
-        [ReadOnly]
-        public NativeArray<float> BehaviourMaxAcceleration;
-
-        [ReadOnly]
-        public NativeArray<float> BehaviourSeparationRadius;
+        [ReadOnly] 
+        public NativeArray<FlockBehaviourSettings> BehaviourSettings;
 
         [ReadOnly]
         public NativeArray<FlockObstacleData> Obstacles;
@@ -66,10 +60,16 @@ namespace Flock.Runtime.Jobs {
             }
 
             int behaviourIndex = BehaviourIds[agentIndex];
+            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
+                ObstacleSteering[agentIndex] = float3.zero;
+                return;
+            }
 
-            float maxSpeed = BehaviourMaxSpeed[behaviourIndex];
-            float maxAcceleration = BehaviourMaxAcceleration[behaviourIndex];
-            float separationRadius = BehaviourSeparationRadius[behaviourIndex];
+            FlockBehaviourSettings b = BehaviourSettings[behaviourIndex];
+
+            float maxSpeed = b.MaxSpeed;
+            float maxAcceleration = b.MaxAcceleration;
+            float separationRadius = b.SeparationRadius;
 
             float lookAhead = ComputeLookAhead(separationRadius, speed, maxSpeed);
 

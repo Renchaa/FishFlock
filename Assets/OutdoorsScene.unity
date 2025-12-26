@@ -1350,9 +1350,7 @@ MonoBehaviour:
   staticAttractors:
   - {fileID: 235993011}
   dynamicAttractors: []
-  layer3Patterns:
-  - {fileID: 11400000, guid: be8dd2e38cb35b040a341b57b452e84c, type: 2}
-  - {fileID: 0}
+  layer3Patterns: []
 --- !u!4 &731534110
 Transform:
   m_ObjectHideFlags: 0
@@ -1568,7 +1566,7 @@ MonoBehaviour:
     seed: 0
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 0
+      count: 3000
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
       count: 0
     - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}

@@ -1,3 +1,4 @@
+using Flock.Runtime.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -19,7 +20,7 @@ namespace Flock.Runtime.Jobs {
         public NativeArray<int> BehaviourIds;
 
         [ReadOnly]
-        public NativeArray<float> BehaviourBodyRadius;
+        public NativeArray<FlockBehaviourSettings> BehaviourSettings;
 
         [ReadOnly]
         public float CellSize;
@@ -46,8 +47,8 @@ namespace Flock.Runtime.Jobs {
             int behaviourIndex = BehaviourIds[index];
             float bodyRadius = 0f;
 
-            if ((uint)behaviourIndex < (uint)BehaviourBodyRadius.Length) {
-                bodyRadius = math.max(0f, BehaviourBodyRadius[behaviourIndex]);
+            if ((uint)behaviourIndex < (uint)BehaviourSettings.Length) {
+                bodyRadius = math.max(0f, BehaviourSettings[behaviourIndex].BodyRadius);
             }
 
             int baseOffset = index * MaxCellsPerAgent;

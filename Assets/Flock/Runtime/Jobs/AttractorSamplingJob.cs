@@ -22,8 +22,6 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly]
         public NativeArray<FlockAttractorData> Attractors;
 
-        [ReadOnly]
-        public NativeArray<float> BehaviourAttractionWeight;
 
         [ReadOnly]
         public NativeArray<int> CellToIndividualAttractor;
@@ -38,16 +36,7 @@ namespace Flock.Runtime.Jobs {
         public float CellSize;
 
         [ReadOnly]
-        public NativeArray<byte> BehaviourUsePreferredDepth;
-
-        [ReadOnly]
-        public NativeArray<float> BehaviourPreferredDepthMin;
-
-        [ReadOnly]
-        public NativeArray<float> BehaviourPreferredDepthMax;
-
-        [ReadOnly]
-        public NativeArray<byte> BehaviourDepthWinsOverAttractor;
+        public NativeArray<FlockBehaviourSettings> BehaviourSettings;
 
         // Outputs
         [NativeDisableParallelForRestriction]
@@ -97,12 +86,12 @@ namespace Flock.Runtime.Jobs {
         private bool TryGetTypeResponse(int agentIndex, out int behaviourIndex, out float typeResponse) {
             behaviourIndex = BehaviourIds[agentIndex];
 
-            if ((uint)behaviourIndex >= (uint)BehaviourAttractionWeight.Length) {
+            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
                 typeResponse = 0f;
                 return false;
             }
 
-            typeResponse = BehaviourAttractionWeight[behaviourIndex];
+            typeResponse = BehaviourSettings[behaviourIndex].AttractionWeight;
 
             return typeResponse > 0.0f
                    && CellToIndividualAttractor.IsCreated
@@ -138,12 +127,18 @@ namespace Flock.Runtime.Jobs {
         }
 
         private bool ShouldIgnoreAttractorDueToDepthConflict(int behaviourIndex, in FlockAttractorData data) {
-            if (!HasPreferredDepthData(behaviourIndex) || BehaviourUsePreferredDepth[behaviourIndex] == 0) {
+            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
                 return false;
             }
 
-            float preferredMinimum = BehaviourPreferredDepthMin[behaviourIndex];
-            float preferredMaximum = BehaviourPreferredDepthMax[behaviourIndex];
+            FlockBehaviourSettings b = BehaviourSettings[behaviourIndex];
+
+            if (b.UsePreferredDepth == 0) {
+                return false;
+            }
+
+            float preferredMinimum = b.PreferredDepthMinNorm;
+            float preferredMaximum = b.PreferredDepthMaxNorm;
 
             float attractorMinimum = data.DepthMinNorm;
             float attractorMaximum = data.DepthMaxNorm;
@@ -156,21 +151,9 @@ namespace Flock.Runtime.Jobs {
 
             const float MinimumOverlap = 0.001f;
 
-            bool depthWins =
-                BehaviourDepthWinsOverAttractor.IsCreated
-                && BehaviourDepthWinsOverAttractor.Length > behaviourIndex
-                && BehaviourDepthWinsOverAttractor[behaviourIndex] != 0;
+            bool depthWins = b.DepthWinsOverAttractor != 0;
 
             return (overlapMaximum - overlapMinimum) <= MinimumOverlap && depthWins;
-        }
-
-        private bool HasPreferredDepthData(int behaviourIndex) {
-            return BehaviourUsePreferredDepth.IsCreated
-                   && BehaviourPreferredDepthMin.IsCreated
-                   && BehaviourPreferredDepthMax.IsCreated
-                   && BehaviourUsePreferredDepth.Length > behaviourIndex
-                   && BehaviourPreferredDepthMin.Length > behaviourIndex
-                   && BehaviourPreferredDepthMax.Length > behaviourIndex;
         }
 
         private static void NormaliseBand(ref float minimum, ref float maximum) {

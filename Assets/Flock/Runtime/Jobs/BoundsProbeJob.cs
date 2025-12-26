@@ -13,7 +13,6 @@ namespace Flock.Runtime.Jobs {
      */
     [BurstCompile]
     public struct BoundsProbeJob : IJobParallelFor {
-        // Inputs
         [ReadOnly]
         public NativeArray<float3> Positions;
 
@@ -21,12 +20,11 @@ namespace Flock.Runtime.Jobs {
         public NativeArray<int> BehaviourIds;
 
         [ReadOnly]
-        public NativeArray<float> BehaviourSeparationRadius;
+        public NativeArray<FlockBehaviourSettings> BehaviourSettings;
 
         [ReadOnly]
         public FlockEnvironmentData EnvironmentData;
 
-        // Outputs
         [WriteOnly]
         public NativeArray<float3> WallDirections;
 
@@ -57,13 +55,12 @@ namespace Flock.Runtime.Jobs {
         private bool TryGetSeparationMargin(int index, out float margin) {
             int behaviourIndex = BehaviourIds[index];
 
-            if ((uint)behaviourIndex >= (uint)BehaviourSeparationRadius.Length) {
+            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
                 margin = 0f;
                 return false;
             }
 
-            // Use separation radius as "danger margin" near the boundary.
-            float separationRadius = math.max(BehaviourSeparationRadius[behaviourIndex], 0.01f);
+            float separationRadius = math.max(BehaviourSettings[behaviourIndex].SeparationRadius, 0.01f);
             margin = separationRadius;
             return true;
         }
@@ -160,12 +157,11 @@ namespace Flock.Runtime.Jobs {
             float distanceSquared = math.lengthsq(offset);
 
             if (distanceSquared < 1e-8f) {
-                // At center: no meaningful wall direction.
                 return;
             }
 
             float distance = math.sqrt(distanceSquared);
-            float distanceToSurface = radius - distance; // >0 inside, <0 outside
+            float distanceToSurface = radius - distance;
 
             if (distanceToSurface >= margin) {
                 return;
@@ -183,7 +179,6 @@ namespace Flock.Runtime.Jobs {
             WallDangers[index] = t;
         }
 
-        // Adds contribution of a single wall side to accumulatedDirection/maximumDanger.
         private void AccumulateWallContribution(
             float positionComponent,
             float wallMinimum,

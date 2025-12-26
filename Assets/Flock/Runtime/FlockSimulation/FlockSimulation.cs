@@ -19,17 +19,10 @@ namespace Flock.Runtime {
         NativeArray<float3> prevVelocities;
         // NEW: per-behaviour bounds response
 
-        NativeArray<float> behaviourBoundsWeight;               // radial push
-        NativeArray<float> behaviourBoundsTangentialDamping;    // kill sliding
-        NativeArray<float> behaviourBoundsInfluenceSuppression; // how much to mute flocking near walls
 
         NativeArray<float3> wallDirections; // inward normal(s) near walls
         NativeArray<float> wallDangers;     // 0..1 (or a bit >1 if outside)
 
-        NativeArray<float> behaviourWanderStrength;
-        NativeArray<float> behaviourWanderFrequency;
-        NativeArray<float> behaviourGroupNoiseStrength;
-        NativeArray<float> behaviourPatternWeight;
         NativeArray<float3> patternSteering;
 
         NativeArray<float3> cellGroupNoise;  // NEW: per-cell group noise direction
@@ -64,57 +57,19 @@ namespace Flock.Runtime {
         readonly List<FlockLayer3PatternBoxShell> runtimeBoxShells = new List<FlockLayer3PatternBoxShell>(16);
         readonly Stack<int> runtimeBoxShellFree = new Stack<int>(16);
 
+        // Per-agent behaviour id
         NativeArray<int> behaviourIds;
-        NativeArray<float> behaviourMaxSpeed;
-        NativeArray<float> behaviourMaxAcceleration;
-        NativeArray<float> behaviourDesiredSpeed;
-        NativeArray<float> behaviourNeighbourRadius;
-        NativeArray<float> behaviourSeparationRadius;
-        NativeArray<float> behaviourAlignmentWeight;
-        NativeArray<float> behaviourCohesionWeight;
-        NativeArray<float> behaviourSeparationWeight;
-        NativeArray<float> behaviourInfluenceWeight;
-        NativeArray<float> behaviourLeadershipWeight;
-        NativeArray<uint> behaviourGroupMask;
-        NativeArray<float> behaviourGroupFlowWeight;
 
+        // Per-behaviour parameter block (Phase 1)
+        NativeArray<FlockBehaviourSettings> behaviourSettings;
 
-        NativeArray<float> behaviourAvoidanceWeight;   // ADD
-        NativeArray<float> behaviourNeutralWeight;     // ADD
-        NativeArray<uint> behaviourAvoidMask;          // ADD
-        NativeArray<uint> behaviourNeutralMask;        // ADD
+        // Derived per-behaviour runtime param (kept separate on purpose)
+        NativeArray<int> behaviourCellSearchRadius;
+
         NativeArray<FlockObstacleData> obstacles;
         NativeArray<float3> obstacleSteering;
-        NativeArray<float> behaviourAvoidResponse;
-        NativeArray<float> behaviourAttractionWeight;
-        NativeArray<float> behaviourSplitPanicThreshold; // NEW
-        NativeArray<float> behaviourSplitLateralWeight;  // NEW
-        NativeArray<float> behaviourSplitAccelBoost;
+
         // Grouping behaviour
-        NativeArray<int> behaviourMinGroupSize;
-        NativeArray<int> behaviourMaxGroupSize;
-        NativeArray<float> behaviourGroupRadiusMultiplier;
-        NativeArray<float> behaviourLonerRadiusMultiplier;
-        NativeArray<float> behaviourLonerCohesionBoost;
-        NativeArray<float> behaviourMinGroupSizeWeight;
-        NativeArray<float> behaviourMaxGroupSizeWeight;
-        NativeArray<byte> behaviourUsePreferredDepth;
-        NativeArray<float> behaviourDepthBiasStrength;
-        NativeArray<byte> behaviourDepthWinsOverAttractor;
-        NativeArray<float> behaviourPreferredDepthMinNorm;
-        NativeArray<float> behaviourPreferredDepthMaxNorm;
-        NativeArray<float> behaviourPreferredDepthWeight;
-        NativeArray<float> behaviourPreferredDepthEdgeFraction;
-        NativeArray<float> behaviourBodyRadius;
-        NativeArray<int> behaviourCellSearchRadius;
-        NativeArray<float> behaviourSchoolSpacingFactor;
-        NativeArray<float> behaviourSchoolOuterFactor;
-        NativeArray<float> behaviourSchoolStrength;
-        NativeArray<float> behaviourSchoolInnerSoftness;
-        NativeArray<float> behaviourSchoolDeadzoneFraction;
-        NativeArray<float> behaviourSchoolRadialDamping;   // NEW
-        NativeArray<float> behaviourGroupNoiseDirectionRate;
-        NativeArray<float> behaviourGroupNoiseSpeedWeight;
         NativeArray<int> cellAgentStarts;      // per cell: start index into cellAgentPairs
         NativeArray<int> cellAgentCounts;      // per cell: number of entries
         NativeArray<CellAgentPair> cellAgentPairs; // packed (CellId, AgentIndex), sorted by CellId
@@ -137,10 +92,6 @@ namespace Flock.Runtime {
         NativeArray<int> cellToGroupAttractor;
         NativeArray<float> cellIndividualPriority;
         NativeArray<float> cellGroupPriority;
-
-        NativeArray<int> behaviourMaxNeighbourChecks;
-        NativeArray<int> behaviourMaxFriendlySamples;
-        NativeArray<int> behaviourMaxSeparationSamples;
 
         int obstacleCount;
         int gridCellCount;
@@ -621,7 +572,7 @@ namespace Flock.Runtime {
             var buildCellIdsJob = new AssignToGridJob {
                 Positions = positions,
                 BehaviourIds = behaviourIds,
-                BehaviourBodyRadius = behaviourBodyRadius,
+                BehaviourSettings = behaviourSettings,
 
                 CellSize = environmentData.CellSize,
                 GridOrigin = environmentData.GridOrigin,
@@ -678,11 +629,13 @@ namespace Flock.Runtime {
             var boundsJob = new BoundsProbeJob {
                 Positions = positions,
                 BehaviourIds = behaviourIds,
-                BehaviourSeparationRadius = behaviourSeparationRadius,
+                BehaviourSettings = behaviourSettings,
+
                 EnvironmentData = environmentData,
                 WallDirections = wallDirections,
                 WallDangers = wallDangers,
             };
+
 
             return boundsJob.Schedule(AgentCount, 64, deps);
         }
@@ -707,9 +660,7 @@ namespace Flock.Runtime {
                 Velocities = velRead,
 
                 BehaviourIds = behaviourIds,
-                BehaviourMaxSpeed = behaviourMaxSpeed,
-                BehaviourMaxAcceleration = behaviourMaxAcceleration,
-                BehaviourSeparationRadius = behaviourSeparationRadius,
+                BehaviourSettings = behaviourSettings,
 
                 Obstacles = obstacles,
                 CellToObstacles = cellToObstacles,
@@ -744,7 +695,6 @@ namespace Flock.Runtime {
                 BehaviourIds = behaviourIds,
 
                 Attractors = attractors,
-                BehaviourAttractionWeight = behaviourAttractionWeight,
 
                 CellToIndividualAttractor = cellToIndividualAttractor,
 
@@ -753,11 +703,7 @@ namespace Flock.Runtime {
                 CellSize = environmentData.CellSize,
 
                 AttractionSteering = attractionSteering,
-
-                BehaviourUsePreferredDepth = behaviourUsePreferredDepth,
-                BehaviourPreferredDepthMin = behaviourPreferredDepthMinNorm,
-                BehaviourPreferredDepthMax = behaviourPreferredDepthMaxNorm,
-                BehaviourDepthWinsOverAttractor = behaviourDepthWinsOverAttractor,
+                BehaviourSettings = behaviourSettings,
             };
 
             return attractionJob.Schedule(AgentCount, 64, attractionDeps);
@@ -1028,80 +974,13 @@ namespace Flock.Runtime {
                 WallDirections = wallDirections,
                 WallDangers = wallDangers,
 
-                // Per-behaviour bounds response
-                BehaviourBoundsWeight = behaviourBoundsWeight,
-                BehaviourBoundsTangentialDamping = behaviourBoundsTangentialDamping,
-                BehaviourBoundsInfluenceSuppression = behaviourBoundsInfluenceSuppression,
-
                 // Per-agent behaviour index
                 BehaviourIds = behaviourIds,
 
-                BehaviourBodyRadius = behaviourBodyRadius,
-                BehaviourSchoolSpacingFactor = behaviourSchoolSpacingFactor,
-                BehaviourSchoolOuterFactor = behaviourSchoolOuterFactor,
-                BehaviourSchoolStrength = behaviourSchoolStrength,
-                BehaviourSchoolInnerSoftness = behaviourSchoolInnerSoftness,
-                BehaviourSchoolDeadzoneFraction = behaviourSchoolDeadzoneFraction,
+                // Phase 1: per-behaviour parameter block (replaces all BehaviourXxx arrays)
+                BehaviourSettings = behaviourSettings,
 
-                // Movement + neighbour radii
-                BehaviourMaxSpeed = behaviourMaxSpeed,
-                BehaviourMaxAcceleration = behaviourMaxAcceleration,
-                BehaviourDesiredSpeed = behaviourDesiredSpeed,
-                BehaviourNeighbourRadius = behaviourNeighbourRadius,
-                BehaviourSeparationRadius = behaviourSeparationRadius,
-
-                // Classic boids weights
-                BehaviourAlignmentWeight = behaviourAlignmentWeight,
-                BehaviourCohesionWeight = behaviourCohesionWeight,
-                BehaviourSeparationWeight = behaviourSeparationWeight,
-                BehaviourInfluenceWeight = behaviourInfluenceWeight,
-                BehaviourGroupFlowWeight = behaviourGroupFlowWeight,
-
-                // Cross-type relations
-                BehaviourAvoidanceWeight = behaviourAvoidanceWeight,
-                BehaviourNeutralWeight = behaviourNeutralWeight,
-                BehaviourAvoidMask = behaviourAvoidMask,
-                BehaviourNeutralMask = behaviourNeutralMask,
-
-                // Leadership / grouping masks
-                BehaviourLeadershipWeight = behaviourLeadershipWeight,
-                BehaviourGroupMask = behaviourGroupMask,
-
-                // Avoidance response + split behaviour
-                BehaviourAvoidResponse = behaviourAvoidResponse,
-                BehaviourSplitPanicThreshold = behaviourSplitPanicThreshold,
-                BehaviourSplitLateralWeight = behaviourSplitLateralWeight,
-                BehaviourSplitAccelBoost = behaviourSplitAccelBoost,
-
-                // Group size / loner / crowding
-                BehaviourMinGroupSize = behaviourMinGroupSize,
-                BehaviourMaxGroupSize = behaviourMaxGroupSize,
-                BehaviourGroupRadiusMultiplier = behaviourGroupRadiusMultiplier,
-                BehaviourLonerRadiusMultiplier = behaviourLonerRadiusMultiplier,
-                BehaviourLonerCohesionBoost = behaviourLonerCohesionBoost,
-                BehaviourMinGroupSizeWeight = behaviourMinGroupSizeWeight,
-                BehaviourMaxGroupSizeWeight = behaviourMaxGroupSizeWeight,
-
-                // Preferred depth (normalised)
-                BehaviourUsePreferredDepth = behaviourUsePreferredDepth,
-                BehaviourDepthBiasStrength = behaviourDepthBiasStrength,
-                BehaviourPreferredDepthMinNorm = behaviourPreferredDepthMinNorm,
-                BehaviourPreferredDepthMaxNorm = behaviourPreferredDepthMaxNorm,
-                BehaviourPreferredDepthWeight = behaviourPreferredDepthWeight,
-                BehaviourPreferredDepthEdgeFraction = behaviourPreferredDepthEdgeFraction,
-                BehaviourSchoolRadialDamping = behaviourSchoolRadialDamping,
-
-                // Noise per behaviour
-                BehaviourWanderStrength = behaviourWanderStrength,
-                BehaviourWanderFrequency = behaviourWanderFrequency,
-                BehaviourGroupNoiseStrength = behaviourGroupNoiseStrength,
-                BehaviourPatternWeight = behaviourPatternWeight,
-
-                // Group noise extra
-                BehaviourGroupNoiseDirectionRate = behaviourGroupNoiseDirectionRate,
-                BehaviourGroupNoiseSpeedWeight = behaviourGroupNoiseSpeedWeight,
-
-                // Neighbour search + dedup
+                // Keep as derived per-behaviour runtime param
                 BehaviourCellSearchRadius = behaviourCellSearchRadius,
 
                 // Spatial grid
@@ -1135,11 +1014,8 @@ namespace Flock.Runtime {
                 UseAttraction = useAttraction,
                 GlobalAttractionWeight = DefaultAttractionWeight,
                 AttractionSteering = attractionSteering,
-
-                BehaviourMaxNeighbourChecks = behaviourMaxNeighbourChecks,
-                BehaviourMaxFriendlySamples = behaviourMaxFriendlySamples,
-                BehaviourMaxSeparationSamples = behaviourMaxSeparationSamples,
             };
+
 
             return flockJob.Schedule(AgentCount, 64, deps);
         }
@@ -1170,68 +1046,8 @@ namespace Flock.Runtime {
             DisposeArray(ref wallDirections);
             DisposeArray(ref wallDangers);
 
-            DisposeArray(ref behaviourMaxSpeed);
-            DisposeArray(ref behaviourMaxAcceleration);
-            DisposeArray(ref behaviourDesiredSpeed);
-            DisposeArray(ref behaviourNeighbourRadius);
-            DisposeArray(ref behaviourSeparationRadius);
-            DisposeArray(ref behaviourAlignmentWeight);
-            DisposeArray(ref behaviourCohesionWeight);
-            DisposeArray(ref behaviourSeparationWeight);
-            DisposeArray(ref behaviourInfluenceWeight);
-            DisposeArray(ref behaviourLeadershipWeight);
-            DisposeArray(ref behaviourGroupMask);
-            DisposeArray(ref behaviourGroupFlowWeight);
-
-            DisposeArray(ref behaviourBoundsWeight);
-            DisposeArray(ref behaviourBoundsTangentialDamping);
-            DisposeArray(ref behaviourBoundsInfluenceSuppression);
-
-            DisposeArray(ref behaviourAvoidanceWeight);
-            DisposeArray(ref behaviourNeutralWeight);
-            DisposeArray(ref behaviourAttractionWeight);
-            DisposeArray(ref behaviourAvoidResponse);
-            DisposeArray(ref behaviourAvoidMask);
-            DisposeArray(ref behaviourNeutralMask);
-
-            DisposeArray(ref behaviourPreferredDepthMinNorm);
-            DisposeArray(ref behaviourPreferredDepthMaxNorm);
-            DisposeArray(ref behaviourPreferredDepthWeight);
-
             DisposeArray(ref obstacles);
             DisposeArray(ref obstacleSteering);
-
-            DisposeArray(ref behaviourSplitPanicThreshold);
-            DisposeArray(ref behaviourSplitLateralWeight);
-            DisposeArray(ref behaviourSplitAccelBoost);
-
-            DisposeArray(ref behaviourSchoolSpacingFactor);
-            DisposeArray(ref behaviourSchoolOuterFactor);
-            DisposeArray(ref behaviourSchoolStrength);
-            DisposeArray(ref behaviourSchoolInnerSoftness);
-            DisposeArray(ref behaviourSchoolDeadzoneFraction);
-
-            DisposeArray(ref behaviourMinGroupSize);
-            DisposeArray(ref behaviourMaxGroupSize);
-            DisposeArray(ref behaviourGroupRadiusMultiplier);
-            DisposeArray(ref behaviourLonerRadiusMultiplier);
-            DisposeArray(ref behaviourLonerCohesionBoost);
-
-            DisposeArray(ref behaviourUsePreferredDepth);
-            DisposeArray(ref behaviourDepthBiasStrength);
-            DisposeArray(ref behaviourDepthWinsOverAttractor);
-            DisposeArray(ref behaviourPreferredDepthEdgeFraction);
-            DisposeArray(ref behaviourSchoolRadialDamping);
-
-            DisposeArray(ref behaviourBodyRadius);
-            DisposeArray(ref behaviourCellSearchRadius);
-            DisposeArray(ref behaviourMinGroupSizeWeight);
-            DisposeArray(ref behaviourMaxGroupSizeWeight);
-
-            DisposeArray(ref behaviourWanderStrength);
-            DisposeArray(ref behaviourWanderFrequency);
-            DisposeArray(ref behaviourGroupNoiseStrength);
-            DisposeArray(ref behaviourPatternWeight);
 
             DisposeArray(ref patternSteering);
 
@@ -1261,12 +1077,8 @@ namespace Flock.Runtime {
             DisposeArray(ref cellGroupPriority);
             DisposeArray(ref cellGroupNoise);
 
-            DisposeArray(ref behaviourGroupNoiseDirectionRate);
-            DisposeArray(ref behaviourGroupNoiseSpeedWeight);
-
-            DisposeArray(ref behaviourMaxNeighbourChecks);
-            DisposeArray(ref behaviourMaxFriendlySamples);
-            DisposeArray(ref behaviourMaxSeparationSamples);
+            DisposeArray(ref behaviourSettings);
+            DisposeArray(ref behaviourCellSearchRadius);
 
             AgentCount = 0;
 

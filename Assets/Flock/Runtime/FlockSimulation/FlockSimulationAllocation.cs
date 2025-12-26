@@ -49,104 +49,55 @@ namespace Flock.Runtime {
         void AllocateBehaviourArrays(NativeArray<FlockBehaviourSettings> settings, Allocator allocator) {
             int behaviourCount = settings.Length;
 
-            behaviourMaxSpeed = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourMaxAcceleration = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourDesiredSpeed = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourNeighbourRadius = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourSeparationRadius = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourAlignmentWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourCohesionWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourSeparationWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourInfluenceWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourLeadershipWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourGroupMask = new NativeArray<uint>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourGroupFlowWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourSettings = new NativeArray<FlockBehaviourSettings>(
+                behaviourCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
 
-            behaviourAvoidanceWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourNeutralWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourAttractionWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourAvoidResponse = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourAvoidMask = new NativeArray<uint>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourNeutralMask = new NativeArray<uint>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            behaviourCellSearchRadius = new NativeArray<int>(
+                behaviourCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
 
-            behaviourSplitPanicThreshold = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourSplitLateralWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourSplitAccelBoost = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-
-            behaviourMinGroupSize = new NativeArray<int>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourMaxGroupSize = new NativeArray<int>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourGroupRadiusMultiplier = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourLonerRadiusMultiplier = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourLonerCohesionBoost = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourMinGroupSizeWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourMaxGroupSizeWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-
-            behaviourUsePreferredDepth = new NativeArray<byte>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourDepthBiasStrength = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourDepthWinsOverAttractor = new NativeArray<byte>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-
-            behaviourPreferredDepthMinNorm = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourPreferredDepthMaxNorm = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourPreferredDepthWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourPreferredDepthEdgeFraction = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-
-            behaviourCellSearchRadius = new NativeArray<int>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-
-            behaviourBodyRadius = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourSchoolSpacingFactor = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourSchoolOuterFactor = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourSchoolStrength = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourSchoolInnerSoftness = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourSchoolDeadzoneFraction = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourSchoolRadialDamping = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-
-            behaviourWanderStrength = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourWanderFrequency = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourGroupNoiseStrength = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourPatternWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-
-            behaviourGroupNoiseDirectionRate = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourGroupNoiseSpeedWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-
-            behaviourBoundsWeight = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourBoundsTangentialDamping = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourBoundsInfluenceSuppression = new NativeArray<float>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-
-            behaviourMaxNeighbourChecks = new NativeArray<int>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourMaxFriendlySamples = new NativeArray<int>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
-            behaviourMaxSeparationSamples = new NativeArray<int>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
+            float cellSize = math.max(environmentData.CellSize, 0.0001f);
 
             for (int index = 0; index < behaviourCount; index += 1) {
-                FlockBehaviourSettings behaviour = settings[index];
+                // Copy authored snapshot
+                FlockBehaviourSettings b = settings[index];
 
-                behaviourMaxSpeed[index] = behaviour.MaxSpeed;
-                behaviourMaxAcceleration[index] = behaviour.MaxAcceleration;
-                behaviourDesiredSpeed[index] = behaviour.DesiredSpeed;
+                // Preserve the exact clamps you were applying via the SoA arrays
+                b.BodyRadius = math.max(0f, b.BodyRadius);
 
-                behaviourBodyRadius[index] = math.max(0f, behaviour.BodyRadius);
+                b.SchoolingSpacingFactor = math.max(0.5f, b.SchoolingSpacingFactor);
+                b.SchoolingOuterFactor = math.max(1f, b.SchoolingOuterFactor);
+                b.SchoolingStrength = math.max(0f, b.SchoolingStrength);
+                b.SchoolingInnerSoftness = math.clamp(b.SchoolingInnerSoftness, 0f, 1f);
+                b.SchoolingDeadzoneFraction = math.clamp(b.SchoolingDeadzoneFraction, 0f, 0.5f);
+                b.SchoolingRadialDamping = math.max(0f, b.SchoolingRadialDamping);
 
-                behaviourSchoolSpacingFactor[index] = math.max(0.5f, behaviour.SchoolingSpacingFactor);
-                behaviourSchoolOuterFactor[index] = math.max(1f, behaviour.SchoolingOuterFactor);
-                behaviourSchoolStrength[index] = math.max(0f, behaviour.SchoolingStrength);
-                behaviourSchoolInnerSoftness[index] = math.clamp(behaviour.SchoolingInnerSoftness, 0f, 1f);
-                behaviourSchoolDeadzoneFraction[index] = math.clamp(behaviour.SchoolingDeadzoneFraction, 0f, 0.5f);
-                behaviourSchoolRadialDamping[index] = math.max(0f, behaviour.SchoolingRadialDamping);
+                b.BoundsWeight = math.max(0f, b.BoundsWeight);
+                b.BoundsTangentialDamping = math.max(0f, b.BoundsTangentialDamping);
+                b.BoundsInfluenceSuppression = math.max(0f, b.BoundsInfluenceSuppression);
 
-                behaviourBoundsWeight[index] = math.max(0f, behaviour.BoundsWeight);
-                behaviourBoundsTangentialDamping[index] = math.max(0f, behaviour.BoundsTangentialDamping);
-                behaviourBoundsInfluenceSuppression[index] = math.max(0f, behaviour.BoundsInfluenceSuppression);
+                b.WanderStrength = math.max(0f, b.WanderStrength);
+                b.WanderFrequency = math.max(0f, b.WanderFrequency);
 
-                behaviourWanderStrength[index] = math.max(0f, behaviour.WanderStrength);
-                behaviourWanderFrequency[index] = math.max(0f, behaviour.WanderFrequency);
+                b.GroupNoiseStrength = math.max(0f, b.GroupNoiseStrength);
+                b.GroupNoiseDirectionRate = math.max(0f, b.GroupNoiseDirectionRate);
+                b.GroupNoiseSpeedWeight = math.max(0f, b.GroupNoiseSpeedWeight);
 
-                behaviourGroupNoiseStrength[index] = math.max(0f, behaviour.GroupNoiseStrength);
-                behaviourGroupNoiseDirectionRate[index] = math.max(0f, behaviour.GroupNoiseDirectionRate);
-                behaviourGroupNoiseSpeedWeight[index] = math.max(0f, behaviour.GroupNoiseSpeedWeight);
+                b.PatternWeight = math.max(0f, b.PatternWeight);
 
-                behaviourPatternWeight[index] = math.max(0f, behaviour.PatternWeight);
+                b.GroupFlowWeight = math.max(0f, b.GroupFlowWeight);
 
-                float cellSize = math.max(environmentData.CellSize, 0.0001f);
-                float viewRadius = math.max(0f, behaviour.NeighbourRadius);
+                b.UsePreferredDepth = b.UsePreferredDepth != 0 ? (byte)1 : (byte)0;
+                b.DepthWinsOverAttractor = b.DepthWinsOverAttractor != 0 ? (byte)1 : (byte)0;
+
+                // Store
+                behaviourSettings[index] = b;
+
+                // Derived runtime param (avoid recomputing per-frame)
+                float viewRadius = math.max(0f, b.NeighbourRadius);
 
                 int cellRange = (int)math.ceil(viewRadius / cellSize);
                 if (cellRange < 1) {
@@ -154,52 +105,6 @@ namespace Flock.Runtime {
                 }
 
                 behaviourCellSearchRadius[index] = cellRange;
-
-                behaviourNeighbourRadius[index] = behaviour.NeighbourRadius;
-                behaviourSeparationRadius[index] = behaviour.SeparationRadius;
-
-                behaviourAlignmentWeight[index] = behaviour.AlignmentWeight;
-                behaviourCohesionWeight[index] = behaviour.CohesionWeight;
-                behaviourSeparationWeight[index] = behaviour.SeparationWeight;
-
-                behaviourInfluenceWeight[index] = behaviour.InfluenceWeight;
-                behaviourGroupFlowWeight[index] = behaviour.GroupFlowWeight;
-
-                behaviourLeadershipWeight[index] = behaviour.LeadershipWeight;
-                behaviourGroupMask[index] = behaviour.GroupMask;
-
-                behaviourAvoidanceWeight[index] = behaviour.AvoidanceWeight;
-                behaviourNeutralWeight[index] = behaviour.NeutralWeight;
-                behaviourAttractionWeight[index] = behaviour.AttractionWeight;
-                behaviourAvoidResponse[index] = behaviour.AvoidResponse;
-
-                behaviourAvoidMask[index] = behaviour.AvoidMask;
-                behaviourNeutralMask[index] = behaviour.NeutralMask;
-
-                behaviourSplitPanicThreshold[index] = behaviour.SplitPanicThreshold;
-                behaviourSplitLateralWeight[index] = behaviour.SplitLateralWeight;
-                behaviourSplitAccelBoost[index] = behaviour.SplitAccelBoost;
-
-                behaviourMinGroupSize[index] = behaviour.MinGroupSize;
-                behaviourMaxGroupSize[index] = behaviour.MaxGroupSize;
-                behaviourGroupRadiusMultiplier[index] = behaviour.GroupRadiusMultiplier;
-                behaviourLonerRadiusMultiplier[index] = behaviour.LonerRadiusMultiplier;
-                behaviourLonerCohesionBoost[index] = behaviour.LonerCohesionBoost;
-                behaviourMinGroupSizeWeight[index] = behaviour.MinGroupSizeWeight;
-                behaviourMaxGroupSizeWeight[index] = behaviour.MaxGroupSizeWeight;
-
-                behaviourUsePreferredDepth[index] = behaviour.UsePreferredDepth != 0 ? (byte)1 : (byte)0;
-                behaviourDepthBiasStrength[index] = behaviour.DepthBiasStrength;
-                behaviourDepthWinsOverAttractor[index] = behaviour.DepthWinsOverAttractor != 0 ? (byte)1 : (byte)0;
-
-                behaviourPreferredDepthMinNorm[index] = behaviour.PreferredDepthMinNorm;
-                behaviourPreferredDepthMaxNorm[index] = behaviour.PreferredDepthMaxNorm;
-                behaviourPreferredDepthWeight[index] = behaviour.PreferredDepthWeight;
-                behaviourPreferredDepthEdgeFraction[index] = behaviour.PreferredDepthEdgeFraction;
-
-                behaviourMaxNeighbourChecks[index] = behaviour.MaxNeighbourChecks;
-                behaviourMaxFriendlySamples[index] = behaviour.MaxFriendlySamples;
-                behaviourMaxSeparationSamples[index] = behaviour.MaxSeparationSamples;
             }
         }
 
@@ -228,9 +133,9 @@ namespace Flock.Runtime {
                 float cellSizeSafe = math.max(environmentData.CellSize, 0.0001f);
 
                 float maxBodyRadius = 0f;
-                if (behaviourBodyRadius.IsCreated && behaviourBodyRadius.Length > 0) {
-                    for (int i = 0; i < behaviourBodyRadius.Length; i += 1) {
-                        maxBodyRadius = math.max(maxBodyRadius, behaviourBodyRadius[i]);
+                if (behaviourSettings.IsCreated && behaviourSettings.Length > 0) {
+                    for (int i = 0; i < behaviourSettings.Length; i += 1) {
+                        maxBodyRadius = math.max(maxBodyRadius, behaviourSettings[i].BodyRadius);
                     }
                 }
 
@@ -318,8 +223,8 @@ namespace Flock.Runtime {
             Unity.Mathematics.Random random = new Unity.Mathematics.Random(1234567u);
 
             float baseSpeed = 1.0f;
-            if (behaviourMaxSpeed.IsCreated && behaviourMaxSpeed.Length > 0) {
-                baseSpeed = math.max(0.1f, behaviourMaxSpeed[0] * 0.5f);
+            if (behaviourSettings.IsCreated && behaviourSettings.Length > 0) {
+                baseSpeed = math.max(0.1f, behaviourSettings[0].MaxSpeed * 0.5f);
             }
 
             for (int index = 0; index < AgentCount; index += 1) {
