@@ -50,11 +50,11 @@ MonoBehaviour:
   maxGroupSize: 200
   minGroupSizeWeight: 3
   maxGroupSizeWeight: 3
-  usePreferredDepth: 0
+  usePreferredDepth: 1
   preferredDepthMin: 0
   preferredDepthMax: 0.4
-  preferredDepthWeight: 0.8
-  depthBiasStrength: 0.2
+  preferredDepthWeight: 100
+  depthBiasStrength: 50
   depthWinsOverAttractor: 1
   groupRadiusMultiplier: 1
   lonerRadiusMultiplier: 1

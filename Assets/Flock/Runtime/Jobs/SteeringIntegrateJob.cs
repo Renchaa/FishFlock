@@ -1,797 +1,870 @@
 // File: Assets/Flock/Runtime/Jobs/SteeringIntegrateJob.cs
-namespace Flock.Runtime.Jobs {
-    using Flock.Runtime.Data;
-    using Unity.Burst;
-    using Unity.Collections;
-    using Unity.Jobs;
-    using Unity.Mathematics;
 
+using Flock.Runtime.Data;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
+
+namespace Flock.Runtime.Jobs {
+    /**
+    * <summary>
+    * Integrates per-agent steering inputs into final velocity, combining neighbour aggregates, environmental influences,
+    * noise, and behavioural constraints.
+    * </summary>
+    */
     [BurstCompile]
     public struct SteeringIntegrateJob : IJobParallelFor {
-        // Phase 2 input: per-agent neighbour aggregates
-        [ReadOnly] public NativeArray<NeighbourAggregate> NeighbourAggregates;
+        [ReadOnly]
+        public NativeArray<NeighbourAggregate> NeighbourAggregates;
 
-        // Bounds probe outputs (per-agent)
-        [ReadOnly] public NativeArray<float3> WallDirections;
-        [ReadOnly] public NativeArray<float> WallDangers;
+        [ReadOnly]
+        public NativeArray<float3> WallDirections;
 
-        // Core agent data
-        [ReadOnly] public NativeArray<float3> Positions;
-        [ReadOnly] public NativeArray<float3> PrevVelocities;
-        [NativeDisableParallelForRestriction] public NativeArray<float3> Velocities;
+        [ReadOnly]
+        public NativeArray<float> WallDangers;
 
-        // Behaviour
-        [ReadOnly] public NativeArray<int> BehaviourIds;
-        [ReadOnly] public NativeArray<FlockBehaviourSettings> BehaviourSettings;
+        [ReadOnly]
+        public NativeArray<float3> Positions;
 
-        // Grid params (still needed for group-noise cell lookup)
-        [ReadOnly] public float3 GridOrigin;
-        [ReadOnly] public int3 GridResolution;
-        [ReadOnly] public float CellSize;
+        [ReadOnly]
+        public NativeArray<float3> PrevVelocities;
 
-        // Environment + timestep
-        [ReadOnly] public FlockEnvironmentData EnvironmentData;
-        [ReadOnly] public float DeltaTime;
+        [NativeDisableParallelForRestriction]
+        public NativeArray<float3> Velocities;
 
-        // Obstacles
-        [ReadOnly] public bool UseObstacleAvoidance;
-        [ReadOnly] public float ObstacleAvoidWeight;
-        [ReadOnly] public NativeArray<float3> ObstacleSteering;
+        [ReadOnly]
+        public NativeArray<int> BehaviourIds;
 
-        // Attraction
-        [ReadOnly] public bool UseAttraction;
-        [ReadOnly] public float GlobalAttractionWeight;
-        [ReadOnly] public NativeArray<float3> AttractionSteering;
+        [ReadOnly]
+        public NativeArray<FlockBehaviourSettings> BehaviourSettings;
 
-        // Noise + pattern
-        [ReadOnly] public NativeArray<float3> PatternSteering;
-        [ReadOnly] public NativeArray<float3> CellGroupNoise;
+        [ReadOnly]
+        public float3 GridOrigin;
 
-        [ReadOnly] public float NoiseTime;
-        [ReadOnly] public float GlobalWanderMultiplier;
-        [ReadOnly] public float GlobalGroupNoiseMultiplier;
-        [ReadOnly] public float GlobalPatternMultiplier;
+        [ReadOnly]
+        public int3 GridResolution;
 
-        public void Execute(int index) {
-            if (!TryLoadBehaviour(
-                    index,
-                    out float3 position,
-                    out float3 velocity,
-                    out int behaviourIndex,
-                    out FlockBehaviourSettings b)) {
+        [ReadOnly]
+        public float CellSize;
 
-                Velocities[index] = PrevVelocities[index];
+        [ReadOnly]
+        public FlockEnvironmentData EnvironmentData;
+
+        [ReadOnly]
+        public float DeltaTime;
+
+        [ReadOnly]
+        public bool UseObstacleAvoidance;
+
+        [ReadOnly]
+        public float ObstacleAvoidWeight;
+
+        [ReadOnly]
+        public NativeArray<float3> ObstacleSteering;
+
+        [ReadOnly]
+        public bool UseAttraction;
+
+        [ReadOnly]
+        public float GlobalAttractionWeight;
+
+        [ReadOnly]
+        public NativeArray<float3> AttractionSteering;
+
+        [ReadOnly]
+        public NativeArray<float3> PatternSteering;
+
+        [ReadOnly]
+        public NativeArray<float3> CellGroupNoise;
+
+        [ReadOnly]
+        public float NoiseTime;
+
+        [ReadOnly]
+        public float GlobalWanderMultiplier;
+
+        [ReadOnly]
+        public float GlobalGroupNoiseMultiplier;
+
+        [ReadOnly]
+        public float GlobalPatternMultiplier;
+
+        public void Execute(int agentIndex) {
+            if (!TryLoadBehaviourContext(agentIndex, out BehaviourContext behaviourContext)) {
+                Velocities[agentIndex] = PrevVelocities[agentIndex];
                 return;
             }
 
-            // --- Load neighbour aggregates (Phase 2) ---
-            NeighbourAggregate agg = default;
-            if (NeighbourAggregates.IsCreated && (uint)index < (uint)NeighbourAggregates.Length) {
-                agg = NeighbourAggregates[index];
+            Velocities[agentIndex] = ComputeFinalVelocity(agentIndex, behaviourContext);
+        }
+
+        private float3 ComputeFinalVelocity(int agentIndex, BehaviourContext behaviourContext) {
+            NeighbourAggregate neighbourAggregate = LoadNeighbourAggregate(agentIndex);
+
+            float maximumSpeed = behaviourContext.BehaviourSettings.MaxSpeed;
+            float maximumAcceleration = behaviourContext.BehaviourSettings.MaxAcceleration;
+
+            float3 steeringAcceleration = ComputeSteeringAcceleration(agentIndex, behaviourContext, neighbourAggregate, ref maximumSpeed, ref maximumAcceleration);
+            float3 integratedVelocity = IntegrateVelocity(behaviourContext.Velocity, steeringAcceleration, maximumSpeed, maximumAcceleration);
+
+            float3 depthAdjustedVelocity = ApplyPreferredDepth(behaviourContext.BehaviourIndex, behaviourContext.Position, integratedVelocity, maximumSpeed);
+            float boundsTangentialDamping = math.max(0f, behaviourContext.BehaviourSettings.BoundsTangentialDamping);
+
+            float3 boundsAdjustedVelocity = ApplyBoundsVelocity(agentIndex, depthAdjustedVelocity, boundsTangentialDamping);
+            return LimitVector(boundsAdjustedVelocity, maximumSpeed);
+        }
+
+        private float3 ComputeSteeringAcceleration(int agentIndex, BehaviourContext behaviourContext, NeighbourAggregate neighbourAggregate, ref float maximumSpeed, ref float maximumAcceleration) {
+            FlockBehaviourSettings behaviourSettings = behaviourContext.BehaviourSettings;
+
+            GetAdjustedFlockWeights(behaviourSettings, neighbourAggregate.FriendlyNeighbourCount, out float alignmentWeight, out float cohesionWeight, out float separationWeight);
+
+            float3 steeringAcceleration = ComputeCoreSteering(behaviourContext, neighbourAggregate, behaviourSettings, alignmentWeight, cohesionWeight, separationWeight);
+            steeringAcceleration = AddGroupFlowSteering(steeringAcceleration, behaviourContext.Velocity, neighbourAggregate, behaviourSettings);
+            steeringAcceleration = ApplySplitBehaviour(agentIndex, steeringAcceleration, behaviourContext.Velocity, neighbourAggregate, behaviourSettings, ref maximumSpeed, ref maximumAcceleration, separationWeight);
+
+            steeringAcceleration = AddObstacleAvoidanceSteering(agentIndex, steeringAcceleration);
+            steeringAcceleration += ComputeAttractionSteering(agentIndex);
+            steeringAcceleration += ComputePropulsionAcceleration(behaviourContext.Velocity, behaviourSettings.DesiredSpeed);
+
+            steeringAcceleration += ComputeNoiseAndPatternSteering(agentIndex, behaviourContext.BehaviourIndex, behaviourContext.Position, behaviourContext.Velocity, maximumAcceleration);
+            steeringAcceleration = ApplyBoundsSteering(agentIndex, steeringAcceleration, maximumAcceleration, behaviourSettings);
+
+            return LimitVector(steeringAcceleration, maximumAcceleration);
+        }
+
+        private static void GetAdjustedFlockWeights(FlockBehaviourSettings behaviourSettings, int friendlyNeighbourCount, out float alignmentWeight, out float cohesionWeight, out float separationWeight) {
+            alignmentWeight = behaviourSettings.AlignmentWeight;
+            cohesionWeight = behaviourSettings.CohesionWeight;
+            separationWeight = behaviourSettings.SeparationWeight;
+
+            if (friendlyNeighbourCount <= 0) {
+                return;
             }
 
-            float maxSpeed = b.MaxSpeed;
-            float maxAcceleration = b.MaxAcceleration;
-
-            float desiredSpeed = b.DesiredSpeed;
-            float alignmentWeight = b.AlignmentWeight;
-            float cohesionWeight = b.CohesionWeight;
-            float separationWeight = b.SeparationWeight;
-
-            float influenceWeight = b.InfluenceWeight;
-            float groupFlowWeight = b.GroupFlowWeight;
-
-            float boundsWeight = math.max(0f, b.BoundsWeight);
-            float boundsTangentialDamping = math.max(0f, b.BoundsTangentialDamping);
-            float boundsInfluenceSuppression = math.max(0f, b.BoundsInfluenceSuppression);
-
-            // --- Aggregates unpack ---
-            float3 alignment = agg.AlignmentSum;
-            float3 cohesion = agg.CohesionSum;
-            float3 separation = agg.SeparationSum;
-            float3 avoidSeparation = agg.AvoidSeparationSum;
-            float3 radialDamping = agg.RadialDamping;
-
-            int leaderNeighbourCount = agg.LeaderNeighbourCount;
-            int separationCount = agg.SeparationCount;
-            int friendlyNeighbourCount = agg.FriendlyNeighbourCount;
-            float alignmentWeightSum = agg.AlignmentWeightSum;
-            float cohesionWeightSum = agg.CohesionWeightSum;
-            float avoidDanger = agg.AvoidDanger;
-
-            // --- 3) Group size logic (loners / overcrowding) ---
             int groupSize = friendlyNeighbourCount + 1;
-
-            int minGroupSize = math.max(1, b.MinGroupSize);
-            int maxGroupSize = b.MaxGroupSize;
-            if (maxGroupSize < minGroupSize) {
-                maxGroupSize = minGroupSize;
-            }
-
-            float lonerCohesionBoost = b.LonerCohesionBoost;
-            float groupRadiusMultiplier = math.max(1f, b.GroupRadiusMultiplier);
-            float lonerRadiusMultiplier = math.max(1f, b.LonerRadiusMultiplier);
-
-            float minGroupWeight = math.max(0f, b.MinGroupSizeWeight);
-            float maxGroupWeight = math.max(0f, b.MaxGroupSizeWeight);
-
-            bool hasFriends = friendlyNeighbourCount > 0;
-            bool isLoner = groupSize < minGroupSize;
-            bool isOvercrowded = maxGroupSize > 0 && groupSize > maxGroupSize;
-
-            if (isLoner && hasFriends) {
-                float lonerFactor = math.max(0f, lonerCohesionBoost);
-                lonerFactor *= lonerRadiusMultiplier;
-                lonerFactor *= minGroupWeight;
-                cohesionWeight *= (1.0f + lonerFactor);
-            }
-
-            if (isOvercrowded && hasFriends) {
-                float crowdFactor = (groupSize - maxGroupSize) / math.max(1f, (float)maxGroupSize);
-                crowdFactor = math.saturate(crowdFactor);
-
-                crowdFactor *= groupRadiusMultiplier;
-                crowdFactor *= maxGroupWeight;
-
-                separationWeight *= (1.0f + crowdFactor);
-                cohesionWeight *= (1.0f - 0.5f * crowdFactor);
-            }
-
-            // --- 4) Core flock steering (Boids rules) ---
-            float separationPanicMultiplier = 1.0f + math.saturate(avoidDanger);
-
-            float3 flockSteering = ComputeSteering(
-                currentPosition: position,
-                currentVelocity: velocity,
-                alignment: alignment,
-                cohesion: cohesion,
-                separation: separation,
-                neighbourCount: leaderNeighbourCount,
-                separationCount: separationCount,
-                alignmentWeight: alignmentWeight,
-                cohesionWeight: cohesionWeight,
-                separationWeight: separationWeight,
-                desiredSpeed: desiredSpeed,
-                alignmentWeightSum: alignmentWeightSum,
-                cohesionWeightSum: cohesionWeightSum,
-                separationPanicMultiplier: separationPanicMultiplier);
-
-            flockSteering *= influenceWeight;
-
-            float3 steering = flockSteering;
-
-            // Predictive radial braking
-            steering += radialDamping;
-
-            // --- Group-flow steering ---
-            float localGroupFlowWeight = groupFlowWeight;
-
-            if (localGroupFlowWeight > 0f
-                && leaderNeighbourCount > 0
-                && alignmentWeightSum > 1e-6f) {
-
-                float3 groupDirRaw = alignment / alignmentWeightSum;
-                float3 groupDir = math.normalizesafe(groupDirRaw, velocity);
-
-                float currentSpeed = math.length(velocity);
-                float targetSpeed = desiredSpeed > 0f ? desiredSpeed : currentSpeed;
-
-                if (targetSpeed > 1e-4f) {
-                    float3 desiredGroupVel = groupDir * targetSpeed;
-                    float3 flowAccel = (desiredGroupVel - velocity) * localGroupFlowWeight;
-                    steering += flowAccel;
-                }
-            }
-
-            // --- 5) Split behaviour ---
-            float localMaxAcceleration = maxAcceleration;
-            float localMaxSpeed = maxSpeed;
-
-            float splitPanicThreshold = b.SplitPanicThreshold;
-            float splitLateralWeight = b.SplitLateralWeight;
-            float splitAccelBoost = b.SplitAccelBoost;
-
-            int minSplitGroup = math.max(3, minGroupSize);
-
-            bool hasGroupForSplit = groupSize >= minSplitGroup;
-            bool canSplit = splitPanicThreshold > 0.0f && splitLateralWeight > 0.0f && splitAccelBoost >= 0.0f;
-            bool doSplit = hasGroupForSplit && canSplit && avoidDanger >= splitPanicThreshold;
-
-            if (doSplit) {
-                float3 fleeSource = math.lengthsq(avoidSeparation) > 1e-6f
-                    ? avoidSeparation
-                    : (math.lengthsq(separation) > 1e-6f ? separation : velocity);
-
-                float3 fleeDir = math.normalizesafe(
-                    fleeSource,
-                    new float3(0.0f, 0.0f, 1.0f));
-
-                float3 up = new float3(0.0f, 1.0f, 0.0f);
-                float3 side = math.cross(fleeDir, up);
-                if (math.lengthsq(side) < 1e-4f) {
-                    up = new float3(0.0f, 0.0f, 1.0f);
-                    side = math.cross(fleeDir, up);
-                }
-                side = math.normalizesafe(side, float3.zero);
-
-                uint hash = (uint)(index * 9781 + 1);
-                hash ^= hash >> 11;
-                hash *= 0x9E3779B1u;
-                int branch = (int)(hash % 3u);
-
-                float sideSign = 0.0f;
-                if (branch == 0) sideSign = -1.0f;
-                else if (branch == 2) sideSign = 1.0f;
-
-                float3 branchDir = fleeDir;
-                if (sideSign != 0.0f) {
-                    branchDir = math.normalizesafe(
-                        fleeDir + side * sideSign * splitLateralWeight,
-                        fleeDir);
-                }
-
-                float splitIntensity = math.saturate(avoidDanger);
-                float3 splitForce = branchDir * separationWeight * splitIntensity;
-
-                steering += splitForce;
-
-                float boost = 1.0f + splitAccelBoost * splitIntensity;
-                localMaxAcceleration *= boost;
-                localMaxSpeed *= boost;
-            }
-
-            // --- 6) Obstacles ---
-            if (UseObstacleAvoidance) {
-                float3 obstacleAccel = ObstacleSteering[index];
-                steering += obstacleAccel * ObstacleAvoidWeight;
-            }
-
-            // --- 7) Attraction ---
-            steering += ComputeAttraction(index);
-
-            // --- 8) Self-propulsion (target speed) ---
-            float3 propulsion = ComputePropulsion(
-                currentVelocity: velocity,
-                desiredSpeed: desiredSpeed);
-
-            steering += propulsion;
-
-            // --- 8.1) Micro wander / group noise / pattern ---
-            steering += ComputeWanderNoise(
-                agentIndex: index,
-                behaviourIndex: behaviourIndex,
-                currentVelocity: velocity,
-                maxAcceleration: localMaxAcceleration,
-                time: NoiseTime);
-
-            steering += ComputeGroupNoise(
-                agentIndex: index,
-                behaviourIndex: behaviourIndex,
-                position: position,
-                currentVelocity: velocity,
-                maxAcceleration: localMaxAcceleration);
-
-            steering += ComputePatternSteering(
-                index,
-                behaviourIndex,
-                localMaxAcceleration);
-
-            // --- 8.5) Bounds steering gate ---
-            steering = ApplyBoundsSteering(
-                agentIndex: index,
-                steering: steering,
-                maxAcceleration: localMaxAcceleration,
-                boundsWeight: boundsWeight,
-                boundsInfluenceSuppression: boundsInfluenceSuppression);
-
-            // --- 9) Integrate acceleration / velocity / damping ---
-            steering = LimitVector(steering, localMaxAcceleration);
-
-            velocity += steering * DeltaTime;
-            velocity = LimitVector(velocity, localMaxSpeed);
-            velocity = ApplyDamping(velocity, EnvironmentData.GlobalDamping, DeltaTime);
-
-            // --- 10) Preferred depth controller ---
-            velocity = ApplyPreferredDepth(
-                behaviourIndex,
-                position,
-                velocity,
-                localMaxSpeed);
-
-            velocity = LimitVector(velocity, localMaxSpeed);
-
-            // --- 11) Bounds final velocity correction ---
-            velocity = ApplyBoundsVelocity(
-                agentIndex: index,
-                velocity: velocity,
-                boundsTangentialDamping: boundsTangentialDamping);
-
-            velocity = LimitVector(velocity, localMaxSpeed);
-
-            Velocities[index] = velocity;
+            AdjustWeightsForLoner(behaviourSettings, groupSize, ref cohesionWeight);
+            AdjustWeightsForOvercrowding(behaviourSettings, groupSize, ref cohesionWeight, ref separationWeight);
         }
 
-        // =========================
-        // Helpers (copied from your current FlockStepJob)
-        // =========================
-        static float Hash01(uint seed) {
-            seed ^= seed >> 17;
-            seed *= 0xED5AD4BBu;
-            seed ^= seed >> 11;
-            seed *= 0xAC4C1B51u;
-            seed ^= seed >> 15;
-            seed *= 0x31848BABu;
-            seed ^= seed >> 14;
-            return (seed >> 8) * (1.0f / 16777216.0f);
+        private static void AdjustWeightsForLoner(FlockBehaviourSettings behaviourSettings, int groupSize, ref float cohesionWeight) {
+            int minimumGroupSize = math.max(1, behaviourSettings.MinGroupSize);
+            if (groupSize >= minimumGroupSize) {
+                return;
+            }
+
+            float lonerFactor = math.max(0f, behaviourSettings.LonerCohesionBoost);
+            lonerFactor *= math.max(1f, behaviourSettings.LonerRadiusMultiplier);
+            lonerFactor *= math.max(0f, behaviourSettings.MinGroupSizeWeight);
+
+            cohesionWeight *= 1f + lonerFactor;
         }
 
-        float3 ComputeWanderNoise(
-            int agentIndex,
-            int behaviourIndex,
-            float3 currentVelocity,
-            float maxAcceleration,
-            float time) {
+        private static void AdjustWeightsForOvercrowding(FlockBehaviourSettings behaviourSettings, int groupSize, ref float cohesionWeight, ref float separationWeight) {
+            int minimumGroupSize = math.max(1, behaviourSettings.MinGroupSize);
+            int maximumGroupSize = behaviourSettings.MaxGroupSize;
 
-            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
-                return float3.zero;
+            if (maximumGroupSize < minimumGroupSize) {
+                maximumGroupSize = minimumGroupSize;
             }
 
-            float strength = BehaviourSettings[behaviourIndex].WanderStrength * GlobalWanderMultiplier;
-            if (strength <= 0f || maxAcceleration <= 0f) {
-                return float3.zero;
+            if (maximumGroupSize <= 0 || groupSize <= maximumGroupSize) {
+                return;
             }
 
-            float frequency = math.max(0f, BehaviourSettings[behaviourIndex].WanderFrequency);
-            float t = time * frequency;
+            float overcrowdingFraction = (groupSize - maximumGroupSize) / math.max(1f, (float)maximumGroupSize);
+            overcrowdingFraction = math.saturate(overcrowdingFraction);
 
-            uint baseSeed = (uint)(agentIndex * 0x9E3779B1u + 0x85EBCA6Bu);
-            float phaseX = Hash01(baseSeed ^ 0xA2C2A1EDu) * 6.2831853f;
-            float phaseY = Hash01(baseSeed ^ 0x27D4EB2Fu) * 6.2831853f;
-            float phaseZ = Hash01(baseSeed ^ 0x165667B1u) * 6.2831853f;
+            overcrowdingFraction *= math.max(1f, behaviourSettings.GroupRadiusMultiplier);
+            overcrowdingFraction *= math.max(0f, behaviourSettings.MaxGroupSizeWeight);
 
-            float3 dir = new float3(
-                math.sin(t + phaseX),
-                math.sin(t * 1.37f + phaseY),
-                math.sin(t * 1.79f + phaseZ));
-
-            dir = math.normalizesafe(dir, float3.zero);
-            if (math.lengthsq(dir) < 1e-6f) {
-                return float3.zero;
-            }
-
-            float3 forward = math.normalizesafe(currentVelocity, dir);
-            float3 side = math.normalizesafe(math.cross(forward, new float3(0, 1, 0)), dir);
-            float3 up = math.cross(forward, side);
-
-            float3 wanderDir = math.normalizesafe(
-                forward * 0.7f + side * 0.2f + up * 0.1f,
-                forward);
-
-            float maxWanderAccel = maxAcceleration * strength;
-            return wanderDir * maxWanderAccel;
+            separationWeight *= 1f + overcrowdingFraction;
+            cohesionWeight *= 1f - 0.5f * overcrowdingFraction;
         }
 
-        float3 ComputeGroupNoise(
-            int agentIndex,
-            int behaviourIndex,
-            float3 position,
-            float3 currentVelocity,
-            float maxAcceleration) {
+        private float3 ComputeCoreSteering(BehaviourContext behaviourContext, NeighbourAggregate neighbourAggregate, FlockBehaviourSettings behaviourSettings, float alignmentWeight, float cohesionWeight, float separationWeight) {
+            float separationPanicMultiplier = 1f + math.saturate(neighbourAggregate.AvoidDanger);
 
-            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
-                return float3.zero;
-            }
+            float3 flockSteeringAcceleration = ComputeFlockSteering(
+                behaviourContext.Position,
+                behaviourContext.Velocity,
+                neighbourAggregate,
+                alignmentWeight,
+                cohesionWeight,
+                separationWeight,
+                behaviourSettings.DesiredSpeed,
+                separationPanicMultiplier);
 
-            FlockBehaviourSettings b = BehaviourSettings[behaviourIndex];
-
-            float baseStrength = b.GroupNoiseStrength * GlobalGroupNoiseMultiplier;
-            if (baseStrength <= 0f || maxAcceleration <= 0f) {
-                return float3.zero;
-            }
-
-            float directionRate = math.max(0f, b.GroupNoiseDirectionRate);
-            float speedWeight = math.saturate(b.GroupNoiseSpeedWeight);
-
-            int3 cell = GetCell(position);
-            int cellId = GetCellId(cell);
-            if ((uint)cellId >= (uint)CellGroupNoise.Length) {
-                return float3.zero;
-            }
-
-            float3 noiseDir = CellGroupNoise[cellId];
-            if (math.lengthsq(noiseDir) < 1e-6f) {
-                return float3.zero;
-            }
-
-            noiseDir = math.normalizesafe(noiseDir, float3.zero);
-            if (math.lengthsq(noiseDir) < 1e-6f) {
-                return float3.zero;
-            }
-
-            float3 forward = math.normalizesafe(currentVelocity, noiseDir);
-
-            float proj = math.dot(noiseDir, forward);
-            float3 along = forward * proj;
-            float3 lateral = noiseDir - along;
-
-            float lateralLenSq = math.lengthsq(lateral);
-            float3 lateralDir = lateralLenSq > 1e-8f
-                ? lateral * math.rsqrt(lateralLenSq)
-                : float3.zero;
-
-            float strength = baseStrength * directionRate;
-            if (strength <= 0f) {
-                return float3.zero;
-            }
-
-            float maxNoiseAccel = maxAcceleration * strength;
-
-            float wSpeed = speedWeight;
-            float lateralAccelMag = maxNoiseAccel * (1f - wSpeed);
-            float speedAccelMag = maxNoiseAccel * wSpeed;
-
-            float3 result = float3.zero;
-
-            if (math.lengthsq(lateralDir) > 1e-8f && lateralAccelMag > 0f) {
-                result += lateralDir * lateralAccelMag;
-            }
-
-            if (speedAccelMag > 0f && math.lengthsq(forward) > 1e-8f) {
-                result += forward * (speedAccelMag * proj);
-            }
-
-            return result;
+            flockSteeringAcceleration *= behaviourSettings.InfluenceWeight;
+            return flockSteeringAcceleration + neighbourAggregate.RadialDamping;
         }
 
-        float3 ComputePatternSteering(
-            int agentIndex,
-            int behaviourIndex,
-            float maxAcceleration) {
-
-            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
-                return float3.zero;
-            }
-
-            float weight = BehaviourSettings[behaviourIndex].PatternWeight * GlobalPatternMultiplier;
-            if (weight <= 0f || maxAcceleration <= 0f) {
-                return float3.zero;
-            }
-
-            float3 pattern = PatternSteering[agentIndex];
-            if (math.lengthsq(pattern) < 1e-8f) {
-                return float3.zero;
-            }
-
-            float3 dir = math.normalizesafe(pattern, float3.zero);
-            if (math.lengthsq(dir) < 1e-8f) {
-                return float3.zero;
-            }
-
-            return dir * maxAcceleration * weight;
-        }
-
-        float3 ComputeAttraction(int agentIndex) {
-            if (!UseAttraction) {
-                return float3.zero;
-            }
-            return AttractionSteering[agentIndex] * GlobalAttractionWeight;
-        }
-
-        float3 ApplyPreferredDepth(
-            int behaviourIndex,
-            float3 position,
-            float3 velocity,
-            float maxSpeed) {
-
-            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
-                return velocity;
-            }
-
-            FlockBehaviourSettings b = BehaviourSettings[behaviourIndex];
-
-            if (b.UsePreferredDepth == 0) {
-                return velocity;
-            }
-
-            float prefMin = b.PreferredDepthMinNorm;
-            float prefMax = b.PreferredDepthMaxNorm;
-            float weight = math.max(0f, b.PreferredDepthWeight);
-            float biasStrength = math.max(0f, b.DepthBiasStrength);
-
-            if (weight <= 0f || biasStrength <= 0f) {
-                return velocity;
-            }
-
-            if (prefMax < prefMin) {
-                float tmp = prefMin;
-                prefMin = prefMax;
-                prefMax = tmp;
-            }
-
-            float bandWidth = prefMax - prefMin;
-            if (bandWidth <= 1e-4f) {
-                return velocity;
-            }
-
-            float envMinY = EnvironmentData.BoundsCenter.y - EnvironmentData.BoundsExtents.y;
-            float envMaxY = EnvironmentData.BoundsCenter.y + EnvironmentData.BoundsExtents.y;
-            float envHeight = math.max(envMaxY - envMinY, 0.0001f);
-
-            float depthNorm = math.saturate((position.y - envMinY) / envHeight);
-
-            float vy = velocity.y;
-            float strength = math.saturate(weight * biasStrength);
-
-            if (depthNorm < prefMin || depthNorm > prefMax) {
-                float deltaNorm;
-                float dir;
-
-                if (depthNorm < prefMin) {
-                    deltaNorm = (prefMin - depthNorm) / bandWidth;
-                    dir = 1.0f;
-                } else {
-                    deltaNorm = (depthNorm - prefMax) / bandWidth;
-                    dir = -1.0f;
-                }
-
-                deltaNorm = math.saturate(deltaNorm);
-                float edgeT = deltaNorm * deltaNorm;
-                float lerpFactor = math.saturate(strength * edgeT);
-
-                float targetVy = dir * maxSpeed;
-
-                vy = math.lerp(vy, targetVy, lerpFactor);
-
-                float damping = math.saturate(1.0f - strength * edgeT * DeltaTime);
-                vy *= damping;
-            } else {
-                float edgeFrac = math.clamp(b.PreferredDepthEdgeFraction, 0.01f, 0.49f);
-
-                float borderThickness = bandWidth * edgeFrac;
-
-                float distToMin = depthNorm - prefMin;
-                float distToMax = prefMax - depthNorm;
-                float edgeDist = math.min(distToMin, distToMax);
-
-                if (edgeDist < borderThickness) {
-                    float t = 1.0f - edgeDist / math.max(borderThickness, 0.0001f);
-                    t = math.saturate(t);
-
-                    bool nearBottom = distToMin < distToMax;
-                    float dir = nearBottom ? 1.0f : -1.0f;
-
-                    float innerStrength = strength * 0.5f;
-                    float lerpFactor = math.saturate(innerStrength * t);
-
-                    float targetVy = dir * maxSpeed * (innerStrength * t);
-
-                    vy = math.lerp(vy, targetVy, lerpFactor);
-
-                    float damping = math.saturate(1.0f - innerStrength * t * DeltaTime);
-                    vy *= damping;
-                }
-            }
-
-            float maxVy = maxSpeed;
-            vy = math.clamp(vy, -maxVy, maxVy);
-
-            velocity.y = vy;
-            return velocity;
-        }
-
-        float3 ApplyBoundsSteering(
-            int agentIndex,
-            float3 steering,
-            float maxAcceleration,
-            float boundsWeight,
-            float boundsInfluenceSuppression) {
-
-            float danger = WallDangers[agentIndex];
-            if (danger <= 0f) {
-                return steering;
-            }
-
-            float3 wallDir = WallDirections[agentIndex];
-            if (math.lengthsq(wallDir) < 1e-8f) {
-                return steering;
-            }
-
-            float gate = 1f - danger * boundsInfluenceSuppression;
-            gate = math.saturate(gate);
-            steering *= gate;
-
-            float3 n = math.normalizesafe(wallDir, float3.zero);
-            float radialAccel = danger * boundsWeight * maxAcceleration;
-            steering += n * radialAccel;
-
-            return steering;
-        }
-
-        float3 ApplyBoundsVelocity(
-            int agentIndex,
-            float3 velocity,
-            float boundsTangentialDamping) {
-
-            float danger = WallDangers[agentIndex];
-            if (danger <= 0f || boundsTangentialDamping <= 0f) {
-                return velocity;
-            }
-
-            float3 wallDir = WallDirections[agentIndex];
-            if (math.lengthsq(wallDir) < 1e-8f) {
-                return velocity;
-            }
-
-            float3 n = math.normalizesafe(wallDir, float3.zero);
-
-            float vRadial = math.dot(velocity, n);
-            float3 vRad = n * vRadial;
-            float3 vTan = velocity - vRad;
-
-            float kill = danger * boundsTangentialDamping * DeltaTime;
-            kill = math.saturate(kill);
-
-            vTan *= (1f - kill);
-
-            return vRad + vTan;
-        }
-
-        bool TryLoadBehaviour(
-            int agentIndex,
-            out float3 position,
-            out float3 velocity,
-            out int behaviourIndex,
-            out FlockBehaviourSettings b) {
-
-            position = Positions[agentIndex];
-            velocity = PrevVelocities[agentIndex];
-            behaviourIndex = BehaviourIds[agentIndex];
-
-            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
-                b = default;
-                return false;
-            }
-
-            b = BehaviourSettings[behaviourIndex];
-            return true;
-        }
-
-        float3 ComputeSteering(
-            float3 currentPosition,
-            float3 currentVelocity,
-            float3 alignment,
-            float3 cohesion,
-            float3 separation,
-            int neighbourCount,
-            int separationCount,
-            float alignmentWeight,
-            float cohesionWeight,
-            float separationWeight,
-            float desiredSpeed,
-            float alignmentWeightSum,
-            float cohesionWeightSum,
-            float separationPanicMultiplier) {
-
-            float3 steering = float3.zero;
-
+        private float3 ComputeFlockSteering(float3 currentPosition, float3 currentVelocity, NeighbourAggregate neighbourAggregate, float alignmentWeight, float cohesionWeight, float separationWeight, float desiredSpeed, float separationPanicMultiplier) {
             float currentSpeed = math.length(currentVelocity);
             float targetSpeed = desiredSpeed > 0f ? desiredSpeed : currentSpeed;
 
-            if (neighbourCount > 0 && targetSpeed > 1e-4f) {
-                if (alignmentWeightSum > 1e-6f) {
-                    float invAlign = 1.0f / alignmentWeightSum;
+            float3 steeringAcceleration = float3.zero;
+            steeringAcceleration += ComputeAlignmentSteering(currentVelocity, neighbourAggregate, alignmentWeight, targetSpeed);
+            steeringAcceleration += ComputeCohesionSteering(currentPosition, currentVelocity, neighbourAggregate, cohesionWeight, targetSpeed);
+            steeringAcceleration += ComputeSeparationSteering(neighbourAggregate, separationWeight, separationPanicMultiplier);
 
-                    float3 alignmentDir = alignment * invAlign;
-                    float3 alignmentNorm = math.normalizesafe(alignmentDir, currentVelocity);
-
-                    float3 desiredAlignVel = alignmentNorm * targetSpeed;
-                    float3 alignmentForce = (desiredAlignVel - currentVelocity) * alignmentWeight;
-
-                    steering += alignmentForce;
-                }
-
-                if (cohesionWeightSum > 1e-6f) {
-                    float invCoh = 1.0f / cohesionWeightSum;
-
-                    float3 cohesionCenter = cohesion * invCoh;
-                    float3 toCenter = cohesionCenter - currentPosition;
-
-                    float3 cohesionDir = math.normalizesafe(toCenter, float3.zero);
-
-                    float3 desiredCohesionVel = cohesionDir * targetSpeed;
-                    float3 cohesionForce = (desiredCohesionVel - currentVelocity) * cohesionWeight;
-
-                    steering += cohesionForce;
-                }
-            }
-
-            if (separationCount > 0) {
-                float invSep = 1.0f / separationCount;
-
-                float3 separationAvg = separation * invSep;
-
-                float3 separationForce = separationAvg * separationWeight * separationPanicMultiplier;
-                steering += separationForce;
-            }
-
-            return steering;
+            return steeringAcceleration;
         }
 
-        float3 ComputePropulsion(
-            float3 currentVelocity,
-            float desiredSpeed) {
-
-            if (desiredSpeed <= 0.0f) {
+        private static float3 ComputeAlignmentSteering(float3 currentVelocity, NeighbourAggregate neighbourAggregate, float alignmentWeight, float targetSpeed) {
+            if (neighbourAggregate.LeaderNeighbourCount <= 0 || targetSpeed <= 1e-4f || neighbourAggregate.AlignmentWeightSum <= 1e-6f) {
                 return float3.zero;
             }
 
-            float speedSq = math.lengthsq(currentVelocity);
-            if (speedSq < 1e-6f) {
+            float inverseAlignmentWeightSum = 1f / neighbourAggregate.AlignmentWeightSum;
+            float3 alignmentDirection = neighbourAggregate.AlignmentSum * inverseAlignmentWeightSum;
+            float3 alignmentDirectionNormalized = math.normalizesafe(alignmentDirection, currentVelocity);
+
+            float3 desiredAlignmentVelocity = alignmentDirectionNormalized * targetSpeed;
+            return (desiredAlignmentVelocity - currentVelocity) * alignmentWeight;
+        }
+
+        private static float3 ComputeCohesionSteering(float3 currentPosition, float3 currentVelocity, NeighbourAggregate neighbourAggregate, float cohesionWeight, float targetSpeed) {
+            if (neighbourAggregate.LeaderNeighbourCount <= 0 || targetSpeed <= 1e-4f || neighbourAggregate.CohesionWeightSum <= 1e-6f) {
                 return float3.zero;
             }
 
-            float invSpeed = math.rsqrt(speedSq);
-            float currentSpeed = speedSq * invSpeed;
-            float3 direction = currentVelocity * invSpeed;
+            float inverseCohesionWeightSum = 1f / neighbourAggregate.CohesionWeightSum;
+            float3 cohesionCenter = neighbourAggregate.CohesionSum * inverseCohesionWeightSum;
+            float3 directionToCenter = cohesionCenter - currentPosition;
+
+            float3 cohesionDirection = math.normalizesafe(directionToCenter, float3.zero);
+            float3 desiredCohesionVelocity = cohesionDirection * targetSpeed;
+
+            return (desiredCohesionVelocity - currentVelocity) * cohesionWeight;
+        }
+
+        private static float3 ComputeSeparationSteering(NeighbourAggregate neighbourAggregate, float separationWeight, float separationPanicMultiplier) {
+            if (neighbourAggregate.SeparationCount <= 0) {
+                return float3.zero;
+            }
+
+            float inverseSeparationCount = 1f / neighbourAggregate.SeparationCount;
+            float3 separationAverage = neighbourAggregate.SeparationSum * inverseSeparationCount;
+
+            return separationAverage * separationWeight * separationPanicMultiplier;
+        }
+
+        private static float3 AddGroupFlowSteering(float3 steeringAcceleration, float3 currentVelocity, NeighbourAggregate neighbourAggregate, FlockBehaviourSettings behaviourSettings) {
+            if (behaviourSettings.GroupFlowWeight <= 0f || neighbourAggregate.LeaderNeighbourCount <= 0 || neighbourAggregate.AlignmentWeightSum <= 1e-6f) {
+                return steeringAcceleration;
+            }
+
+            float3 groupDirectionRaw = neighbourAggregate.AlignmentSum / neighbourAggregate.AlignmentWeightSum;
+            float3 groupDirection = math.normalizesafe(groupDirectionRaw, currentVelocity);
+
+            float currentSpeed = math.length(currentVelocity);
+            float targetSpeed = behaviourSettings.DesiredSpeed > 0f ? behaviourSettings.DesiredSpeed : currentSpeed;
+
+            if (targetSpeed <= 1e-4f) {
+                return steeringAcceleration;
+            }
+
+            float3 desiredGroupVelocity = groupDirection * targetSpeed;
+            float3 flowAcceleration = (desiredGroupVelocity - currentVelocity) * behaviourSettings.GroupFlowWeight;
+
+            return steeringAcceleration + flowAcceleration;
+        }
+
+        private float3 ApplySplitBehaviour(int agentIndex, float3 steeringAcceleration, float3 currentVelocity, NeighbourAggregate neighbourAggregate, FlockBehaviourSettings behaviourSettings, ref float maximumSpeed, ref float maximumAcceleration, float separationWeight) {
+            if (!ShouldSplit(neighbourAggregate, behaviourSettings)) {
+                return steeringAcceleration;
+            }
+
+            float splitIntensity = math.saturate(neighbourAggregate.AvoidDanger);
+            float3 splitDirection = ComputeSplitDirection(agentIndex, currentVelocity, neighbourAggregate, behaviourSettings.SplitLateralWeight);
+
+            steeringAcceleration += splitDirection * separationWeight * splitIntensity;
+
+            float boostMultiplier = 1f + behaviourSettings.SplitAccelBoost * splitIntensity;
+            maximumSpeed *= boostMultiplier;
+            maximumAcceleration *= boostMultiplier;
+
+            return steeringAcceleration;
+        }
+
+        private static bool ShouldSplit(NeighbourAggregate neighbourAggregate, FlockBehaviourSettings behaviourSettings) {
+            int groupSize = neighbourAggregate.FriendlyNeighbourCount + 1;
+            int minimumGroupSizeForSplit = math.max(3, math.max(1, behaviourSettings.MinGroupSize));
+
+            bool hasSufficientGroupSize = groupSize >= minimumGroupSizeForSplit;
+            bool hasValidSplitParameters = behaviourSettings.SplitPanicThreshold > 0f && behaviourSettings.SplitLateralWeight > 0f && behaviourSettings.SplitAccelBoost >= 0f;
+
+            return hasSufficientGroupSize && hasValidSplitParameters && neighbourAggregate.AvoidDanger >= behaviourSettings.SplitPanicThreshold;
+        }
+
+        private static float3 ComputeSplitDirection(int agentIndex, float3 currentVelocity, NeighbourAggregate neighbourAggregate, float splitLateralWeight) {
+            float3 fleeDirection = ComputeSplitFleeDirection(currentVelocity, neighbourAggregate);
+            float3 sideDirection = ComputeSplitSideDirection(fleeDirection);
+
+            int branchIndex = ComputeSplitBranch(agentIndex);
+            float sideSign = branchIndex == 0 ? -1f : (branchIndex == 2 ? 1f : 0f);
+
+            if (sideSign == 0f) {
+                return fleeDirection;
+            }
+
+            float3 combinedDirection = fleeDirection + sideDirection * sideSign * splitLateralWeight;
+            return math.normalizesafe(combinedDirection, fleeDirection);
+        }
+
+        private static float3 ComputeSplitFleeDirection(float3 currentVelocity, NeighbourAggregate neighbourAggregate) {
+            float3 fleeSource = neighbourAggregate.AvoidSeparationSum;
+
+            if (math.lengthsq(fleeSource) <= 1e-6f) {
+                fleeSource = math.lengthsq(neighbourAggregate.SeparationSum) > 1e-6f ? neighbourAggregate.SeparationSum : currentVelocity;
+            }
+
+            return math.normalizesafe(fleeSource, new float3(0f, 0f, 1f));
+        }
+
+        private static float3 ComputeSplitSideDirection(float3 fleeDirection) {
+            float3 upDirection = new float3(0f, 1f, 0f);
+            float3 sideDirection = math.cross(fleeDirection, upDirection);
+
+            if (math.lengthsq(sideDirection) < 1e-4f) {
+                upDirection = new float3(0f, 0f, 1f);
+                sideDirection = math.cross(fleeDirection, upDirection);
+            }
+
+            return math.normalizesafe(sideDirection, float3.zero);
+        }
+
+        private static int ComputeSplitBranch(int agentIndex) {
+            uint hashValue = (uint)(agentIndex * 9781 + 1);
+            hashValue ^= hashValue >> 11;
+            hashValue *= 0x9E3779B1u;
+
+            return (int)(hashValue % 3u);
+        }
+
+        private float3 AddObstacleAvoidanceSteering(int agentIndex, float3 steeringAcceleration) {
+            if (!UseObstacleAvoidance || !ObstacleSteering.IsCreated || (uint)agentIndex >= (uint)ObstacleSteering.Length) {
+                return steeringAcceleration;
+            }
+
+            float3 obstacleAcceleration = ObstacleSteering[agentIndex];
+            return steeringAcceleration + obstacleAcceleration * ObstacleAvoidWeight;
+        }
+
+        private float3 ComputeAttractionSteering(int agentIndex) {
+            if (!UseAttraction || !AttractionSteering.IsCreated || (uint)agentIndex >= (uint)AttractionSteering.Length) {
+                return float3.zero;
+            }
+
+            return AttractionSteering[agentIndex] * GlobalAttractionWeight;
+        }
+
+        private static float3 ComputePropulsionAcceleration(float3 currentVelocity, float desiredSpeed) {
+            if (desiredSpeed <= 0f) {
+                return float3.zero;
+            }
+
+            float currentSpeedSquared = math.lengthsq(currentVelocity);
+            if (currentSpeedSquared < 1e-6f) {
+                return float3.zero;
+            }
+
+            float inverseCurrentSpeed = math.rsqrt(currentSpeedSquared);
+            float currentSpeed = currentSpeedSquared * inverseCurrentSpeed;
 
             float speedError = desiredSpeed - currentSpeed;
             if (math.abs(speedError) < 1e-3f) {
                 return float3.zero;
             }
 
+            float3 direction = currentVelocity * inverseCurrentSpeed;
             return direction * speedError;
         }
 
-        int3 GetCell(float3 position) {
-            float cellSize = math.max(CellSize, 0.0001f);
-            float3 local = position - GridOrigin;
-            float3 scaled = local / cellSize;
+        private float3 ComputeNoiseAndPatternSteering(int agentIndex, int behaviourIndex, float3 position, float3 currentVelocity, float maximumAcceleration) {
+            float3 wanderNoise = ComputeWanderNoise(agentIndex, behaviourIndex, currentVelocity, maximumAcceleration, NoiseTime);
+            float3 groupNoise = ComputeGroupNoise(agentIndex, behaviourIndex, position, currentVelocity, maximumAcceleration);
+            float3 patternNoise = ComputePatternSteering(agentIndex, behaviourIndex, maximumAcceleration);
 
-            int3 cell = (int3)math.floor(scaled);
-
-            cell = math.clamp(
-                cell,
-                new int3(0, 0, 0),
-                GridResolution - new int3(1, 1, 1));
-
-            return cell;
+            return wanderNoise + groupNoise + patternNoise;
         }
 
-        int GetCellId(int3 cell) {
-            return cell.x
-                   + cell.y * GridResolution.x
-                   + cell.z * GridResolution.x * GridResolution.y;
+        private float3 ApplyBoundsSteering(int agentIndex, float3 steeringAcceleration, float maximumAcceleration, FlockBehaviourSettings behaviourSettings) {
+            float boundsWeight = math.max(0f, behaviourSettings.BoundsWeight);
+            float boundsInfluenceSuppression = math.max(0f, behaviourSettings.BoundsInfluenceSuppression);
+
+            if (boundsWeight <= 0f && boundsInfluenceSuppression <= 0f) {
+                return steeringAcceleration;
+            }
+
+            float danger = GetWallDanger(agentIndex);
+            if (danger <= 0f) {
+                return steeringAcceleration;
+            }
+
+            float3 wallDirection = GetWallDirection(agentIndex);
+            if (math.lengthsq(wallDirection) < 1e-8f) {
+                return steeringAcceleration;
+            }
+
+            return ApplyBoundsSteeringInternal(steeringAcceleration, wallDirection, danger, maximumAcceleration, boundsWeight, boundsInfluenceSuppression);
         }
 
-        static float3 LimitVector(float3 value, float maxLength) {
-            if (maxLength <= 0f) {
+        private static float3 ApplyBoundsSteeringInternal(float3 steeringAcceleration, float3 wallDirection, float danger, float maximumAcceleration, float boundsWeight, float boundsInfluenceSuppression) {
+            float gate = 1f - danger * boundsInfluenceSuppression;
+            steeringAcceleration *= math.saturate(gate);
+
+            float3 wallNormal = math.normalizesafe(wallDirection, float3.zero);
+            float radialAcceleration = danger * boundsWeight * maximumAcceleration;
+
+            return steeringAcceleration + wallNormal * radialAcceleration;
+        }
+
+        private float GetWallDanger(int agentIndex) {
+            if (!WallDangers.IsCreated || (uint)agentIndex >= (uint)WallDangers.Length) {
+                return 0f;
+            }
+
+            return WallDangers[agentIndex];
+        }
+
+        private float3 GetWallDirection(int agentIndex) {
+            if (!WallDirections.IsCreated || (uint)agentIndex >= (uint)WallDirections.Length) {
+                return float3.zero;
+            }
+
+            return WallDirections[agentIndex];
+        }
+
+        private float3 IntegrateVelocity(float3 currentVelocity, float3 steeringAcceleration, float maximumSpeed, float maximumAcceleration) {
+            float3 limitedAcceleration = LimitVector(steeringAcceleration, maximumAcceleration);
+            float3 integratedVelocity = currentVelocity + limitedAcceleration * DeltaTime;
+
+            integratedVelocity = LimitVector(integratedVelocity, maximumSpeed);
+            integratedVelocity = ApplyDamping(integratedVelocity, EnvironmentData.GlobalDamping, DeltaTime);
+
+            return integratedVelocity;
+        }
+
+        private float3 ComputeWanderNoise(int agentIndex, int behaviourIndex, float3 currentVelocity, float maximumAcceleration, float time) {
+            if (!TryGetBehaviourSettings(behaviourIndex, out FlockBehaviourSettings behaviourSettings)) {
+                return float3.zero;
+            }
+
+            float wanderStrength = behaviourSettings.WanderStrength * GlobalWanderMultiplier;
+            if (wanderStrength <= 0f || maximumAcceleration <= 0f) {
+                return float3.zero;
+            }
+
+            float wanderFrequency = math.max(0f, behaviourSettings.WanderFrequency);
+            float3 wanderDirection = ComputeWanderDirection(agentIndex, time, wanderFrequency);
+
+            return ComputeWanderAcceleration(currentVelocity, wanderDirection, maximumAcceleration * wanderStrength);
+        }
+
+        private static float3 ComputeWanderDirection(int agentIndex, float time, float frequency) {
+            float timeScaled = time * frequency;
+            uint baseSeed = (uint)(agentIndex * 0x9E3779B1u + 0x85EBCA6Bu);
+
+            float phaseX = ComputeHash01(baseSeed ^ 0xA2C2A1EDu) * 6.2831853f;
+            float phaseY = ComputeHash01(baseSeed ^ 0x27D4EB2Fu) * 6.2831853f;
+            float phaseZ = ComputeHash01(baseSeed ^ 0x165667B1u) * 6.2831853f;
+
+            float3 direction = new float3(
+                math.sin(timeScaled + phaseX),
+                math.sin(timeScaled * 1.37f + phaseY),
+                math.sin(timeScaled * 1.79f + phaseZ));
+
+            return math.normalizesafe(direction, float3.zero);
+        }
+
+        private static float3 ComputeWanderAcceleration(float3 currentVelocity, float3 wanderDirection, float maximumWanderAcceleration) {
+            if (math.lengthsq(wanderDirection) < 1e-6f || maximumWanderAcceleration <= 0f) {
+                return float3.zero;
+            }
+
+            float3 forward = math.normalizesafe(currentVelocity, wanderDirection);
+            float3 side = math.normalizesafe(math.cross(forward, new float3(0f, 1f, 0f)), wanderDirection);
+            float3 up = math.cross(forward, side);
+
+            float3 combinedDirection = forward * 0.7f + side * 0.2f + up * 0.1f;
+            float3 finalDirection = math.normalizesafe(combinedDirection, forward);
+
+            return finalDirection * maximumWanderAcceleration;
+        }
+
+        private float3 ComputeGroupNoise(int agentIndex, int behaviourIndex, float3 position, float3 currentVelocity, float maximumAcceleration) {
+            if (!TryGetBehaviourSettings(behaviourIndex, out FlockBehaviourSettings behaviourSettings)) {
+                return float3.zero;
+            }
+
+            float groupNoiseStrength = behaviourSettings.GroupNoiseStrength * GlobalGroupNoiseMultiplier;
+            if (groupNoiseStrength <= 0f || maximumAcceleration <= 0f) {
+                return float3.zero;
+            }
+
+            if (!TryGetCellNoiseDirection(position, out float3 noiseDirection)) {
+                return float3.zero;
+            }
+
+            float directionRate = math.max(0f, behaviourSettings.GroupNoiseDirectionRate);
+            float speedWeight = math.saturate(behaviourSettings.GroupNoiseSpeedWeight);
+
+            return ComputeGroupNoiseAcceleration(currentVelocity, noiseDirection, maximumAcceleration, groupNoiseStrength, directionRate, speedWeight);
+        }
+
+        private bool TryGetCellNoiseDirection(float3 position, out float3 noiseDirection) {
+            noiseDirection = float3.zero;
+
+            int3 cell = GetCell(position);
+            int cellId = GetCellId(cell);
+
+            if (!CellGroupNoise.IsCreated || (uint)cellId >= (uint)CellGroupNoise.Length) {
+                return false;
+            }
+
+            noiseDirection = CellGroupNoise[cellId];
+            if (math.lengthsq(noiseDirection) < 1e-6f) {
+                return false;
+            }
+
+            noiseDirection = math.normalizesafe(noiseDirection, float3.zero);
+            return math.lengthsq(noiseDirection) >= 1e-6f;
+        }
+
+        private static float3 ComputeGroupNoiseAcceleration(float3 currentVelocity, float3 noiseDirection, float maximumAcceleration, float baseStrength, float directionRate, float speedWeight) {
+            float strength = baseStrength * directionRate;
+            if (strength <= 0f) {
+                return float3.zero;
+            }
+
+            float3 forward = math.normalizesafe(currentVelocity, noiseDirection);
+            float projection = math.dot(noiseDirection, forward);
+
+            float3 lateralDirection = ComputeLateralDirection(noiseDirection, forward, projection);
+            float maximumNoiseAcceleration = maximumAcceleration * strength;
+
+            return ComposeNoiseAcceleration(forward, lateralDirection, projection, maximumNoiseAcceleration, speedWeight);
+        }
+
+        private static float3 ComputeLateralDirection(float3 noiseDirection, float3 forward, float projection) {
+            float3 componentAlongForward = forward * projection;
+            float3 lateralComponent = noiseDirection - componentAlongForward;
+
+            float lateralLengthSquared = math.lengthsq(lateralComponent);
+            if (lateralLengthSquared <= 1e-8f) {
+                return float3.zero;
+            }
+
+            return lateralComponent * math.rsqrt(lateralLengthSquared);
+        }
+
+        private static float3 ComposeNoiseAcceleration(float3 forward, float3 lateralDirection, float projection, float maximumNoiseAcceleration, float speedWeight) {
+            float lateralAccelerationMagnitude = maximumNoiseAcceleration * (1f - speedWeight);
+            float speedAccelerationMagnitude = maximumNoiseAcceleration * speedWeight;
+
+            float3 result = float3.zero;
+
+            if (math.lengthsq(lateralDirection) > 1e-8f && lateralAccelerationMagnitude > 0f) {
+                result += lateralDirection * lateralAccelerationMagnitude;
+            }
+
+            if (math.lengthsq(forward) > 1e-8f && speedAccelerationMagnitude > 0f) {
+                result += forward * (speedAccelerationMagnitude * projection);
+            }
+
+            return result;
+        }
+
+        private float3 ComputePatternSteering(int agentIndex, int behaviourIndex, float maximumAcceleration) {
+            if (!TryGetBehaviourSettings(behaviourIndex, out FlockBehaviourSettings behaviourSettings)) {
+                return float3.zero;
+            }
+
+            float patternWeight = behaviourSettings.PatternWeight * GlobalPatternMultiplier;
+            if (patternWeight <= 0f || maximumAcceleration <= 0f) {
+                return float3.zero;
+            }
+
+            if (!PatternSteering.IsCreated || (uint)agentIndex >= (uint)PatternSteering.Length) {
+                return float3.zero;
+            }
+
+            float3 pattern = PatternSteering[agentIndex];
+            float3 direction = math.normalizesafe(pattern, float3.zero);
+
+            return math.lengthsq(direction) < 1e-8f ? float3.zero : direction * maximumAcceleration * patternWeight;
+        }
+
+        private float3 ApplyPreferredDepth(int behaviourIndex, float3 position, float3 velocity, float maximumSpeed) {
+            if (!TryGetBehaviourSettings(behaviourIndex, out FlockBehaviourSettings behaviourSettings)) {
+                return velocity;
+            }
+
+            if (behaviourSettings.UsePreferredDepth == 0) {
+                return velocity;
+            }
+
+            if (!TryGetPreferredDepthParameters(behaviourSettings, out PreferredDepthParameters preferredDepthParameters)) {
+                return velocity;
+            }
+
+            float normalizedDepth = ComputeNormalizedDepth(position.y);
+            float updatedVerticalVelocity = ComputePreferredDepthVerticalVelocity(velocity.y, normalizedDepth, maximumSpeed, preferredDepthParameters);
+
+            velocity.y = math.clamp(updatedVerticalVelocity, -maximumSpeed, maximumSpeed);
+            return velocity;
+        }
+
+        private static bool TryGetPreferredDepthParameters(FlockBehaviourSettings behaviourSettings, out PreferredDepthParameters preferredDepthParameters) {
+            preferredDepthParameters = default;
+
+            float preferredDepthMinimumNormalized = behaviourSettings.PreferredDepthMinNorm;
+            float preferredDepthMaximumNormalized = behaviourSettings.PreferredDepthMaxNorm;
+
+            if (preferredDepthMaximumNormalized < preferredDepthMinimumNormalized) {
+                float preferredDepthTemporary = preferredDepthMinimumNormalized;
+                preferredDepthMinimumNormalized = preferredDepthMaximumNormalized;
+                preferredDepthMaximumNormalized = preferredDepthTemporary;
+            }
+
+            float bandWidth = preferredDepthMaximumNormalized - preferredDepthMinimumNormalized;
+            float weight = math.max(0f, behaviourSettings.PreferredDepthWeight);
+            float biasStrength = math.max(0f, behaviourSettings.DepthBiasStrength);
+
+            if (bandWidth <= 1e-4f || weight <= 0f || biasStrength <= 0f) {
+                return false;
+            }
+
+            preferredDepthParameters = new PreferredDepthParameters(preferredDepthMinimumNormalized, preferredDepthMaximumNormalized, bandWidth, weight, biasStrength, behaviourSettings.PreferredDepthEdgeFraction);
+            return true;
+        }
+
+        private float ComputeNormalizedDepth(float positionY) {
+            float environmentMinimumY = EnvironmentData.BoundsCenter.y - EnvironmentData.BoundsExtents.y;
+            float environmentMaximumY = EnvironmentData.BoundsCenter.y + EnvironmentData.BoundsExtents.y;
+
+            float environmentHeight = math.max(environmentMaximumY - environmentMinimumY, 0.0001f);
+            return math.saturate((positionY - environmentMinimumY) / environmentHeight);
+        }
+
+        private float ComputePreferredDepthVerticalVelocity(float verticalVelocity, float normalizedDepth, float maximumSpeed, PreferredDepthParameters preferredDepthParameters) {
+            float strength = math.saturate(preferredDepthParameters.Weight * preferredDepthParameters.BiasStrength);
+
+            if (normalizedDepth < preferredDepthParameters.MinimumNormalized || normalizedDepth > preferredDepthParameters.MaximumNormalized) {
+                return ApplyPreferredDepthOutsideBand(verticalVelocity, normalizedDepth, maximumSpeed, preferredDepthParameters, strength);
+            }
+
+            return ApplyPreferredDepthInsideBand(verticalVelocity, normalizedDepth, maximumSpeed, preferredDepthParameters, strength);
+        }
+
+        private float ApplyPreferredDepthOutsideBand(float verticalVelocity, float normalizedDepth, float maximumSpeed, PreferredDepthParameters preferredDepthParameters, float strength) {
+            float deltaNormalized = normalizedDepth < preferredDepthParameters.MinimumNormalized
+                ? (preferredDepthParameters.MinimumNormalized - normalizedDepth) / preferredDepthParameters.BandWidth
+                : (normalizedDepth - preferredDepthParameters.MaximumNormalized) / preferredDepthParameters.BandWidth;
+
+            float directionSign = normalizedDepth < preferredDepthParameters.MinimumNormalized ? 1f : -1f;
+
+            float edgeFactor = math.saturate(deltaNormalized);
+            float edgeCurve = edgeFactor * edgeFactor;
+
+            float lerpFactor = math.saturate(strength * edgeCurve);
+            float targetVerticalVelocity = directionSign * maximumSpeed;
+
+            float updatedVerticalVelocity = math.lerp(verticalVelocity, targetVerticalVelocity, lerpFactor);
+            float dampingFactor = math.saturate(1f - strength * edgeCurve * DeltaTime);
+
+            return updatedVerticalVelocity * dampingFactor;
+        }
+
+        private float ApplyPreferredDepthInsideBand(float verticalVelocity, float normalizedDepth, float maximumSpeed, PreferredDepthParameters preferredDepthParameters, float strength) {
+            float edgeFraction = math.clamp(preferredDepthParameters.EdgeFraction, 0.01f, 0.49f);
+            float borderThickness = preferredDepthParameters.BandWidth * edgeFraction;
+
+            float distanceToMinimum = normalizedDepth - preferredDepthParameters.MinimumNormalized;
+            float distanceToMaximum = preferredDepthParameters.MaximumNormalized - normalizedDepth;
+            float distanceToNearestEdge = math.min(distanceToMinimum, distanceToMaximum);
+
+            if (distanceToNearestEdge >= borderThickness) {
+                return verticalVelocity;
+            }
+
+            float t = math.saturate(1f - distanceToNearestEdge / math.max(borderThickness, 0.0001f));
+            bool isNearBottomEdge = distanceToMinimum < distanceToMaximum;
+
+            return ApplyPreferredDepthNearEdge(verticalVelocity, maximumSpeed, strength, t, isNearBottomEdge);
+        }
+
+        private float ApplyPreferredDepthNearEdge(float verticalVelocity, float maximumSpeed, float strength, float t, bool isNearBottomEdge) {
+            float directionSign = isNearBottomEdge ? 1f : -1f;
+
+            float innerStrength = strength * 0.5f;
+            float lerpFactor = math.saturate(innerStrength * t);
+
+            float targetVerticalVelocity = directionSign * maximumSpeed * (innerStrength * t);
+            float updatedVerticalVelocity = math.lerp(verticalVelocity, targetVerticalVelocity, lerpFactor);
+
+            float dampingFactor = math.saturate(1f - innerStrength * t * DeltaTime);
+            return updatedVerticalVelocity * dampingFactor;
+        }
+
+        private float3 ApplyBoundsVelocity(int agentIndex, float3 velocity, float boundsTangentialDamping) {
+            float danger = GetWallDanger(agentIndex);
+            if (danger <= 0f || boundsTangentialDamping <= 0f) {
+                return velocity;
+            }
+
+            float3 wallDirection = GetWallDirection(agentIndex);
+            if (math.lengthsq(wallDirection) < 1e-8f) {
+                return velocity;
+            }
+
+            float3 wallNormal = math.normalizesafe(wallDirection, float3.zero);
+            return ApplyBoundsVelocityInternal(velocity, wallNormal, danger, boundsTangentialDamping);
+        }
+
+        private float3 ApplyBoundsVelocityInternal(float3 velocity, float3 wallNormal, float danger, float boundsTangentialDamping) {
+            float radialVelocityScalar = math.dot(velocity, wallNormal);
+            float3 radialVelocity = wallNormal * radialVelocityScalar;
+
+            float3 tangentialVelocity = velocity - radialVelocity;
+            float killFactor = math.saturate(danger * boundsTangentialDamping * DeltaTime);
+
+            tangentialVelocity *= 1f - killFactor;
+            return radialVelocity + tangentialVelocity;
+        }
+
+        private NeighbourAggregate LoadNeighbourAggregate(int agentIndex) {
+            if (!NeighbourAggregates.IsCreated || (uint)agentIndex >= (uint)NeighbourAggregates.Length) {
+                return default;
+            }
+
+            return NeighbourAggregates[agentIndex];
+        }
+
+        private bool TryLoadBehaviourContext(int agentIndex, out BehaviourContext behaviourContext) {
+            behaviourContext = default;
+
+            if (!Positions.IsCreated || (uint)agentIndex >= (uint)Positions.Length) {
+                return false;
+            }
+
+            if (!PrevVelocities.IsCreated || (uint)agentIndex >= (uint)PrevVelocities.Length) {
+                return false;
+            }
+
+            if (!BehaviourIds.IsCreated || (uint)agentIndex >= (uint)BehaviourIds.Length) {
+                return false;
+            }
+
+            int behaviourIndex = BehaviourIds[agentIndex];
+            if (!TryGetBehaviourSettings(behaviourIndex, out FlockBehaviourSettings behaviourSettings)) {
+                return false;
+            }
+
+            behaviourContext = new BehaviourContext(Positions[agentIndex], PrevVelocities[agentIndex], behaviourIndex, behaviourSettings);
+            return true;
+        }
+
+        private bool TryGetBehaviourSettings(int behaviourIndex, out FlockBehaviourSettings behaviourSettings) {
+            behaviourSettings = default;
+
+            if (!BehaviourSettings.IsCreated || (uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
+                return false;
+            }
+
+            behaviourSettings = BehaviourSettings[behaviourIndex];
+            return true;
+        }
+
+        private int3 GetCell(float3 position) {
+            float safeCellSize = math.max(CellSize, 0.0001f);
+
+            float3 localPosition = position - GridOrigin;
+            float3 scaledPosition = localPosition / safeCellSize;
+
+            int3 cell = (int3)math.floor(scaledPosition);
+
+            int3 maximumCell = GridResolution - new int3(1, 1, 1);
+            return math.clamp(cell, new int3(0, 0, 0), maximumCell);
+        }
+
+        private int GetCellId(int3 cell) {
+            return cell.x + cell.y * GridResolution.x + cell.z * GridResolution.x * GridResolution.y;
+        }
+
+        private static float ComputeHash01(uint seedValue) {
+            seedValue ^= seedValue >> 17;
+            seedValue *= 0xED5AD4BBu;
+            seedValue ^= seedValue >> 11;
+            seedValue *= 0xAC4C1B51u;
+            seedValue ^= seedValue >> 15;
+            seedValue *= 0x31848BABu;
+            seedValue ^= seedValue >> 14;
+
+            return (seedValue >> 8) * (1f / 16777216f);
+        }
+
+        private static float3 LimitVector(float3 value, float maximumLength) {
+            if (maximumLength <= 0f) {
                 return float3.zero;
             }
 
             float lengthSquared = math.lengthsq(value);
-            if (lengthSquared <= 0.0f) {
+            if (lengthSquared <= 0f) {
                 return value;
             }
 
-            float maxLengthSquared = maxLength * maxLength;
-            if (lengthSquared <= maxLengthSquared) {
+            float maximumLengthSquared = maximumLength * maximumLength;
+            if (lengthSquared <= maximumLengthSquared) {
                 return value;
             }
 
-            float invLen = math.rsqrt(lengthSquared);
-            return value * (maxLength * invLen);
+            float inverseLength = math.rsqrt(lengthSquared);
+            return value * (maximumLength * inverseLength);
         }
 
-        static float3 ApplyDamping(
-            float3 velocity,
-            float damping,
-            float deltaTime) {
-            if (damping <= 0.0f) {
+        private static float3 ApplyDamping(float3 velocity, float damping, float deltaTime) {
+            if (damping <= 0f) {
                 return velocity;
             }
 
-            float factor = math.saturate(1.0f - damping * deltaTime);
+            float factor = math.saturate(1f - damping * deltaTime);
             return velocity * factor;
+        }
+
+        private readonly struct BehaviourContext {
+            public readonly float3 Position;
+            public readonly float3 Velocity;
+            public readonly int BehaviourIndex;
+            public readonly FlockBehaviourSettings BehaviourSettings;
+
+            public BehaviourContext(float3 position, float3 velocity, int behaviourIndex, FlockBehaviourSettings behaviourSettings) {
+                Position = position;
+                Velocity = velocity;
+                BehaviourIndex = behaviourIndex;
+                BehaviourSettings = behaviourSettings;
+            }
+        }
+
+        private readonly struct PreferredDepthParameters {
+            public readonly float MinimumNormalized;
+            public readonly float MaximumNormalized;
+            public readonly float BandWidth;
+            public readonly float Weight;
+            public readonly float BiasStrength;
+            public readonly float EdgeFraction;
+
+            public PreferredDepthParameters(float minimumNormalized, float maximumNormalized, float bandWidth, float weight, float biasStrength, float edgeFraction) {
+                MinimumNormalized = minimumNormalized;
+                MaximumNormalized = maximumNormalized;
+                BandWidth = bandWidth;
+                Weight = weight;
+                BiasStrength = biasStrength;
+                EdgeFraction = edgeFraction;
+            }
         }
     }
 }

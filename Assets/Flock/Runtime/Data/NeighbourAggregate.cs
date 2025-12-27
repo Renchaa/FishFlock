@@ -1,11 +1,12 @@
-// File: Assets/Flock/Runtime/Data/NeighbourAggregate.cs
 namespace Flock.Runtime.Data {
     using Unity.Mathematics;
 
-    /// <summary>
-    /// Per-agent neighbour aggregation output (Phase 2).
-    /// This contains the accumulated sums/counts that were previously local variables in FlockStepJob.Execute().
-    /// </summary>
+    /**
+     * <summary>
+     * Per-agent neighbour aggregation output (Phase 2).
+     * Contains accumulated sums and counts consumed by steering integration.
+     * </summary>
+     */
     public struct NeighbourAggregate {
         public float3 AlignmentSum;
         public float3 CohesionSum;

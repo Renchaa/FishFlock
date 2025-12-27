@@ -12,7 +12,6 @@ namespace Flock.Runtime.Jobs {
      */
     [BurstCompile]
     public struct AttractorSamplingJob : IJobParallelFor {
-        // Inputs
         [ReadOnly]
         public NativeArray<float3> Positions;
 
@@ -38,11 +37,9 @@ namespace Flock.Runtime.Jobs {
         [ReadOnly]
         public NativeArray<FlockBehaviourSettings> BehaviourSettings;
 
-        // Outputs
         [NativeDisableParallelForRestriction]
         public NativeArray<float3> AttractionSteering;
 
-        /// <inheritdoc />
         public void Execute(int index) {
             if (TryComputeAttractionSteering(index, out float3 steering)) {
                 AttractionSteering[index] = steering;

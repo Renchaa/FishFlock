@@ -10,8 +10,15 @@ using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
 namespace Flock.Editor {
+    /**
+    * <summary>
+    * Noise / pattern tooling UI for the flock editor window.
+    * This partial contains the Noise / Patterns toolbar, list panel, detail panel, and pattern creation dropdown.
+    * </summary>
+    */
     public sealed partial class FlockEditorWindow {
-        void DrawNoiseModeToolbar() {
+        // Toolbar: mode switch between Group Noise and Pattern Assets.
+        private void DrawNoiseModeToolbar() {
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("Noise / Patterns", EditorStyles.boldLabel);
 
@@ -22,6 +29,7 @@ namespace Flock.Editor {
                 Mathf.Clamp(_noiseInspectorMode, 0, 1),
                 new[] { "Group Noise", "Pattern Assets" },
                 GUILayout.Width(FlockEditorUI.NoiseModeToolbarWidth));
+
             if (EditorGUI.EndChangeCheck()) {
                 RebuildNoiseEditors();
             }
@@ -30,15 +38,14 @@ namespace Flock.Editor {
             EditorGUILayout.Space(FlockEditorUI.SpaceMedium);
         }
 
-        void DrawNoiseListPanel() {
+        private void DrawNoiseListPanel() {
             using (new EditorGUILayout.VerticalScope(GUILayout.Width(FlockEditorUI.NoiseListPanelWidth))) {
                 _noiseListScroll = EditorGUILayout.BeginScrollView(_noiseListScroll);
 
                 if (_noiseInspectorMode == 0) {
                     EditorGUILayout.LabelField("Group Noise Pattern", EditorStyles.boldLabel);
 
-                    GroupNoisePatternProfile currentProfile =
-                        _setup.GroupNoiseSettings as GroupNoisePatternProfile;
+                    GroupNoisePatternProfile currentProfile = _setup.GroupNoiseSettings as GroupNoisePatternProfile;
 
                     using (new EditorGUILayout.HorizontalScope()) {
                         string label = currentProfile != null ? currentProfile.name : "<None>";
@@ -51,6 +58,7 @@ namespace Flock.Editor {
                             typeof(GroupNoisePatternProfile),
                             false,
                             GUILayout.Width(FlockEditorUI.GroupNoiseInlineObjectFieldWidth));
+
                         if (EditorGUI.EndChangeCheck()) {
                             _setup.GroupNoiseSettings = currentProfile;
                             EditorUtility.SetDirty(_setup);
@@ -65,20 +73,20 @@ namespace Flock.Editor {
                         EditorUtility.SetDirty(_setup);
                     }
 
-                    var patterns = _setup.PatternAssets;
+                    List<FlockLayer3PatternProfile> patterns = _setup.PatternAssets;
                     int removeIndex = -1;
 
-                    for (int i = 0; i < patterns.Count; i++) {
+                    for (int index = 0; index < patterns.Count; index += 1) {
                         using (new EditorGUILayout.HorizontalScope()) {
-                            FlockLayer3PatternProfile asset = patterns[i];
+                            FlockLayer3PatternProfile asset = patterns[index];
 
-                            GUIStyle rowStyle = (_selectedNoiseIndex == i)
+                            GUIStyle rowStyle = _selectedNoiseIndex == index
                                 ? EditorStyles.miniButtonMid
                                 : EditorStyles.miniButton;
 
-                            string name = asset != null ? asset.name : "<Empty Slot>";
-                            if (GUILayout.Button(name, rowStyle, GUILayout.Width(FlockEditorUI.ListNameColumnWidth))) {
-                                _selectedNoiseIndex = i;
+                            string assetName = asset != null ? asset.name : "<Empty Slot>";
+                            if (GUILayout.Button(assetName, rowStyle, GUILayout.Width(FlockEditorUI.ListNameColumnWidth))) {
+                                _selectedNoiseIndex = index;
                                 RebuildNoiseEditors();
                             }
 
@@ -89,16 +97,18 @@ namespace Flock.Editor {
                                 typeof(FlockLayer3PatternProfile),
                                 false,
                                 GUILayout.Width(FlockEditorUI.PatternInlineObjectFieldWidth));
+
                             if (EditorGUI.EndChangeCheck()) {
-                                patterns[i] = asset;
+                                patterns[index] = asset;
                                 EditorUtility.SetDirty(_setup);
-                                if (_selectedNoiseIndex == i) {
+
+                                if (_selectedNoiseIndex == index) {
                                     RebuildNoiseEditors();
                                 }
                             }
 
                             if (GUILayout.Button("X", EditorStyles.miniButton, GUILayout.Width(FlockEditorUI.RemoveRowButtonWidth))) {
-                                removeIndex = i;
+                                removeIndex = index;
                             }
                         }
                     }
@@ -111,7 +121,7 @@ namespace Flock.Editor {
                             _selectedNoiseIndex = -1;
                             RebuildNoiseEditors();
                         } else if (_selectedNoiseIndex > removeIndex) {
-                            _selectedNoiseIndex--;
+                            _selectedNoiseIndex -= 1;
                         }
                     }
                 }
@@ -125,8 +135,10 @@ namespace Flock.Editor {
                             if (GUILayout.Button("Create Group Pattern", GUILayout.Width(FlockEditorUI.CreateGroupPatternButtonWidth))) {
                                 CreateGroupNoisePatternAsset();
                             }
+
                             if (GUILayout.Button("Add Existing", GUILayout.Width(FlockEditorUI.AddExistingButtonWidth))) {
-                                var current = _setup.GroupNoiseSettings as GroupNoisePatternProfile;
+                                GroupNoisePatternProfile current = _setup.GroupNoiseSettings as GroupNoisePatternProfile;
+
                                 EditorGUIUtility.ShowObjectPicker<GroupNoisePatternProfile>(
                                     current,
                                     false,
@@ -137,8 +149,8 @@ namespace Flock.Editor {
                     } else {
                         using (new EditorGUI.DisabledScope(_setup == null)) {
                             if (EditorGUILayout.DropdownButton(new GUIContent("Create Pattern"), FocusType.Passive, GUILayout.Width(FlockEditorUI.CreatePatternButtonWidth))) {
-                                Rect r = GUILayoutUtility.GetLastRect();
-                                ShowCreatePatternDropdown(r);
+                                Rect buttonRect = GUILayoutUtility.GetLastRect();
+                                ShowCreatePatternDropdown(buttonRect);
                             }
                         }
 
@@ -153,7 +165,7 @@ namespace Flock.Editor {
             }
         }
 
-        void ShowCreatePatternDropdown(Rect buttonRect) {
+        private void ShowCreatePatternDropdown(Rect buttonRect) {
             _createPatternDropdownState ??= new AdvancedDropdownState();
 
             _createPatternDropdown ??= new CreatePatternDropdown(
@@ -164,12 +176,12 @@ namespace Flock.Editor {
             _createPatternDropdown.Show(buttonRect);
         }
 
-        void DrawNoiseDetailPanel() {
+        private void DrawNoiseDetailPanel() {
             using (new EditorGUILayout.VerticalScope()) {
                 _noiseDetailScroll = EditorGUILayout.BeginScrollView(_noiseDetailScroll);
 
                 if (_noiseInspectorMode == 0) {
-                    var profile = _setup.GroupNoiseSettings as GroupNoisePatternProfile;
+                    GroupNoisePatternProfile profile = _setup.GroupNoiseSettings as GroupNoisePatternProfile;
                     if (profile == null) {
                         EditorGUILayout.HelpBox(
                             "Assign or create a GroupNoisePatternProfile to edit.",
@@ -202,7 +214,7 @@ namespace Flock.Editor {
                     return;
                 }
 
-                var target = _setup.PatternAssets[_selectedNoiseIndex];
+                FlockLayer3PatternProfile target = _setup.PatternAssets[_selectedNoiseIndex];
                 if (target == null) {
                     EditorGUILayout.HelpBox(
                         "This slot is empty. Assign an existing pattern asset or create a new one.",
@@ -225,10 +237,11 @@ namespace Flock.Editor {
                 "asset",
                 "Choose a location for the GroupNoisePatternProfile asset");
 
-            if (string.IsNullOrEmpty(path))
+            if (string.IsNullOrEmpty(path)) {
                 return;
+            }
 
-            var asset = ScriptableObject.CreateInstance<GroupNoisePatternProfile>();
+            GroupNoisePatternProfile asset = ScriptableObject.CreateInstance<GroupNoisePatternProfile>();
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -255,24 +268,38 @@ namespace Flock.Editor {
             DestroyEditor(ref groupNoiseEditor);
         }
 
-        void HandleGroupNoiseObjectPicker() {
-            if (_noiseInspectorMode != 0 || _setup == null) return;
+        private void HandleGroupNoiseObjectPicker() {
+            if (_noiseInspectorMode != 0 || _setup == null) {
+                return;
+            }
 
-            Event e = Event.current;
-            if (e == null) return;
-            if (e.commandName != "ObjectSelectorClosed") return;
-            if (EditorGUIUtility.GetObjectPickerControlID() != FlockEditorUI.GroupNoisePickerControlId) return;
+            Event currentEvent = Event.current;
+            if (currentEvent == null) {
+                return;
+            }
 
-            var picked = EditorGUIUtility.GetObjectPickerObject() as GroupNoisePatternProfile;
-            if (picked == _setup.GroupNoiseSettings) return;
+            if (currentEvent.commandName != "ObjectSelectorClosed") {
+                return;
+            }
 
-            _setup.GroupNoiseSettings = picked;
+            if (EditorGUIUtility.GetObjectPickerControlID() != FlockEditorUI.GroupNoisePickerControlId) {
+                return;
+            }
+
+            GroupNoisePatternProfile pickedProfile = EditorGUIUtility.GetObjectPickerObject() as GroupNoisePatternProfile;
+            if (pickedProfile == _setup.GroupNoiseSettings) {
+                return;
+            }
+
+            _setup.GroupNoiseSettings = pickedProfile;
             EditorUtility.SetDirty(_setup);
             RebuildNoiseEditors();
         }
 
-        void CreatePatternAssetOfType(Type patternType) {
-            if (_setup == null || patternType == null) return;
+        private void CreatePatternAssetOfType(Type patternType) {
+            if (_setup == null || patternType == null) {
+                return;
+            }
 
             string defaultName = patternType.Name;
             string path = EditorUtility.SaveFilePanelInProject(
@@ -281,9 +308,11 @@ namespace Flock.Editor {
                 "asset",
                 "Choose a location for the new pattern asset");
 
-            if (string.IsNullOrEmpty(path)) return;
+            if (string.IsNullOrEmpty(path)) {
+                return;
+            }
 
-            var asset = ScriptableObject.CreateInstance(patternType) as FlockLayer3PatternProfile;
+            FlockLayer3PatternProfile asset = ScriptableObject.CreateInstance(patternType) as FlockLayer3PatternProfile;
             if (asset == null) {
                 EditorUtility.DisplayDialog("Create Pattern", "Failed to create asset instance.", "OK");
                 return;
@@ -307,14 +336,18 @@ namespace Flock.Editor {
             DestroyEditor(ref groupNoiseEditor);
             DestroyEditor(ref _patternAssetEditor);
 
-            if (_setup == null) return;
+            if (_setup == null) {
+                return;
+            }
 
             if (_noiseInspectorMode == 0) {
                 EnsureEditor(ref groupNoiseEditor, _setup.GroupNoiseSettings as GroupNoisePatternProfile);
                 return;
             }
 
-            if (_setup.PatternAssets == null) return;
+            if (_setup.PatternAssets == null) {
+                return;
+            }
 
             FlockLayer3PatternProfile target = null;
             if (_selectedNoiseIndex >= 0 && _selectedNoiseIndex < _setup.PatternAssets.Count) {
@@ -328,114 +361,122 @@ namespace Flock.Editor {
             DestroyEditor(ref _patternAssetEditor);
         }
 
-        void DrawGroupNoiseInspectorCards(GroupNoisePatternProfile profile) {
-            var so = new SerializedObject(profile);
-            so.Update();
+        private void DrawGroupNoiseInspectorCards(GroupNoisePatternProfile profile) {
+            SerializedObject serializedObject = new SerializedObject(profile);
+            serializedObject.Update();
 
-            SerializedProperty pBaseFrequency = so.FindProperty("baseFrequency");
-            SerializedProperty pTimeScale = so.FindProperty("timeScale");
-            SerializedProperty pPhaseOffset = so.FindProperty("phaseOffset");
-            SerializedProperty pWorldScale = so.FindProperty("worldScale");
-            SerializedProperty pSeed = so.FindProperty("seed");
+            // Common / selection.
+            SerializedProperty baseFrequencyProperty = serializedObject.FindProperty("baseFrequency");
+            SerializedProperty timeScaleProperty = serializedObject.FindProperty("timeScale");
+            SerializedProperty phaseOffsetProperty = serializedObject.FindProperty("phaseOffset");
+            SerializedProperty worldScaleProperty = serializedObject.FindProperty("worldScale");
+            SerializedProperty seedProperty = serializedObject.FindProperty("seed");
 
-            SerializedProperty pPatternType = so.FindProperty("patternType");
+            SerializedProperty patternTypeProperty = serializedObject.FindProperty("patternType");
 
-            SerializedProperty pSwirlStrength = so.FindProperty("swirlStrength");
-            SerializedProperty pVerticalBias = so.FindProperty("verticalBias");
+            // Extras.
+            SerializedProperty swirlStrengthProperty = serializedObject.FindProperty("swirlStrength");
+            SerializedProperty verticalBiasProperty = serializedObject.FindProperty("verticalBias");
 
-            SerializedProperty pVortexCenter = so.FindProperty("vortexCenterNorm");
-            SerializedProperty pVortexRadius = so.FindProperty("vortexRadius");
-            SerializedProperty pVortexTight = so.FindProperty("vortexTightness");
+            SerializedProperty vortexCenterProperty = serializedObject.FindProperty("vortexCenterNorm");
+            SerializedProperty vortexRadiusProperty = serializedObject.FindProperty("vortexRadius");
+            SerializedProperty vortexTightnessProperty = serializedObject.FindProperty("vortexTightness");
 
-            SerializedProperty pSphereRadius = so.FindProperty("sphereRadius");
-            SerializedProperty pSphereThick = so.FindProperty("sphereThickness");
-            SerializedProperty pSphereSwirl = so.FindProperty("sphereSwirlStrength");
-            SerializedProperty pSphereCenter = so.FindProperty("sphereCenterNorm");
+            SerializedProperty sphereRadiusProperty = serializedObject.FindProperty("sphereRadius");
+            SerializedProperty sphereThicknessProperty = serializedObject.FindProperty("sphereThickness");
+            SerializedProperty sphereSwirlStrengthProperty = serializedObject.FindProperty("sphereSwirlStrength");
+            SerializedProperty sphereCenterProperty = serializedObject.FindProperty("sphereCenterNorm");
 
             FlockEditorGUI.WithLabelWidth(FlockEditorUI.DefaultLabelWidth, () => {
-
                 FlockEditorGUI.BeginCard("Common");
                 {
-                    DrawPropertyNoDecorators(pBaseFrequency);
-                    DrawPropertyNoDecorators(pTimeScale);
-                    DrawPropertyNoDecorators(pPhaseOffset);
-                    DrawPropertyNoDecorators(pWorldScale);
-                    DrawPropertyNoDecorators(pSeed);
+                    DrawPropertyNoDecorators(baseFrequencyProperty);
+                    DrawPropertyNoDecorators(timeScaleProperty);
+                    DrawPropertyNoDecorators(phaseOffsetProperty);
+                    DrawPropertyNoDecorators(worldScaleProperty);
+                    DrawPropertyNoDecorators(seedProperty);
                 }
                 FlockEditorGUI.EndCard();
 
                 FlockEditorGUI.BeginCard("Pattern Type");
                 {
-                    DrawPropertyNoDecorators(pPatternType);
+                    DrawPropertyNoDecorators(patternTypeProperty);
                 }
                 FlockEditorGUI.EndCard();
 
-                var patternType = (FlockGroupNoisePatternType)(pPatternType != null ? pPatternType.enumValueIndex : 0);
+                FlockGroupNoisePatternType patternType = (FlockGroupNoisePatternType)(patternTypeProperty != null ? patternTypeProperty.enumValueIndex : 0);
 
                 switch (patternType) {
                     case FlockGroupNoisePatternType.SimpleSine:
                         FlockEditorGUI.BeginCard("Simple Sine Extras"); {
-                            DrawPropertyNoDecorators(pSwirlStrength);
-                            DrawPropertyNoDecorators(pVerticalBias);
+                            DrawPropertyNoDecorators(swirlStrengthProperty);
+                            DrawPropertyNoDecorators(verticalBiasProperty);
                         }
                         FlockEditorGUI.EndCard();
                         break;
 
                     case FlockGroupNoisePatternType.VerticalBands:
                         FlockEditorGUI.BeginCard("Vertical Bands Extras"); {
-                            DrawPropertyNoDecorators(pSwirlStrength);
-                            DrawPropertyNoDecorators(pVerticalBias);
+                            DrawPropertyNoDecorators(swirlStrengthProperty);
+                            DrawPropertyNoDecorators(verticalBiasProperty);
                         }
                         FlockEditorGUI.EndCard();
                         break;
 
                     case FlockGroupNoisePatternType.Vortex:
                         FlockEditorGUI.BeginCard("Vortex Settings"); {
-                            DrawPropertyNoDecorators(pVortexCenter);
-                            DrawPropertyNoDecorators(pVortexRadius);
-                            DrawPropertyNoDecorators(pVortexTight);
+                            DrawPropertyNoDecorators(vortexCenterProperty);
+                            DrawPropertyNoDecorators(vortexRadiusProperty);
+                            DrawPropertyNoDecorators(vortexTightnessProperty);
                         }
                         FlockEditorGUI.EndCard();
                         break;
 
                     case FlockGroupNoisePatternType.SphereShell:
                         FlockEditorGUI.BeginCard("Sphere Shell Settings"); {
-                            DrawPropertyNoDecorators(pSphereRadius);
-                            DrawPropertyNoDecorators(pSphereThick);
-                            DrawPropertyNoDecorators(pSphereSwirl);
-                            DrawPropertyNoDecorators(pSphereCenter);
+                            DrawPropertyNoDecorators(sphereRadiusProperty);
+                            DrawPropertyNoDecorators(sphereThicknessProperty);
+                            DrawPropertyNoDecorators(sphereSwirlStrengthProperty);
+                            DrawPropertyNoDecorators(sphereCenterProperty);
                         }
                         FlockEditorGUI.EndCard();
                         break;
                 }
             });
 
-            if (so.ApplyModifiedProperties()) {
+            if (serializedObject.ApplyModifiedProperties()) {
                 EditorUtility.SetDirty(profile);
             }
         }
 
-        void DrawPatternAssetInspectorCards(FlockLayer3PatternProfile target) {
-            if (target == null) return;
+        private void DrawPatternAssetInspectorCards(FlockLayer3PatternProfile target) {
+            if (target == null) {
+                return;
+            }
 
-            var so = new SerializedObject(target);
-            so.Update();
+            SerializedObject serializedObject = new SerializedObject(target);
+            serializedObject.Update();
 
             Type rootType = target.GetType();
             string currentSection = null;
             bool sectionOpen = false;
 
             FlockEditorGUI.WithLabelWidth(FlockEditorUI.DefaultLabelWidth, () => {
-                SerializedProperty it = so.GetIterator();
+                SerializedProperty iterator = serializedObject.GetIterator();
                 bool enterChildren = true;
 
-                while (it.NextVisible(enterChildren)) {
+                while (iterator.NextVisible(enterChildren)) {
                     enterChildren = false;
 
-                    if (it.depth != 0) continue;
-                    if (it.propertyPath == "m_Script") continue;
+                    if (iterator.depth != 0) {
+                        continue;
+                    }
 
-                    if (TryGetHeaderForPropertyPath(rootType, it.propertyPath, out string header)) {
+                    if (iterator.propertyPath == "m_Script") {
+                        continue;
+                    }
+
+                    if (TryGetHeaderForPropertyPath(rootType, iterator.propertyPath, out string header)) {
                         if (!sectionOpen || !string.Equals(currentSection, header, StringComparison.Ordinal)) {
                             if (sectionOpen) {
                                 FlockEditorGUI.EndCard();
@@ -451,15 +492,15 @@ namespace Flock.Editor {
                         sectionOpen = true;
                     }
 
-                    var prop = it.Copy();
+                    SerializedProperty property = iterator.Copy();
 
                     GUIContent labelOverride =
-                        (!string.IsNullOrEmpty(currentSection) &&
-                         string.Equals(prop.displayName, currentSection, StringComparison.Ordinal))
+                        !string.IsNullOrEmpty(currentSection) &&
+                        string.Equals(property.displayName, currentSection, StringComparison.Ordinal)
                             ? GUIContent.none
                             : null;
 
-                    DrawPropertyNoDecorators(prop, labelOverride);
+                    DrawPropertyNoDecorators(property, labelOverride);
                 }
 
                 if (sectionOpen) {
@@ -467,24 +508,25 @@ namespace Flock.Editor {
                 }
             });
 
-            if (so.ApplyModifiedProperties()) {
+            if (serializedObject.ApplyModifiedProperties()) {
                 EditorUtility.SetDirty(target);
             }
         }
 
-        sealed class CreatePatternDropdown : AdvancedDropdown {
-            readonly Action<Type> _onPicked;
+        private sealed class CreatePatternDropdown : AdvancedDropdown {
+            private readonly Action<Type> _onPicked;
 
-            Type[] _types = Array.Empty<Type>();
-
-            readonly Dictionary<int, Type> _idToType =
+            private readonly Dictionary<int, Type> _idToType =
                 new Dictionary<int, Type>(FlockEditorUI.CreatePatternTypeMapInitialCapacity);
-            int _nextId = 1;
+
+            private Type[] _types = Array.Empty<Type>();
+
+            private int _nextId = 1;
 
             public CreatePatternDropdown(AdvancedDropdownState state, Action<Type> onPicked)
                 : base(state) {
-
                 _onPicked = onPicked;
+
                 minimumSize = new Vector2(
                     FlockEditorUI.CreatePatternDropdownMinWidth,
                     FlockEditorUI.CreatePatternDropdownMinHeight);
@@ -499,42 +541,47 @@ namespace Flock.Editor {
                 _idToType.Clear();
                 _nextId = 1;
 
-                var root = new AdvancedDropdownItem("Create Layer-3 Pattern");
-                var icon = EditorGUIUtility.IconContent("ScriptableObject Icon")?.image as Texture2D;
+                AdvancedDropdownItem root = new AdvancedDropdownItem("Create Layer-3 Pattern");
+                Texture2D icon = EditorGUIUtility.IconContent("ScriptableObject Icon")?.image as Texture2D;
 
-                var groups = new Dictionary<string, List<Type>>(FlockEditorUI.CreatePatternGroupsInitialCapacity);
+                Dictionary<string, List<Type>> groups = new Dictionary<string, List<Type>>(FlockEditorUI.CreatePatternGroupsInitialCapacity);
 
-                for (int i = 0; i < _types.Length; i++) {
-                    var t = _types[i];
-                    if (t == null || t.IsAbstract) continue;
+                for (int index = 0; index < _types.Length; index += 1) {
+                    Type type = _types[index];
+                    if (type == null || type.IsAbstract) {
+                        continue;
+                    }
 
-                    string group = GetGroupName(t);
-                    if (!groups.TryGetValue(group, out var list)) {
+                    string group = GetGroupName(type);
+                    if (!groups.TryGetValue(group, out List<Type> list)) {
                         list = new List<Type>(FlockEditorUI.CreatePatternGroupListInitialCapacity);
                         groups.Add(group, list);
                     }
-                    list.Add(t);
+
+                    list.Add(type);
                 }
 
-                var groupKeys = new List<string>(groups.Keys);
+                List<string> groupKeys = new List<string>(groups.Keys);
                 groupKeys.Sort(StringComparer.OrdinalIgnoreCase);
 
                 bool anyAdded = false;
 
-                foreach (var g in groupKeys) {
-                    var groupItem = new AdvancedDropdownItem(g);
+                foreach (string groupKey in groupKeys) {
+                    AdvancedDropdownItem groupItem = new AdvancedDropdownItem(groupKey);
                     root.AddChild(groupItem);
 
-                    var list = groups[g];
+                    List<Type> list = groups[groupKey];
                     list.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(GetPrettyName(a), GetPrettyName(b)));
 
-                    for (int i = 0; i < list.Count; i++) {
-                        var t = list[i];
+                    for (int index = 0; index < list.Count; index += 1) {
+                        Type type = list[index];
 
-                        int id = _nextId++;
-                        _idToType[id] = t;
+                        int id = _nextId;
+                        _nextId += 1;
 
-                        var item = new AdvancedDropdownItem(GetPrettyName(t)) {
+                        _idToType[id] = type;
+
+                        AdvancedDropdownItem item = new AdvancedDropdownItem(GetPrettyName(type)) {
                             id = id,
                             icon = icon
                         };
@@ -552,23 +599,29 @@ namespace Flock.Editor {
             }
 
             protected override void ItemSelected(AdvancedDropdownItem item) {
-                if (item == null) return;
+                if (item == null) {
+                    return;
+                }
 
-                if (_idToType.TryGetValue(item.id, out var t)) {
-                    _onPicked?.Invoke(t);
+                if (_idToType.TryGetValue(item.id, out Type type)) {
+                    _onPicked?.Invoke(type);
                 }
             }
 
-            static string GetGroupName(Type t) {
-                string ns = t.Namespace ?? "";
-                if (string.IsNullOrEmpty(ns)) return "Patterns";
+            private static string GetGroupName(Type type) {
+                string namespaceName = type.Namespace ?? string.Empty;
+                if (string.IsNullOrEmpty(namespaceName)) {
+                    return "Patterns";
+                }
 
-                int lastDot = ns.LastIndexOf('.');
-                return (lastDot >= 0 && lastDot < ns.Length - 1) ? ns.Substring(lastDot + 1) : ns;
+                int lastDotIndex = namespaceName.LastIndexOf('.');
+                return lastDotIndex >= 0 && lastDotIndex < namespaceName.Length - 1
+                    ? namespaceName.Substring(lastDotIndex + 1)
+                    : namespaceName;
             }
 
-            static string GetPrettyName(Type t) {
-                string name = t.Name;
+            private static string GetPrettyName(Type type) {
+                string name = type.Name;
 
                 name = name.Replace("PatternProfile", "");
                 name = name.Replace("Profile", "");
@@ -577,19 +630,25 @@ namespace Flock.Editor {
 
                 name = name.Trim();
                 if (string.IsNullOrEmpty(name)) {
-                    name = t.Name;
+                    name = type.Name;
                 }
 
-                var sb = new StringBuilder(name.Length + 8);
-                for (int i = 0; i < name.Length; i++) {
-                    char c = name[i];
-                    if (i > 0 && char.IsUpper(c) && char.IsLetterOrDigit(name[i - 1]) && !char.IsUpper(name[i - 1])) {
-                        sb.Append(' ');
+                StringBuilder stringBuilder = new StringBuilder(name.Length + 8);
+
+                for (int index = 0; index < name.Length; index += 1) {
+                    char character = name[index];
+
+                    if (index > 0
+                        && char.IsUpper(character)
+                        && char.IsLetterOrDigit(name[index - 1])
+                        && !char.IsUpper(name[index - 1])) {
+                        stringBuilder.Append(' ');
                     }
-                    sb.Append(c);
+
+                    stringBuilder.Append(character);
                 }
 
-                return sb.ToString().Trim();
+                return stringBuilder.ToString().Trim();
             }
         }
     }

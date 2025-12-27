@@ -1,27 +1,36 @@
 #if UNITY_EDITOR
-using UnityEditor;
 using UnityEngine;
 
 namespace Flock.Editor {
+    /**
+    * <summary>
+    * Editor window for flock tooling. This partial contains shared UnityEditor.Editor lifetime helpers.
+    * </summary>
+    */
     public sealed partial class FlockEditorWindow {
-        static void DestroyEditor(ref UnityEditor.Editor ed) {
-            if (ed == null) return;
-            Object.DestroyImmediate(ed);
-            ed = null;
+        // Destroys a cached UnityEditor.Editor instance safely and clears the reference.
+        private static void DestroyEditor(ref UnityEditor.Editor editor) {
+            if (editor == null) {
+                return;
+            }
+
+            Object.DestroyImmediate(editor);
+            editor = null;
         }
 
-        static void EnsureEditor(ref UnityEditor.Editor ed, Object target) {
-            if (target == null) {
-                DestroyEditor(ref ed);
+        // Ensures the cached UnityEditor.Editor matches the provided target object (recreates if needed).
+        private static void EnsureEditor(ref UnityEditor.Editor editor, Object targetObject) {
+            if (targetObject == null) {
+                DestroyEditor(ref editor);
                 return;
             }
 
-            if (ed != null && ed.target == target) {
+            if (editor != null && editor.target == targetObject) {
                 return;
             }
 
-            DestroyEditor(ref ed);
-            ed = UnityEditor.Editor.CreateEditor(target);
+            DestroyEditor(ref editor);
+            editor = UnityEditor.Editor.CreateEditor(targetObject);
         }
     }
 }

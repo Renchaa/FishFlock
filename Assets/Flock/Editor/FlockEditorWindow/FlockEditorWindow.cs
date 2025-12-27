@@ -7,62 +7,71 @@ using UnityEditor.Rendering.HighDefinition;
 using UnityEngine;
 
 namespace Flock.Editor {
-    /// <summary>
-    /// Top-level flock editor window.
-    /// </summary>
+    /**
+     * <summary>
+     * Top-level flock editor window.
+     * </summary>
+     */
     public sealed partial class FlockEditorWindow : EditorWindow {
-        // ---------------- Serialized window state ----------------
-        [SerializeField] private FlockSetup _setup;
-        [SerializeField] private int _selectedTab = 0; // 0 = Species, 1 = Interactions, 2 = Noise/Patterns, 3 = Scene/Simulation
-        [SerializeField] private FlockController sceneController;
-        [SerializeField] private int _selectedSpeciesIndex = -1;
-        [SerializeField] private int _speciesInspectorMode = 0;
-        [SerializeField] private int _selectedNoiseIndex = -1; // -1 = Group Noise Pattern, >=0 = PatternAssets[i]
-        [SerializeField] private int _noiseInspectorMode = 0;  // 0 = Group Noise, 1 = Pattern Assets
-        [SerializeField] private FlockSetupControllerSync _sync = new FlockSetupControllerSync();
+        // Serialized window state
+        [SerializeField]
+        private FlockSetup _setup;
 
-        // ---------------- Scroll ----------------
+        [SerializeField]
+        private int _selectedTab = 0; // 0 = Species, 1 = Interactions, 2 = Noise/Patterns, 3 = Scene/Simulation
+
+        [SerializeField]
+        private FlockController sceneController;
+
+        [SerializeField]
+        private int _selectedSpeciesIndex = -1;
+
+        [SerializeField]
+        private int _speciesInspectorMode = 0;
+
+        [SerializeField]
+        private int _selectedNoiseIndex = -1; // -1 = Group Noise Pattern, >=0 = PatternAssets[i]
+
+        [SerializeField]
+        private int _noiseInspectorMode = 0;  // 0 = Group Noise, 1 = Pattern Assets
+
+        [SerializeField]
+        private FlockSetupControllerSync _sync = new FlockSetupControllerSync();
+
+        // Scroll
         private Vector2 _speciesListScroll;
         private Vector2 _detailScroll;
         private Vector2 _noiseListScroll;
         private Vector2 _noiseDetailScroll;
         private Vector2 _interactionsScroll;
 
-        // ---------------- Cached inspectors ----------------
-        private UnityEditor.Editor _presetEditor;      // FishTypePreset inspector
-        private UnityEditor.Editor _behaviourEditor;   // FishBehaviourProfile inspector
+        // Cached inspectors
+        private UnityEditor.Editor _presetEditor;
+        private UnityEditor.Editor _behaviourEditor;
         private UnityEditor.Editor _interactionMatrixEditor;
         private UnityEditor.Editor _patternAssetEditor;
         private UnityEditor.Editor groupNoiseEditor;
         private UnityEditor.Editor sceneControllerEditor;
 
-        // ---------------- Scene tab state ----------------
+        // Scene tab state
         private Vector2 sceneScroll;
 
-        // ---------------- Pattern dropdown ----------------
+        // Pattern dropdown
         private AdvancedDropdownState _createPatternDropdownState;
         private CreatePatternDropdown _createPatternDropdown;
-        // Global sync throttle (EditorApplication.update)
-        double _nextSceneAutoSyncTime = 0;
 
-        [MenuItem("Window/Flock/Flock Editor")]
-        public static void Open() {
-            GetWindow<FlockEditorWindow>("Flock Editor");
-        }
+        private double _nextSceneAutoSyncTime = 0.0d;
 
         private void OnEnable() {
             EnsureTabs();
 
-            // Keep a valid active index on domain reloads.
             _activeTabIndex = Mathf.Clamp(_selectedTab, 0, _tabs.Length - 1);
             SetActiveTab(_activeTabIndex, fireCallbacks: false);
 
             EditorApplication.update += OnEditorUpdate;
 
-            // Keep existing behavior.
             ResetSceneSyncState();
         }
-
 
         private void OnDisable() {
             EditorApplication.update -= OnEditorUpdate;
@@ -96,7 +105,6 @@ namespace Flock.Editor {
             if (newTab != _selectedTab) {
                 SetActiveTab(newTab, fireCallbacks: true);
             } else if (_activeTabIndex != _selectedTab) {
-                // Safety: keep active index consistent if something external changed _selectedTab.
                 SetActiveTab(_selectedTab, fireCallbacks: false);
             }
 
