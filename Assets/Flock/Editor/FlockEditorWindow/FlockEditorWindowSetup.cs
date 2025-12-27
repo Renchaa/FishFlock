@@ -70,7 +70,7 @@ namespace Flock.Editor {
         private void ResetEditorSelection() {
             _selectedSpeciesIndex = -1;
             _selectedNoiseIndex = -1;
-            _selectedTab = 0;
+            _selectedTab = FlockEditorTabKind.Species;
         }
 
         private void DestroyAllTabEditors() {

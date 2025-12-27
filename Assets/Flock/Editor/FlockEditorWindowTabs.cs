@@ -53,7 +53,7 @@ namespace Flock.Editor {
                 tabs[activeTabIndex].OnDeactivated(this);
             }
 
-            _selectedTab = newIndex;
+            _selectedTab = (FlockEditorTabKind)newIndex;
             activeTabIndex = newIndex;
 
             if (fireCallbacks) {
@@ -95,6 +95,13 @@ namespace Flock.Editor {
 
         private void DrawSceneSimulationTab() {
             DrawSceneSimulationPanel();
+        }
+
+        private enum FlockEditorTabKind {
+            Species = 0,
+            Interactions = 1,
+            NoisePatterns = 2,
+            SceneSimulation = 3
         }
 
         private interface IFlockEditorTab {

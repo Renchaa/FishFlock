@@ -43,8 +43,8 @@ MonoBehaviour:
   splitLateralWeight: 0.415
   splitAccelBoost: 0.39
   attractionWeight: 1
-  boundsWeight: 5
-  boundsTangentialDamping: 2
+  boundsWeight: 100
+  boundsTangentialDamping: 5
   boundsInfluenceSuppression: 1
   minGroupSize: 50
   maxGroupSize: 1000

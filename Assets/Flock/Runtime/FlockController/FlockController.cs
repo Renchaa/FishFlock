@@ -108,6 +108,20 @@ namespace Flock.Runtime {
         */
         public FlockLayer3PatternProfile[] Layer3Patterns => layer3Patterns;
 
+        /**
+         * <summary>
+         * Gets whether the simulation is currently running (stepping jobs each frame).
+         * </summary>
+         */
+        public bool IsSimulationRunning => simulationRunState == SimulationRunState.Running;
+
+        /**
+         * <summary>
+         * Gets whether the simulation is currently paused (no stepping; agents remain frozen).
+         * </summary>
+         */
+        public bool IsSimulationPaused => simulationRunState == SimulationRunState.Paused;
+
         private FlockSimulation simulation;
         private NativeArray<FlockBehaviourSettings> behaviourSettingsArray;
         private int[] agentBehaviourIds;
@@ -115,8 +129,10 @@ namespace Flock.Runtime {
 
         private readonly List<Transform> agentTransforms = new List<Transform>();
 
+        private JobHandle lastStepHandle;
+        private SimulationRunState simulationRunState = SimulationRunState.Stopped;
+
         private void Awake() {
-            // Configure global logging filter from this controller
             FlockLog.SetGlobalMask(enabledLogLevels, enabledLogCategories);
 
             FlockLog.Info(
@@ -125,28 +141,111 @@ namespace Flock.Runtime {
                 $"FlockController.Awake on '{name}'.",
                 this);
 
-            CreateSimulation();
-            SpawnAgents();
+            StartSimulation();
         }
 
         private void Update() {
+            if (simulationRunState != SimulationRunState.Running) {
+                return;
+            }
+
             if (simulation == null || !simulation.IsCreated) {
+                simulationRunState = SimulationRunState.Stopped;
                 return;
             }
 
             UpdateDynamicObstacles();
-            UpdateDynamicAttractors();    // NEW
+            UpdateDynamicAttractors();
 
-            JobHandle handle = simulation.ScheduleStepJobs(Time.deltaTime);
-            handle.Complete();
+            lastStepHandle = simulation.ScheduleStepJobs(Time.deltaTime);
+            lastStepHandle.Complete();
+            lastStepHandle = default;
 
             ApplySimulationToTransforms();
         }
 
         private void OnDestroy() {
-            if (simulation != null) {
+            StopSimulationInternal();
+        }
+
+        /**
+         * <summary>
+         * Stops the simulation completely and destroys spawned agent instances.
+         * </summary>
+         */
+        public void StopSimulation() {
+            StopSimulationInternal();
+        }
+
+        /**
+         * <summary>
+         * Starts the simulation from the beginning from any state (Stopped/Paused/Running).
+         * This rebuilds the simulation and respawns agents.
+         * </summary>
+         */
+        public void StartSimulation() {
+            StopSimulationInternal();
+
+            CreateSimulation();
+            SpawnAgents();
+
+            simulationRunState = (simulation != null && simulation.IsCreated)
+                ? SimulationRunState.Running
+                : SimulationRunState.Stopped;
+        }
+
+        /**
+         * <summary>
+         * Pauses the simulation (no stepping; agents freeze in place).
+         * </summary>
+         */
+        public void PauseSimulation() {
+            if (simulationRunState != SimulationRunState.Running) {
+                return;
+            }
+
+            simulationRunState = SimulationRunState.Paused;
+        }
+
+        /**
+         * <summary>
+         * Resumes the simulation if it is currently paused.
+         * </summary>
+         */
+        public void ResumeSimulation() {
+            if (simulationRunState != SimulationRunState.Paused) {
+                return;
+            }
+
+            if (simulation == null || !simulation.IsCreated) {
+                simulationRunState = SimulationRunState.Stopped;
+                return;
+            }
+
+            simulationRunState = SimulationRunState.Running;
+        }
+
+        private void StopSimulationInternal() {
+            lastStepHandle.Complete();
+            lastStepHandle = default;
+
+            DisposeSimulationInternal();
+            DisposeBehaviourSettingsArrayInternal();
+            DestroySpawnedAgentsInternal();
+
+            agentBehaviourIds = null;
+            totalAgentCount = 0;
+
+            simulationRunState = SimulationRunState.Stopped;
+        }
+
+        private void DisposeSimulationInternal() {
+            if (simulation == null) {
+                return;
+            }
+
+            if (simulation.IsCreated) {
                 simulation.Dispose();
-                simulation = null;
 
                 FlockLog.Info(
                     this,
@@ -155,9 +254,26 @@ namespace Flock.Runtime {
                     this);
             }
 
-            if (behaviourSettingsArray.IsCreated) {
-                behaviourSettingsArray.Dispose();
+            simulation = null;
+        }
+
+        private void DisposeBehaviourSettingsArrayInternal() {
+            if (!behaviourSettingsArray.IsCreated) {
+                return;
             }
+
+            behaviourSettingsArray.Dispose();
+        }
+
+        private void DestroySpawnedAgentsInternal() {
+            for (int index = agentTransforms.Count - 1; index >= 0; index -= 1) {
+                Transform agentTransform = agentTransforms[index];
+                if (agentTransform != null) {
+                    Destroy(agentTransform.gameObject);
+                }
+            }
+
+            agentTransforms.Clear();
         }
 
         private void ApplyLayer2GroupNoisePatternToSimulation() {
@@ -514,5 +630,12 @@ namespace Flock.Runtime {
                 }
             }
         }
+        
+        private enum SimulationRunState {
+            Stopped = 0,
+            Running = 1,
+            Paused = 2
+        }
+
     }
 }

@@ -229,14 +229,18 @@ namespace Flock.Editor {
                 GUILayout.FlexibleSpace();
 
                 string[] modeLabels = { "Preset", "Behaviour" };
-                _speciesInspectorMode = Mathf.Clamp(_speciesInspectorMode, 0, 1);
-                _speciesInspectorMode = GUILayout.Toolbar(
-                    _speciesInspectorMode,
+
+                int currentModeIndex = Mathf.Clamp((int)CurrentSpeciesInspectorMode, 0, 1);
+                int newModeIndex = GUILayout.Toolbar(
+                    currentModeIndex,
                     modeLabels,
                     GUILayout.Width(FlockEditorUI.InspectorModeToolbarWidth));
 
-                if (behaviourProfile == null && _speciesInspectorMode == 1) {
-                    _speciesInspectorMode = 0;
+                newModeIndex = Mathf.Clamp(newModeIndex, 0, 1);
+                CurrentSpeciesInspectorMode = (SpeciesInspectorMode)newModeIndex;
+
+                if (behaviourProfile == null && CurrentSpeciesInspectorMode == SpeciesInspectorMode.Behaviour) {
+                    CurrentSpeciesInspectorMode = SpeciesInspectorMode.Preset;
                 }
             }
 
@@ -246,7 +250,7 @@ namespace Flock.Editor {
         private void DrawSpeciesInspectorBody(FishTypePreset fishTypePreset) {
             FishBehaviourProfile behaviourProfile = fishTypePreset.BehaviourProfile;
 
-            if (_speciesInspectorMode == 0) {
+            if (CurrentSpeciesInspectorMode == SpeciesInspectorMode.Preset) {
                 if (_presetEditor != null) {
                     _presetEditor.OnInspectorGUI();
                 }

@@ -2,6 +2,11 @@
 namespace Flock.Runtime.Logging {
     using System;
 
+    /**
+     * <summary>
+     * Bitmask levels used to filter flock logging output.
+     * </summary>
+     */
     [Flags]
     public enum FlockLogLevel {
         None = 0,

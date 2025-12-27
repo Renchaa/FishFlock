@@ -25,18 +25,22 @@ namespace Flock.Editor {
             GUILayout.FlexibleSpace();
 
             EditorGUI.BeginChangeCheck();
-            _noiseInspectorMode = GUILayout.Toolbar(
-                Mathf.Clamp(_noiseInspectorMode, 0, 1),
+
+            int selectedModeIndex = Mathf.Clamp((int)_noiseInspectorMode, 0, 1);
+            int newModeIndex = GUILayout.Toolbar(
+                selectedModeIndex,
                 new[] { "Group Noise", "Pattern Assets" },
                 GUILayout.Width(FlockEditorUI.NoiseModeToolbarWidth));
 
             if (EditorGUI.EndChangeCheck()) {
+                _noiseInspectorMode = (NoiseInspectorMode)newModeIndex;
                 RebuildNoiseEditors();
             }
 
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.Space(FlockEditorUI.SpaceMedium);
         }
+
 
         private void DrawNoiseListPanel() {
             using (new EditorGUILayout.VerticalScope(GUILayout.Width(FlockEditorUI.NoiseListPanelWidth))) {
@@ -52,7 +56,7 @@ namespace Flock.Editor {
         }
 
         private void DrawNoiseListScrollContent() {
-            if (_noiseInspectorMode == 0) {
+            if (_noiseInspectorMode == NoiseInspectorMode.GroupNoise) {
                 EditorGUILayout.LabelField("Group Noise Pattern", EditorStyles.boldLabel);
 
                 GroupNoisePatternProfile currentProfile = _setup.GroupNoiseSettings as GroupNoisePatternProfile;
@@ -141,7 +145,7 @@ namespace Flock.Editor {
 
         private void DrawNoiseListFooterButtons() {
             using (new EditorGUILayout.HorizontalScope()) {
-                if (_noiseInspectorMode == 0) {
+                if (_noiseInspectorMode == NoiseInspectorMode.GroupNoise) {
                     using (new EditorGUI.DisabledScope(_setup == null)) {
                         if (GUILayout.Button("Create Group Pattern", GUILayout.Width(FlockEditorUI.CreateGroupPatternButtonWidth))) {
                             CreateGroupNoisePatternAsset();
@@ -268,7 +272,7 @@ namespace Flock.Editor {
         }
 
         private void HandleGroupNoiseObjectPicker() {
-            if (_noiseInspectorMode != 0 || _setup == null) {
+            if (_noiseInspectorMode != NoiseInspectorMode.GroupNoise || _setup == null) {
                 return;
             }
 
@@ -339,7 +343,7 @@ namespace Flock.Editor {
                 return;
             }
 
-            if (_noiseInspectorMode == 0) {
+            if (_noiseInspectorMode == NoiseInspectorMode.GroupNoise) {
                 EnsureEditor(ref groupNoiseEditor, _setup.GroupNoiseSettings as GroupNoisePatternProfile);
                 return;
             }

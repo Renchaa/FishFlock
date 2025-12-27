@@ -1,6 +1,11 @@
 namespace Flock.Runtime.Logging {
     using System;
 
+    /**
+     * <summary>
+     * Bitmask categories used to filter flock logging output.
+     * </summary>
+     */
     [Flags]
     public enum FlockLogCategory {
         None = 0,
@@ -12,7 +17,6 @@ namespace Flock.Runtime.Logging {
         Attractors = 1 << 5,
         Patterns = 1 << 6,
 
-        // Add more bits later if needed (Editor, UI, etc).
         All = General
             | Controller
             | Simulation

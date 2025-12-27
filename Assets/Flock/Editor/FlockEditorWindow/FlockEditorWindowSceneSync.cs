@@ -83,7 +83,7 @@ namespace Flock.Editor {
         }
 
         private void ClampNoiseSelection() {
-            if (_noiseInspectorMode != 1) {
+            if (_noiseInspectorMode != NoiseInspectorMode.PatternAssets) {
                 _selectedNoiseIndex = -1;
                 return;
             }
