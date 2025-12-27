@@ -9,81 +9,113 @@ namespace Flock.Runtime {
     using Unity.Mathematics;
     using UnityEngine;
 
+    /**
+    * <summary>
+    * Creates, owns, and steps the flock simulation, and binds it to spawned agent GameObjects.
+    * </summary>
+    */
     public sealed partial class FlockController : MonoBehaviour, IFlockLogger {
-
-
         [Header("Fish Types"), HideInInspector]
-        [SerializeField] FishTypePreset[] fishTypes;
+        [SerializeField] private FishTypePreset[] fishTypes;
 
         [Header("Spawning")]
-        [SerializeField] FlockMainSpawner mainSpawner;
+        [SerializeField] private FlockMainSpawner mainSpawner;
 
         [Header("Group Noise Pattern")]
-        [SerializeField] GroupNoisePatternProfile groupNoisePattern;
+        [SerializeField] private GroupNoisePatternProfile groupNoisePattern;
 
         [Header("Bounds")]
-        [SerializeField] FlockBoundsType boundsType = FlockBoundsType.Box;
-        [SerializeField] Vector3 boundsCenter = Vector3.zero;
-        [SerializeField] Vector3 boundsExtents = new Vector3(10.0f, 10.0f, 10.0f);
+        [SerializeField] private FlockBoundsType boundsType = FlockBoundsType.Box;
+        [SerializeField] private Vector3 boundsCenter = Vector3.zero;
+        [SerializeField] private Vector3 boundsExtents = new Vector3(10.0f, 10.0f, 10.0f);
 
         // Used when boundsType == Sphere
-        [SerializeField, Min(0f)] float boundsSphereRadius = 10.0f;
+        [SerializeField, Min(0f)] private float boundsSphereRadius = 10.0f;
 
         [Header("Grid")]
-        [SerializeField] float cellSize = 2.0f;
+        [SerializeField] private float cellSize = 2.0f;
 
         [Header("Movement")]
-        [SerializeField] float globalDamping = 0.5f;
+        [SerializeField] private float globalDamping = 0.5f;
 
         [Header("Debug")]
-        [SerializeField] bool debugDrawBounds = true;
-        [SerializeField] bool debugDrawGrid = false;
-        [SerializeField] bool debugDrawAgents = true;
-        [SerializeField] bool debugDrawNeighbourhood = false;
-        [SerializeField, Min(0)] int debugAgentIndex = 0;
+        [SerializeField] private bool debugDrawBounds = true;
+        [SerializeField] private bool debugDrawGrid = false;
+        [SerializeField] private bool debugDrawAgents = true;
+        [SerializeField] private bool debugDrawNeighbourhood = false;
+        [SerializeField, Min(0)] private int debugAgentIndex = 0;
 
         // NEW: per-agent radius debug toggles
-        [SerializeField] bool debugDrawBodyRadius = true;
-        [SerializeField] bool debugDrawSeparationRadius = true;
-        [SerializeField] bool debugDrawNeighbourRadiusSphere = true;
-        [SerializeField] bool debugDrawGridSearchRadiusSphere = false;
+        [SerializeField] private bool debugDrawBodyRadius = true;
+        [SerializeField] private bool debugDrawSeparationRadius = true;
+        [SerializeField] private bool debugDrawNeighbourRadiusSphere = true;
+        [SerializeField] private bool debugDrawGridSearchRadiusSphere = false;
 
         [Header("Obstacles")]
-        [SerializeField] FlockObstacle[] staticObstacles;
-        [SerializeField] FlockObstacle[] dynamicObstacles;
+        [SerializeField] private FlockObstacle[] staticObstacles;
+        [SerializeField] private FlockObstacle[] dynamicObstacles;
 
         [Header("Logging")]
-        [SerializeField] FlockLogLevel enabledLogLevels = FlockLogLevel.All;
-        [SerializeField] FlockLogCategory enabledLogCategories = FlockLogCategory.All;
+        [SerializeField] private FlockLogLevel enabledLogLevels = FlockLogLevel.All;
+        [SerializeField] private FlockLogCategory enabledLogCategories = FlockLogCategory.All;
 
         [Header("Debug Obstacle Avoidance")]
-        [SerializeField] bool debugObstacleAvoidance = false;
-        [SerializeField, Range(1, 32)] int debugObstacleCellsToLog = 4;
+        [SerializeField] private bool debugObstacleAvoidance = false;
+        [SerializeField, Range(1, 32)] private int debugObstacleCellsToLog = 4;
 
         [Header("Interactions")]
-        [SerializeField] FishInteractionMatrix interactionMatrix;
+        [SerializeField] private FishInteractionMatrix interactionMatrix;
 
         [Header("Attractors")]
-        [SerializeField] FlockAttractorArea[] staticAttractors;
-        [SerializeField] FlockAttractorArea[] dynamicAttractors;
+        [SerializeField] private FlockAttractorArea[] staticAttractors;
+        [SerializeField] private FlockAttractorArea[] dynamicAttractors;
 
         [Header("Layer-3 Patterns")]
-        [SerializeField] FlockLayer3PatternProfile[] layer3Patterns;
+        [SerializeField] private FlockLayer3PatternProfile[] layer3Patterns;
 
+        /**
+        * <summary>
+        * Gets the enabled log levels for this controller.
+        * </summary>
+        */
         public FlockLogLevel EnabledLevels => enabledLogLevels;
+
+        /**
+        * <summary>
+        * Gets the enabled log categories for this controller.
+        * </summary>
+        */
         public FlockLogCategory EnabledCategories => enabledLogCategories;
+
+        /**
+        * <summary>
+        * Gets the fish type presets used by this controller (index = behaviour id).
+        * </summary>
+        */
         public FishTypePreset[] FishTypes => fishTypes;
+
+        /**
+        * <summary>
+        * Gets the main spawner used to build agent distributions and initial positions.
+        * </summary>
+        */
         public FlockMainSpawner MainSpawner => mainSpawner;
+
+        /**
+        * <summary>
+        * Gets the layer-3 pattern profiles used by the simulation.
+        * </summary>
+        */
         public FlockLayer3PatternProfile[] Layer3Patterns => layer3Patterns;
 
-        FlockSimulation simulation;
-        NativeArray<FlockBehaviourSettings> behaviourSettingsArray;
-        int[] agentBehaviourIds;
-        int totalAgentCount;
+        private FlockSimulation simulation;
+        private NativeArray<FlockBehaviourSettings> behaviourSettingsArray;
+        private int[] agentBehaviourIds;
+        private int totalAgentCount;
 
-        readonly List<Transform> agentTransforms = new List<Transform>();
+        private readonly List<Transform> agentTransforms = new List<Transform>();
 
-        void Awake() {
+        private void Awake() {
             // Configure global logging filter from this controller
             FlockLog.SetGlobalMask(enabledLogLevels, enabledLogCategories);
 
@@ -97,7 +129,7 @@ namespace Flock.Runtime {
             SpawnAgents();
         }
 
-        void Update() {
+        private void Update() {
             if (simulation == null || !simulation.IsCreated) {
                 return;
             }
@@ -111,7 +143,7 @@ namespace Flock.Runtime {
             ApplySimulationToTransforms();
         }
 
-        void OnDestroy() {
+        private void OnDestroy() {
             if (simulation != null) {
                 simulation.Dispose();
                 simulation = null;
@@ -128,7 +160,7 @@ namespace Flock.Runtime {
             }
         }
 
-        void ApplyLayer2GroupNoisePatternToSimulation() {
+        private void ApplyLayer2GroupNoisePatternToSimulation() {
             if (simulation == null || !simulation.IsCreated) {
                 return;
             }
@@ -163,7 +195,7 @@ namespace Flock.Runtime {
             }
         }
 
-        void CreateBehaviourSettingsArray() {
+        private void CreateBehaviourSettingsArray() {
             if (fishTypes == null || fishTypes.Length == 0) {
                 FlockLog.Error(
                     this,
@@ -201,55 +233,55 @@ namespace Flock.Runtime {
                 out compiledAvoidMasks,
                 out compiledNeutralMasks);
 
-            for (int i = 0; i < behaviourCount; i += 1) {
-                FishTypePreset preset = fishTypes[i];
+            for (int index = 0; index < behaviourCount; index += 1) {
+                FishTypePreset preset = fishTypes[index];
                 if (preset == null) {
                     FlockLog.Warning(
                         this,
                         FlockLogCategory.Controller,
-                        $"FishTypes[{i}] is null on '{name}'. Skipping.",
+                        $"FishTypes[{index}] is null on '{name}'. Skipping.",
                         this);
-                    behaviourSettingsArray[i] = default;
+                    behaviourSettingsArray[index] = default;
                     continue;
                 }
 
                 FlockBehaviourSettings settings = preset.ToSettings();
 
                 // Leadership weight from matrix (or default)
-                if (compiledLeadership != null && i < compiledLeadership.Length) {
-                    settings.LeadershipWeight = compiledLeadership[i];
+                if (compiledLeadership != null && index < compiledLeadership.Length) {
+                    settings.LeadershipWeight = compiledLeadership[index];
                 } else {
                     settings.LeadershipWeight = 1.0f;
                 }
 
                 // Avoidance weight from matrix (or default)
-                if (compiledAvoidance != null && i < compiledAvoidance.Length) {
-                    settings.AvoidanceWeight = compiledAvoidance[i];
+                if (compiledAvoidance != null && index < compiledAvoidance.Length) {
+                    settings.AvoidanceWeight = compiledAvoidance[index];
                 } else {
                     settings.AvoidanceWeight = 1.0f;
                 }
 
                 // Neutral weight from matrix (or default)
-                if (compiledNeutral != null && i < compiledNeutral.Length) {
-                    settings.NeutralWeight = compiledNeutral[i];
+                if (compiledNeutral != null && index < compiledNeutral.Length) {
+                    settings.NeutralWeight = compiledNeutral[index];
                 } else {
                     settings.NeutralWeight = 1.0f;
                 }
 
                 // Relationship masks
-                settings.GroupMask = compiledFriendlyMasks != null && i < compiledFriendlyMasks.Length
-                    ? compiledFriendlyMasks[i]
+                settings.GroupMask = compiledFriendlyMasks != null && index < compiledFriendlyMasks.Length
+                    ? compiledFriendlyMasks[index]
                     : 0u;
 
-                settings.AvoidMask = compiledAvoidMasks != null && i < compiledAvoidMasks.Length
-                    ? compiledAvoidMasks[i]
+                settings.AvoidMask = compiledAvoidMasks != null && index < compiledAvoidMasks.Length
+                    ? compiledAvoidMasks[index]
                     : 0u;
 
-                settings.NeutralMask = compiledNeutralMasks != null && i < compiledNeutralMasks.Length
-                    ? compiledNeutralMasks[i]
+                settings.NeutralMask = compiledNeutralMasks != null && index < compiledNeutralMasks.Length
+                    ? compiledNeutralMasks[index]
                     : 0u;
 
-                behaviourSettingsArray[i] = settings;
+                behaviourSettingsArray[index] = settings;
             }
 
             FlockLog.Info(
@@ -259,7 +291,7 @@ namespace Flock.Runtime {
                 this);
         }
 
-        void CreateSimulation() {
+        private void CreateSimulation() {
             CreateBehaviourSettingsArray();
 
             if (!behaviourSettingsArray.IsCreated || behaviourSettingsArray.Length == 0) {
@@ -324,8 +356,6 @@ namespace Flock.Runtime {
                 layer3SphereShells,
                 layer3BoxShells);
 
-
-
             // Let the spawner write initial positions into the simulation
             mainSpawner.AssignInitialPositions(
                 environmentData,
@@ -341,7 +371,7 @@ namespace Flock.Runtime {
                 this);
         }
 
-        FlockEnvironmentData BuildEnvironmentData() {
+        private FlockEnvironmentData BuildEnvironmentData() {
             FlockEnvironmentData environmentData;
 
             environmentData.BoundsType = boundsType;
@@ -382,7 +412,7 @@ namespace Flock.Runtime {
             return environmentData;
         }
 
-        void SpawnAgents() {
+        private void SpawnAgents() {
             if (simulation == null || !simulation.IsCreated) {
                 FlockLog.Warning(
                     this,
@@ -454,8 +484,7 @@ namespace Flock.Runtime {
                 this);
         }
 
-
-        void ApplySimulationToTransforms() {
+        private void ApplySimulationToTransforms() {
             NativeArray<float3> positions = simulation.Positions;
             NativeArray<float3> velocities = simulation.Velocities;
 

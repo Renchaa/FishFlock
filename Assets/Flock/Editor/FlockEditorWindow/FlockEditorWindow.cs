@@ -62,11 +62,12 @@ namespace Flock.Editor {
 
         private double _nextSceneAutoSyncTime = 0.0d;
 
+
         private void OnEnable() {
             EnsureTabs();
 
-            _activeTabIndex = Mathf.Clamp(_selectedTab, 0, _tabs.Length - 1);
-            SetActiveTab(_activeTabIndex, fireCallbacks: false);
+            activeTabIndex = Mathf.Clamp(_selectedTab, 0, tabs.Length - 1);
+            SetActiveTab(activeTabIndex, fireCallbacks: false);
 
             EditorApplication.update += OnEditorUpdate;
 
@@ -99,18 +100,23 @@ namespace Flock.Editor {
             EditorGUILayout.Space();
 
             int newTab = GUILayout.Toolbar(
-                Mathf.Clamp(_selectedTab, 0, _tabs.Length - 1),
-                _tabLabels);
+                Mathf.Clamp(_selectedTab, 0, tabs.Length - 1),
+                tabLabels);
 
             if (newTab != _selectedTab) {
                 SetActiveTab(newTab, fireCallbacks: true);
-            } else if (_activeTabIndex != _selectedTab) {
+            } else if (activeTabIndex != _selectedTab) {
                 SetActiveTab(_selectedTab, fireCallbacks: false);
             }
 
             EditorGUILayout.Space();
 
-            _tabs[_activeTabIndex].Draw(this);
+            tabs[activeTabIndex].Draw(this);
+        }
+
+        [MenuItem("Window/Flock/Flock Editor")]
+        public static void Open() {
+            GetWindow<FlockEditorWindow>("Flock Editor");
         }
 
         private static void DrawNoSetupHelp() {

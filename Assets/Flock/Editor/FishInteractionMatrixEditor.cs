@@ -2,43 +2,46 @@
 // FishInteractionMatrixEditor.cs (Editor)
 // ==========================================
 #if UNITY_EDITOR
-namespace Flock.Editor {
-    using Flock.Runtime;
-    using UnityEditor;
-    using UnityEngine;
+using Flock.Runtime;
+using UnityEditor;
+using UnityEngine;
 
+namespace Flock.Editor {
+    /**
+     * <summary>
+     * Custom inspector for <see cref="FishInteractionMatrix"/> that renders the interaction grid,
+     * relationship selection, and per-fish weight configuration.
+     * </summary>
+     */
     [CustomEditor(typeof(FishInteractionMatrix))]
     public sealed class FishInteractionMatrixEditor : UnityEditor.Editor {
-        const float HeaderWidth = 90f;
-        const float CellSize = 22f;
-        const float ColumnHeaderHeight = 40f;
+        private const float HeaderWidth = 90f;
+        private const float CellSize = 22f;
+        private const float ColumnHeaderHeight = 40f;
 
-        FishInteractionMatrix matrix;
-        GUIStyle headerStyle;
-        GUIStyle cellToggleStyle;
-
-        static readonly GUIContent[] RelationshipOptions = {
+        private static readonly GUIContent[] RelationshipOptions = {
             new GUIContent("Friendly"),
             new GUIContent("Avoid"),
-            new GUIContent("Neutral"),   // UI label for enum value "None"
+            new GUIContent("Neutral"),
         };
 
-        // NEW: which fish row is currently selected in the relations panel
-        int selectedFishIndex = -1;
+        private FishInteractionMatrix matrix;
+        private GUIStyle headerStyle;
+        private GUIStyle cellToggleStyle;
 
-        void OnEnable() {
-            // Don’t assume Unity’s timing; just init defensively.
-            EnsureInit();
-        }
+        private int selectedFishIndex = -1;
 
-        GUIStyle CellStyle {
+        private GUIStyle CellStyle {
             get {
                 EnsureInit();
                 return cellToggleStyle;
             }
         }
 
-        // ===== REPLACE OnInspectorGUI WITH THIS VERSION =====
+        private void OnEnable() {
+            EnsureInit();
+        }
+
         public override void OnInspectorGUI() {
             EnsureInit();
             if (matrix == null) {
@@ -47,54 +50,23 @@ namespace Flock.Editor {
 
             serializedObject.Update();
 
-            // ----------------------------
-            // Fish Types + Defaults (flat)
-            // ----------------------------
-            EditorGUILayout.LabelField("Fish Types & Defaults", EditorStyles.boldLabel);
-
-            SerializedProperty fishTypesProp = serializedObject.FindProperty("fishTypes");
-            if (fishTypesProp != null) {
-                using (new EditorGUI.DisabledScope(true)) {
-                    FlockEditorGUI.PropertyFieldClamped(
-                        fishTypesProp,
-                        includeChildren: true,
-                        labelOverride: EditorGUIUtility.TrTextContent("Fish Types"));
-                }
-            }
-
-            SerializedProperty defaultLeaderProp = serializedObject.FindProperty("defaultLeadershipWeight");
-            EditorGUILayout.PropertyField(defaultLeaderProp, new GUIContent("Default Leadership Weight"));
-
-            SerializedProperty defaultAvoidProp = serializedObject.FindProperty("defaultAvoidanceWeight");
-            EditorGUILayout.PropertyField(defaultAvoidProp, new GUIContent("Default Avoidance Weight"));
-
-            SerializedProperty defaultNeutralProp = serializedObject.FindProperty("defaultNeutralWeight");
-            EditorGUILayout.PropertyField(defaultNeutralProp, new GUIContent("Default Neutral Weight"));
+            DrawFishTypesAndDefaults();
 
             serializedObject.ApplyModifiedProperties();
             matrix.SyncSizeWithFishTypes();
 
             EditorGUILayout.Space(8f);
 
-            // ----------------------------
-            // Interaction Matrix (flat)
-            // ----------------------------
             EditorGUILayout.LabelField("Interaction Matrix", EditorStyles.boldLabel);
             DrawInteractionMatrix();
 
             EditorGUILayout.Space(8f);
 
-            // ----------------------------
-            // Relationships (flat)
-            // ----------------------------
             EditorGUILayout.LabelField("Relationships", EditorStyles.boldLabel);
             DrawRelationsInspector();
 
             EditorGUILayout.Space(8f);
 
-            // ----------------------------
-            // Weights (flat)
-            // ----------------------------
             EditorGUILayout.LabelField("Leadership Weights", EditorStyles.boldLabel);
             DrawLeadershipWeights();
 
@@ -109,50 +81,75 @@ namespace Flock.Editor {
             DrawNeutralWeights();
         }
 
-        // ===== existing matrix drawing (unchanged) =====
-        void DrawInteractionMatrix() {
-            int count = matrix.Count;
-            FishTypePreset[] types = matrix.FishTypes;
+        private void DrawFishTypesAndDefaults() {
+            EditorGUILayout.LabelField("Fish Types & Defaults", EditorStyles.boldLabel);
 
-            if (count == 0 || types == null) {
-                EditorGUILayout.HelpBox(
-                    "Add Fish Types to edit the interaction matrix.",
-                    MessageType.Info);
+            SerializedProperty fishTypesProperty = serializedObject.FindProperty("fishTypes");
+            if (fishTypesProperty != null) {
+                using (new EditorGUI.DisabledScope(true)) {
+                    FlockEditorGUI.PropertyFieldClamped(
+                        fishTypesProperty,
+                        includeChildren: true,
+                        labelOverride: EditorGUIUtility.TrTextContent("Fish Types"));
+                }
+            }
+
+            SerializedProperty defaultLeaderProperty = serializedObject.FindProperty("defaultLeadershipWeight");
+            EditorGUILayout.PropertyField(defaultLeaderProperty, new GUIContent("Default Leadership Weight"));
+
+            SerializedProperty defaultAvoidProperty = serializedObject.FindProperty("defaultAvoidanceWeight");
+            EditorGUILayout.PropertyField(defaultAvoidProperty, new GUIContent("Default Avoidance Weight"));
+
+            SerializedProperty defaultNeutralProperty = serializedObject.FindProperty("defaultNeutralWeight");
+            EditorGUILayout.PropertyField(defaultNeutralProperty, new GUIContent("Default Neutral Weight"));
+        }
+
+        private void DrawInteractionMatrix() {
+            int fishTypeCount = matrix.Count;
+            FishTypePreset[] fishTypes = matrix.FishTypes;
+
+            if (fishTypeCount == 0 || fishTypes == null) {
+                EditorGUILayout.HelpBox("Add Fish Types to edit the interaction matrix.", MessageType.Info);
                 return;
             }
 
-            // column headers
+            DrawInteractionMatrixColumnHeaders(fishTypeCount, fishTypes);
+            DrawInteractionMatrixRows(fishTypeCount, fishTypes);
+        }
+
+        private void DrawInteractionMatrixColumnHeaders(int fishTypeCount, FishTypePreset[] fishTypes) {
             EditorGUILayout.BeginHorizontal();
             GUILayout.Space(HeaderWidth);
 
-            for (int col = 0; col < count; col++) {
-                string label = GetTypeName(types[col]);
+            for (int columnIndex = 0; columnIndex < fishTypeCount; columnIndex += 1) {
+                string label = GetTypeName(fishTypes[columnIndex]);
 
-                Rect r = GUILayoutUtility.GetRect(
+                Rect rect = GUILayoutUtility.GetRect(
                     CellSize,
                     ColumnHeaderHeight,
                     GUILayout.Width(CellSize),
                     GUILayout.Height(ColumnHeaderHeight));
 
-                DrawVerticalHeaderLabel(r, label);
+                DrawVerticalHeaderLabel(rect, label);
             }
 
             EditorGUILayout.EndHorizontal();
+        }
 
-            // rows
-            for (int row = 0; row < count; row++) {
+        private void DrawInteractionMatrixRows(int fishTypeCount, FishTypePreset[] fishTypes) {
+            for (int rowIndex = 0; rowIndex < fishTypeCount; rowIndex += 1) {
                 EditorGUILayout.BeginHorizontal();
 
-                string rowLabel = GetTypeName(types[row]);
+                string rowLabel = GetTypeName(fishTypes[rowIndex]);
                 GUILayout.Label(rowLabel, headerStyle, GUILayout.Width(HeaderWidth));
 
-                for (int col = 0; col < count; col++) {
-                    if (col < row) {
+                for (int columnIndex = 0; columnIndex < fishTypeCount; columnIndex += 1) {
+                    if (columnIndex < rowIndex) {
                         GUILayout.Space(CellSize);
                         continue;
                     }
 
-                    bool value = matrix.GetInteraction(row, col);
+                    bool value = matrix.GetInteraction(rowIndex, columnIndex);
 
                     bool newValue = GUILayout.Toggle(
                         value,
@@ -163,7 +160,7 @@ namespace Flock.Editor {
 
                     if (newValue != value) {
                         Undo.RecordObject(matrix, "Toggle Fish Interaction");
-                        matrix.SetSymmetricInteraction(row, col, newValue);
+                        matrix.SetSymmetricInteraction(rowIndex, columnIndex, newValue);
                         EditorUtility.SetDirty(matrix);
                     }
                 }
@@ -172,56 +169,49 @@ namespace Flock.Editor {
             }
         }
 
-        // ===== NEW: relations panel for a selected fish row =====
-        void DrawRelationsInspector() {
-            int count = matrix.Count;
-            FishTypePreset[] types = matrix.FishTypes;
+        private void DrawRelationsInspector() {
+            int fishTypeCount = matrix.Count;
+            FishTypePreset[] fishTypes = matrix.FishTypes;
 
-            if (count == 0 || types == null) {
+            if (fishTypeCount == 0 || fishTypes == null) {
                 return;
             }
-            // build popup list for selecting which fish row we are editing
-            string[] names = new string[count];
-            for (int i = 0; i < count; i++) {
-                names[i] = GetTypeName(types[i]);
-            }
 
-            if (selectedFishIndex < 0 || selectedFishIndex >= count) {
+            string[] fishTypeNames = BuildFishTypeNames(fishTypes, fishTypeCount);
+
+            if (selectedFishIndex < 0 || selectedFishIndex >= fishTypeCount) {
                 selectedFishIndex = 0;
             }
 
-            selectedFishIndex = EditorGUILayout.Popup(
-                "Selected Fish",
-                selectedFishIndex,
-                names);
+            selectedFishIndex = EditorGUILayout.Popup("Selected Fish", selectedFishIndex, fishTypeNames);
 
             EditorGUI.indentLevel++;
 
             bool hasAnyRelation = false;
 
-            for (int other = 0; other < count; other++) {
-                // show self-pair as well, but only if interaction is enabled in matrix
-                if (!matrix.GetInteraction(selectedFishIndex, other)) {
+            for (int otherIndex = 0; otherIndex < fishTypeCount; otherIndex += 1) {
+                if (!matrix.GetInteraction(selectedFishIndex, otherIndex)) {
                     continue;
                 }
 
                 hasAnyRelation = true;
 
-                FishRelationType relation = matrix.GetRelation(selectedFishIndex, other);
-                string label = $"{GetTypeName(types[selectedFishIndex])} <-> {GetTypeName(types[other])}";
+                FishRelationType relation = matrix.GetRelation(selectedFishIndex, otherIndex);
+                string label = $"{GetTypeName(fishTypes[selectedFishIndex])} <-> {GetTypeName(fishTypes[otherIndex])}";
 
                 int currentIndex = RelationToIndex(relation);
 
                 EditorGUI.BeginChangeCheck();
                 int newIndex = EditorGUILayout.Popup(
-                    new GUIContent(label),      // FIX: use GUIContent overload
+                    new GUIContent(label),
                     currentIndex,
-                    RelationshipOptions);       // GUIContent[]
+                    RelationshipOptions);
+
                 if (EditorGUI.EndChangeCheck()) {
                     FishRelationType newRelation = IndexToRelation(newIndex);
 
                     Undo.RecordObject(matrix, "Change Fish Relationship");
-                    matrix.SetSymmetricRelation(selectedFishIndex, other, newRelation);
+                    matrix.SetSymmetricRelation(selectedFishIndex, otherIndex, newRelation);
                     EditorUtility.SetDirty(matrix);
                 }
             }
@@ -235,51 +225,25 @@ namespace Flock.Editor {
             EditorGUI.indentLevel--;
         }
 
-        // === FishInteractionMatrixEditor.cs ===
-        // ADD these two helper methods anywhere inside the class:
+        private void DrawLeadershipWeights() {
+            int fishTypeCount = matrix.Count;
+            FishTypePreset[] fishTypes = matrix.FishTypes;
 
-        static int RelationToIndex(FishRelationType relation) {
-            switch (relation) {
-                case FishRelationType.Friendly:
-                    return 0;
-                case FishRelationType.Avoid:
-                    return 1;
-                default: // None / Neutral
-                    return 2;
-            }
-        }
-
-        static FishRelationType IndexToRelation(int index) {
-            switch (index) {
-                case 0:
-                    return FishRelationType.Friendly;
-                case 1:
-                    return FishRelationType.Avoid;
-                default:
-                    return FishRelationType.Neutral; // shown in UI as "Neutral"
-            }
-        }
-
-        // ===== existing leadership weights drawing (unchanged) =====
-        void DrawLeadershipWeights() {
-            int count = matrix.Count;
-            FishTypePreset[] types = matrix.FishTypes;
-
-            if (count == 0 || types == null) {
+            if (fishTypeCount == 0 || fishTypes == null) {
                 return;
             }
 
             EditorGUI.indentLevel++;
 
-            for (int i = 0; i < count; i++) {
-                string label = GetTypeName(types[i]);
-                float weight = matrix.GetLeadershipWeight(i);
+            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex += 1) {
+                string label = GetTypeName(fishTypes[fishTypeIndex]);
+                float weight = matrix.GetLeadershipWeight(fishTypeIndex);
 
                 EditorGUI.BeginChangeCheck();
                 float newWeight = EditorGUILayout.FloatField(label, weight);
                 if (EditorGUI.EndChangeCheck()) {
                     Undo.RecordObject(matrix, "Change Leadership Weight");
-                    matrix.SetLeadershipWeight(i, newWeight);
+                    matrix.SetLeadershipWeight(fishTypeIndex, newWeight);
                     EditorUtility.SetDirty(matrix);
                 }
             }
@@ -287,26 +251,25 @@ namespace Flock.Editor {
             EditorGUI.indentLevel--;
         }
 
-        // ===== NEW: avoidance weights drawing =====
-        void DrawAvoidanceWeights() {
-            int count = matrix.Count;
-            FishTypePreset[] types = matrix.FishTypes;
+        private void DrawAvoidanceWeights() {
+            int fishTypeCount = matrix.Count;
+            FishTypePreset[] fishTypes = matrix.FishTypes;
 
-            if (count == 0 || types == null) {
+            if (fishTypeCount == 0 || fishTypes == null) {
                 return;
             }
 
             EditorGUI.indentLevel++;
 
-            for (int i = 0; i < count; i++) {
-                string label = GetTypeName(types[i]);
-                float weight = matrix.GetAvoidanceWeight(i);
+            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex += 1) {
+                string label = GetTypeName(fishTypes[fishTypeIndex]);
+                float weight = matrix.GetAvoidanceWeight(fishTypeIndex);
 
                 EditorGUI.BeginChangeCheck();
                 float newWeight = EditorGUILayout.FloatField(label, weight);
                 if (EditorGUI.EndChangeCheck()) {
                     Undo.RecordObject(matrix, "Change Avoidance Weight");
-                    matrix.SetAvoidanceWeight(i, newWeight);
+                    matrix.SetAvoidanceWeight(fishTypeIndex, newWeight);
                     EditorUtility.SetDirty(matrix);
                 }
             }
@@ -314,25 +277,25 @@ namespace Flock.Editor {
             EditorGUI.indentLevel--;
         }
 
-        void DrawNeutralWeights() {
-            int count = matrix.Count;
-            FishTypePreset[] types = matrix.FishTypes;
+        private void DrawNeutralWeights() {
+            int fishTypeCount = matrix.Count;
+            FishTypePreset[] fishTypes = matrix.FishTypes;
 
-            if (count == 0 || types == null) {
+            if (fishTypeCount == 0 || fishTypes == null) {
                 return;
             }
 
             EditorGUI.indentLevel++;
 
-            for (int i = 0; i < count; i++) {
-                string label = GetTypeName(types[i]);
-                float weight = matrix.GetNeutralWeight(i);
+            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex += 1) {
+                string label = GetTypeName(fishTypes[fishTypeIndex]);
+                float weight = matrix.GetNeutralWeight(fishTypeIndex);
 
                 EditorGUI.BeginChangeCheck();
                 float newWeight = EditorGUILayout.FloatField(label, weight);
                 if (EditorGUI.EndChangeCheck()) {
                     Undo.RecordObject(matrix, "Change Neutral Weight");
-                    matrix.SetNeutralWeight(i, newWeight);
+                    matrix.SetNeutralWeight(fishTypeIndex, newWeight);
                     EditorUtility.SetDirty(matrix);
                 }
             }
@@ -340,8 +303,7 @@ namespace Flock.Editor {
             EditorGUI.indentLevel--;
         }
 
-        // ===== vertical header label helper (unchanged) =====
-        void DrawVerticalHeaderLabel(Rect rect, string label) {
+        private void DrawVerticalHeaderLabel(Rect rect, string label) {
             EnsureInit();
 
             Matrix4x4 oldMatrix = GUI.matrix;
@@ -361,23 +323,11 @@ namespace Flock.Editor {
 
                 GUI.Label(rect, label, style);
             } finally {
-                // Always restore, even if something throws later.
                 GUI.matrix = oldMatrix;
             }
         }
 
-        static string GetTypeName(FishTypePreset preset) {
-            if (preset == null) {
-                return "<null>";
-            }
-
-            if (!string.IsNullOrEmpty(preset.DisplayName)) {
-                return preset.DisplayName;
-            }
-
-            return preset.name;
-        }
-        void EnsureInit() {
+        private void EnsureInit() {
             if (matrix == null) {
                 matrix = (FishInteractionMatrix)target;
             }
@@ -399,6 +349,48 @@ namespace Flock.Editor {
             }
         }
 
+        private static int RelationToIndex(FishRelationType relation) {
+            switch (relation) {
+                case FishRelationType.Friendly:
+                    return 0;
+                case FishRelationType.Avoid:
+                    return 1;
+                default:
+                    return 2;
+            }
+        }
+
+        private static FishRelationType IndexToRelation(int index) {
+            switch (index) {
+                case 0:
+                    return FishRelationType.Friendly;
+                case 1:
+                    return FishRelationType.Avoid;
+                default:
+                    return FishRelationType.Neutral;
+            }
+        }
+
+        private static string[] BuildFishTypeNames(FishTypePreset[] fishTypes, int fishTypeCount) {
+            string[] names = new string[fishTypeCount];
+            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex += 1) {
+                names[fishTypeIndex] = GetTypeName(fishTypes[fishTypeIndex]);
+            }
+
+            return names;
+        }
+
+        private static string GetTypeName(FishTypePreset preset) {
+            if (preset == null) {
+                return "<null>";
+            }
+
+            if (!string.IsNullOrEmpty(preset.DisplayName)) {
+                return preset.DisplayName;
+            }
+
+            return preset.name;
+        }
     }
 }
 #endif

@@ -15,6 +15,7 @@ namespace Flock.Editor {
 
     [CanEditMultipleObjects]
     public sealed class FlockAttractorAreaEditor : UnityEditor.Editor {
+
         private SerializedProperty shapeProperty;
         private SerializedProperty sphereRadiusProperty;
         private SerializedProperty boxSizeProperty;
@@ -26,7 +27,6 @@ namespace Flock.Editor {
         private SerializedProperty usageProperty;
         private SerializedProperty cellPriorityProperty;
 
-        // Cache serialized properties once per enable to avoid repeated string lookups in GUI.
         private void OnEnable() {
             shapeProperty = serializedObject.FindProperty("shape");
             sphereRadiusProperty = serializedObject.FindProperty("sphereRadius");
@@ -40,36 +40,11 @@ namespace Flock.Editor {
             cellPriorityProperty = serializedObject.FindProperty("cellPriority");
         }
 
-        private void DrawShapeSection() {
-            // Shape dropdown
-            EditorGUILayout.PropertyField(shapeProperty);
-
-            // Only show the relevant shape field
-            FlockAttractorShape shapeValue = (FlockAttractorShape)shapeProperty.enumValueIndex;
-            if (shapeValue == FlockAttractorShape.Sphere) {
-                EditorGUILayout.PropertyField(sphereRadiusProperty); // uses runtime [Header("Sphere Settings")]
-                return;
-            }
-
-            EditorGUILayout.PropertyField(boxSizeProperty); // uses runtime [Header("Box Settings")]
-        }
-
-        private void DrawAttractionSection() {
-            // Let runtime [Header("Attraction")] render naturally (no duplicates)
-            EditorGUILayout.PropertyField(baseStrengthProperty);
-            EditorGUILayout.PropertyField(falloffPowerProperty);
-
-            // Keep default Unity array UI (foldout/dropdown style)
-            EditorGUILayout.PropertyField(attractedTypesProperty, true);
-        }
-
-        private void DrawUsageSection() {
-            // Let runtime [Header("Usage")] render naturally (no duplicates)
-            EditorGUILayout.PropertyField(usageProperty);
-            EditorGUILayout.PropertyField(cellPriorityProperty);
-        }
-
-        /** <inheritdoc /> */
+        /**
+         * <summary>
+         * Draws the custom inspector UI.
+         * </summary>
+         */
         public override void OnInspectorGUI() {
             serializedObject.Update();
 
@@ -79,6 +54,31 @@ namespace Flock.Editor {
 
             serializedObject.ApplyModifiedProperties();
         }
+
+        private void DrawShapeSection() {
+            EditorGUILayout.PropertyField(shapeProperty);
+
+            FlockAttractorShape shapeValue = (FlockAttractorShape)shapeProperty.enumValueIndex;
+            if (shapeValue == FlockAttractorShape.Sphere) {
+                EditorGUILayout.PropertyField(sphereRadiusProperty);
+                return;
+            }
+
+            EditorGUILayout.PropertyField(boxSizeProperty);
+        }
+
+        private void DrawAttractionSection() {
+            EditorGUILayout.PropertyField(baseStrengthProperty);
+            EditorGUILayout.PropertyField(falloffPowerProperty);
+            EditorGUILayout.PropertyField(attractedTypesProperty, true);
+        }
+
+        private void DrawUsageSection() {
+            EditorGUILayout.PropertyField(usageProperty);
+            EditorGUILayout.PropertyField(cellPriorityProperty);
+        }
+
+
     }
 }
 #endif

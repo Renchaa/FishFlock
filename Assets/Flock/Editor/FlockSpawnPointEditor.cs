@@ -4,46 +4,64 @@ using UnityEditor;
 using UnityEngine;
 
 namespace Flock.Editor {
+    /**
+     * <summary>
+     * Custom inspector for <see cref="FlockSpawnPoint"/> that conditionally displays
+     * shape-specific spawn parameters.
+     * </summary>
+     */
     [CustomEditor(typeof(FlockSpawnPoint))]
     [CanEditMultipleObjects]
     public sealed class FlockSpawnPointEditor : UnityEditor.Editor {
-        SerializedProperty _shape;
-        SerializedProperty _radius;
-        SerializedProperty _halfExtents;
+        SerializedProperty shapeProperty;
+        SerializedProperty radiusProperty;
+        SerializedProperty halfExtentsProperty;
 
         void OnEnable() {
-            _shape = serializedObject.FindProperty("shape");
-            _radius = serializedObject.FindProperty("radius");
-            _halfExtents = serializedObject.FindProperty("halfExtents");
+            shapeProperty = serializedObject.FindProperty("shape");
+            radiusProperty = serializedObject.FindProperty("radius");
+            halfExtentsProperty = serializedObject.FindProperty("halfExtents");
         }
 
         public override void OnInspectorGUI() {
             serializedObject.Update();
 
-            EditorGUILayout.PropertyField(_shape);
+            EditorGUILayout.PropertyField(shapeProperty);
 
-            var shapeValue = (FlockSpawnShape)_shape.enumValueIndex;
+            FlockSpawnShape shapeValue = (FlockSpawnShape)shapeProperty.enumValueIndex;
 
             EditorGUILayout.Space(4f);
 
             switch (shapeValue) {
                 case FlockSpawnShape.Sphere:
-                    EditorGUILayout.LabelField("Sphere Settings", EditorStyles.boldLabel);
-                    EditorGUILayout.PropertyField(_radius, new GUIContent("Radius"));
+                    DrawSphereSettings();
                     break;
 
                 case FlockSpawnShape.Box:
-                    EditorGUILayout.LabelField("Box Settings", EditorStyles.boldLabel);
-                    EditorGUILayout.PropertyField(_halfExtents, new GUIContent("Half Extents"));
+                    DrawBoxSettings();
                     break;
 
                 case FlockSpawnShape.Point:
                 default:
-                    EditorGUILayout.HelpBox("Point spawns exactly at the Transform position.", MessageType.Info);
+                    DrawPointHelpBox();
                     break;
             }
 
             serializedObject.ApplyModifiedProperties();
+        }
+
+        void DrawSphereSettings() {
+            EditorGUILayout.LabelField("Sphere Settings", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(radiusProperty, new GUIContent("Radius"));
+        }
+
+        void DrawBoxSettings() {
+            EditorGUILayout.LabelField("Box Settings", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(halfExtentsProperty, new GUIContent("Half Extents"));
+        }
+
+        static void DrawPointHelpBox() {
+            EditorGUILayout.HelpBox("Point spawns exactly at the Transform position.", MessageType.Info);
         }
     }
 }

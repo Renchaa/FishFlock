@@ -1,144 +1,154 @@
 ﻿#if UNITY_EDITOR
 using Flock.Runtime;
+using Flock.Runtime.Data;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
 namespace Flock.Editor {
+    /**
+     * <summary>
+     * Custom inspector for <see cref="FlockMainSpawner"/> that renders spawn configuration arrays with
+     * a structured UI and can sync type entries from a <see cref="FlockController"/>.
+     * </summary>
+     */
     [CustomEditor(typeof(FlockMainSpawner))]
     public sealed class FlockMainSpawnerEditor : UnityEditor.Editor {
-        FlockMainSpawner spawner;
-        FlockController controller;
+        private FlockMainSpawner spawner;
+        private FlockController controller;
 
-        void OnEnable() {
+        private void OnEnable() {
             spawner = (FlockMainSpawner)target;
 
-            // Controller is usually on the same GO or parent
+            // Controller is usually on the same GameObject or parent.
             controller = spawner.GetComponent<FlockController>()
-                        ?? spawner.GetComponentInParent<FlockController>();
+                ?? spawner.GetComponentInParent<FlockController>();
         }
 
         public override void OnInspectorGUI() {
             serializedObject.Update();
 
-
             EditorGUILayout.Space();
-
             DrawSpawnerBody();
 
             serializedObject.ApplyModifiedProperties();
         }
 
-            public static void SyncTypesFromController(FlockMainSpawner spawner, FishTypePreset[] sourceTypes) {
+        /**
+         * <summary>
+         * Synchronizes all type/count entries in the spawner with the provided controller fish types,
+         * preserving existing counts where possible.
+         * </summary>
+         * <param name="spawner">Spawner to modify.</param>
+         * <param name="sourceTypes">Source fish types to mirror.</param>
+         */
+        public static void SyncTypesFromController(FlockMainSpawner spawner, FishTypePreset[] sourceTypes) {
             if (spawner == null) {
                 return;
             }
 
             Undo.RecordObject(spawner, "Sync Flock Spawner Types");
 
-            var so = new SerializedObject(spawner);
-            so.Update();
+            SerializedObject spawnerSerializedObject = new SerializedObject(spawner);
+            spawnerSerializedObject.Update();
 
-            SerializedProperty pointSpawnsProp = so.FindProperty("pointSpawns");
-            SerializedProperty seedSpawnsProp = so.FindProperty("seedSpawns");
+            SerializedProperty pointSpawnsProperty = spawnerSerializedObject.FindProperty("pointSpawns");
+            SerializedProperty seedSpawnsProperty = spawnerSerializedObject.FindProperty("seedSpawns");
 
-            if (pointSpawnsProp != null && pointSpawnsProp.isArray) {
-                for (int i = 0; i < pointSpawnsProp.arraySize; i += 1) {
-                    SerializedProperty cfgProp = pointSpawnsProp.GetArrayElementAtIndex(i);
-                    if (cfgProp == null) {
+            if (pointSpawnsProperty != null && pointSpawnsProperty.isArray) {
+                for (int index = 0; index < pointSpawnsProperty.arraySize; index += 1) {
+                    SerializedProperty configProperty = pointSpawnsProperty.GetArrayElementAtIndex(index);
+                    if (configProperty == null) {
                         continue;
                     }
 
-                    SerializedProperty typesProp = cfgProp.FindPropertyRelative("types");
-                    SyncTypeCountEntries(typesProp, sourceTypes);
+                    SerializedProperty typesProperty = configProperty.FindPropertyRelative("types");
+                    SyncTypeCountEntries(typesProperty, sourceTypes);
                 }
             }
 
-            if (seedSpawnsProp != null && seedSpawnsProp.isArray) {
-                for (int i = 0; i < seedSpawnsProp.arraySize; i += 1) {
-                    SerializedProperty cfgProp = seedSpawnsProp.GetArrayElementAtIndex(i);
-                    if (cfgProp == null) {
+            if (seedSpawnsProperty != null && seedSpawnsProperty.isArray) {
+                for (int index = 0; index < seedSpawnsProperty.arraySize; index += 1) {
+                    SerializedProperty configProperty = seedSpawnsProperty.GetArrayElementAtIndex(index);
+                    if (configProperty == null) {
                         continue;
                     }
 
-                    SerializedProperty typesProp = cfgProp.FindPropertyRelative("types");
-                    SyncTypeCountEntries(typesProp, sourceTypes);
+                    SerializedProperty typesProperty = configProperty.FindPropertyRelative("types");
+                    SyncTypeCountEntries(typesProperty, sourceTypes);
                 }
             }
 
-            so.ApplyModifiedProperties();
+            spawnerSerializedObject.ApplyModifiedProperties();
             EditorUtility.SetDirty(spawner);
         }
 
-        static void SyncTypeCountEntries(SerializedProperty typesProp, FishTypePreset[] sourceTypes) {
-            if (typesProp == null || !typesProp.isArray) {
+        private static void SyncTypeCountEntries(SerializedProperty typesProperty, FishTypePreset[] sourceTypes) {
+            if (typesProperty == null || !typesProperty.isArray) {
                 return;
             }
 
             if (sourceTypes == null || sourceTypes.Length == 0) {
-                typesProp.arraySize = 0;
+                typesProperty.arraySize = 0;
                 return;
             }
 
-            // Preserve existing counts by preset reference
-            var existingCounts = new Dictionary<FishTypePreset, int>(typesProp.arraySize);
-            for (int i = 0; i < typesProp.arraySize; i += 1) {
-                SerializedProperty entryProp = typesProp.GetArrayElementAtIndex(i);
-                if (entryProp == null) {
+            Dictionary<FishTypePreset, int> existingCounts =
+                new Dictionary<FishTypePreset, int>(typesProperty.arraySize);
+
+            for (int index = 0; index < typesProperty.arraySize; index += 1) {
+                SerializedProperty entryProperty = typesProperty.GetArrayElementAtIndex(index);
+                if (entryProperty == null) {
                     continue;
                 }
 
-                SerializedProperty presetProp = entryProp.FindPropertyRelative("preset");
-                SerializedProperty countProp = entryProp.FindPropertyRelative("count");
+                SerializedProperty presetProperty = entryProperty.FindPropertyRelative("preset");
+                SerializedProperty countProperty = entryProperty.FindPropertyRelative("count");
 
-                var preset = presetProp != null
-                    ? presetProp.objectReferenceValue as FishTypePreset
+                FishTypePreset preset = (presetProperty != null)
+                    ? presetProperty.objectReferenceValue as FishTypePreset
                     : null;
 
                 if (preset == null) {
                     continue;
                 }
 
-                int count = (countProp != null) ? countProp.intValue : 0;
+                int count = (countProperty != null) ? countProperty.intValue : 0;
 
-                // First one wins (same as your prior logic effectively)
                 if (!existingCounts.ContainsKey(preset)) {
                     existingCounts.Add(preset, count);
                 }
             }
 
-            // Rebuild array to match controller FishTypes exactly
-            typesProp.arraySize = sourceTypes.Length;
+            typesProperty.arraySize = sourceTypes.Length;
 
-            for (int i = 0; i < sourceTypes.Length; i += 1) {
-                FishTypePreset preset = sourceTypes[i];
+            for (int index = 0; index < sourceTypes.Length; index += 1) {
+                FishTypePreset preset = sourceTypes[index];
 
-                SerializedProperty entryProp = typesProp.GetArrayElementAtIndex(i);
-                SerializedProperty presetProp = entryProp.FindPropertyRelative("preset");
-                SerializedProperty countProp = entryProp.FindPropertyRelative("count");
+                SerializedProperty entryProperty = typesProperty.GetArrayElementAtIndex(index);
+                SerializedProperty presetProperty = entryProperty.FindPropertyRelative("preset");
+                SerializedProperty countProperty = entryProperty.FindPropertyRelative("count");
 
-                if (presetProp != null) {
-                    presetProp.objectReferenceValue = preset;
+                if (presetProperty != null) {
+                    presetProperty.objectReferenceValue = preset;
                 }
 
-                if (countProp != null) {
-                    countProp.intValue =
-                        (preset != null && existingCounts.TryGetValue(preset, out int preserved))
-                            ? preserved
+                if (countProperty != null) {
+                    countProperty.intValue =
+                        (preset != null && existingCounts.TryGetValue(preset, out int preservedCount))
+                            ? preservedCount
                             : 0;
                 }
             }
         }
 
-        void DrawSpawnerBody() {
-            // Draw everything EXCEPT pointSpawns / seedSpawns here.
+        private void DrawSpawnerBody() {
             SerializedProperty iterator = serializedObject.GetIterator();
             bool enterChildren = true;
 
             while (iterator.NextVisible(enterChildren)) {
                 enterChildren = false;
 
-                // Script field – keep but make it read-only
                 if (iterator.name == "m_Script") {
                     using (new EditorGUI.DisabledScope(true)) {
                         EditorGUILayout.PropertyField(iterator, true);
@@ -146,7 +156,6 @@ namespace Flock.Editor {
                     continue;
                 }
 
-                // Skip our custom-handled arrays here
                 if (iterator.name == "pointSpawns" || iterator.name == "seedSpawns") {
                     continue;
                 }
@@ -156,23 +165,21 @@ namespace Flock.Editor {
 
             EditorGUILayout.Space();
 
-            // Now explicitly draw the two spawn blocks with our custom UI
-            SerializedProperty pointSpawnsProp = serializedObject.FindProperty("pointSpawns");
-            SerializedProperty seedSpawnsProp = serializedObject.FindProperty("seedSpawns");
+            SerializedProperty pointSpawnsProperty = serializedObject.FindProperty("pointSpawns");
+            SerializedProperty seedSpawnsProperty = serializedObject.FindProperty("seedSpawns");
 
-            DrawSpawnConfigs(pointSpawnsProp);   // Point spawns
+            DrawSpawnConfigs(pointSpawnsProperty);
             EditorGUILayout.Space();
-            DrawSpawnConfigs(seedSpawnsProp);  // Seed spawns
+            DrawSpawnConfigs(seedSpawnsProperty);
         }
 
-
-        void DrawSpawnConfigs(SerializedProperty arrayProp) {
-            if (!arrayProp.isArray) {
-                EditorGUILayout.PropertyField(arrayProp, true);
+        private void DrawSpawnConfigs(SerializedProperty arrayProperty) {
+            if (!arrayProperty.isArray) {
+                EditorGUILayout.PropertyField(arrayProperty, true);
                 return;
             }
 
-            bool isPoint = arrayProp.name == "pointSpawns";
+            bool isPoint = arrayProperty.name == "pointSpawns";
             string label = isPoint ? "Spawn Points" : "Spawn Seed";
 
             EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
@@ -180,60 +187,65 @@ namespace Flock.Editor {
 
             int removeIndex = -1;
 
-            for (int i = 0; i < arrayProp.arraySize; i++) {
-                SerializedProperty cfgProp = arrayProp.GetArrayElementAtIndex(i);
-                if (cfgProp == null) {
+            for (int index = 0; index < arrayProperty.arraySize; index += 1) {
+                SerializedProperty configProperty = arrayProperty.GetArrayElementAtIndex(index);
+                if (configProperty == null) {
                     continue;
                 }
 
                 EditorGUILayout.BeginVertical(GUI.skin.box);
 
                 using (new EditorGUILayout.HorizontalScope()) {
-                    // Title = referenced spawn GO name (if present), else fallback label
-                    UnityEngine.Object src = TryGetSpawnSourceObject(cfgProp);
-                    string title = (src != null)
-                        ? src.name
-                        : $"{(isPoint ? "Point" : "Seed")} Spawn [{i}]";
+                    UnityEngine.Object sourceObject = TryGetSpawnSourceObject(configProperty);
+
+                    string title = (sourceObject != null)
+                        ? sourceObject.name
+                        : $"{(isPoint ? "Point" : "Seed")} Spawn [{index}]";
 
                     EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
 
                     GUILayout.FlexibleSpace();
 
                     if (GUILayout.Button("X", EditorStyles.miniButton, GUILayout.Width(20f))) {
-                        removeIndex = i;
+                        removeIndex = index;
                     }
                 }
 
-                SerializedProperty cfgIter = cfgProp.Copy();
-                SerializedProperty cfgEnd = cfgProp.GetEndProperty();
+                SerializedProperty configIterator = configProperty.Copy();
+                SerializedProperty configEnd = configProperty.GetEndProperty();
                 bool enterChildren = true;
 
-                while (cfgIter.NextVisible(enterChildren) &&
-                       !SerializedProperty.EqualContents(cfgIter, cfgEnd)) {
+                while (configIterator.NextVisible(enterChildren)
+                       && !SerializedProperty.EqualContents(configIterator, configEnd)) {
                     enterChildren = false;
 
-                    if (cfgIter.name == "types") {
-                        DrawTypeCounts(cfgIter);
-                    } else if (cfgIter.name == "seed") {
-                        SerializedProperty useSeedProp = cfgProp.FindPropertyRelative("useSeed");
-                        bool disable = useSeedProp != null && !useSeedProp.boolValue;
+                    if (configIterator.name == "types") {
+                        DrawTypeCounts(configIterator);
+                        continue;
+                    }
+
+                    if (configIterator.name == "seed") {
+                        SerializedProperty useSeedProperty = configProperty.FindPropertyRelative("useSeed");
+                        bool disable = (useSeedProperty != null) && !useSeedProperty.boolValue;
 
                         using (new EditorGUI.DisabledScope(disable)) {
-                            EditorGUILayout.PropertyField(cfgIter, true);
+                            EditorGUILayout.PropertyField(configIterator, true);
                         }
-                    } else {
-                        EditorGUILayout.PropertyField(cfgIter, true);
+                        continue;
                     }
+
+                    EditorGUILayout.PropertyField(configIterator, true);
                 }
 
                 EditorGUILayout.EndVertical();
             }
 
-            if (removeIndex >= 0 && removeIndex < arrayProp.arraySize) {
-                arrayProp.DeleteArrayElementAtIndex(removeIndex);
+            if (removeIndex >= 0 && removeIndex < arrayProperty.arraySize) {
+                arrayProperty.DeleteArrayElementAtIndex(removeIndex);
             }
 
             EditorGUILayout.Space(2f);
+
             using (new EditorGUILayout.HorizontalScope()) {
                 GUILayout.FlexibleSpace();
 
@@ -245,20 +257,20 @@ namespace Flock.Editor {
                         EditorStyles.miniButton,
                         GUILayout.Width(addWidth))) {
 
-                    int newIndex = arrayProp.arraySize;
-                    arrayProp.InsertArrayElementAtIndex(newIndex);
+                    int newIndex = arrayProperty.arraySize;
+                    arrayProperty.InsertArrayElementAtIndex(newIndex);
 
-                    SerializedProperty cfg = arrayProp.GetArrayElementAtIndex(newIndex);
-                    SerializedProperty typesProp = cfg.FindPropertyRelative("types");
-                    if (typesProp != null) {
-                        typesProp.arraySize = 0;
+                    SerializedProperty configProperty = arrayProperty.GetArrayElementAtIndex(newIndex);
+                    SerializedProperty typesProperty = configProperty.FindPropertyRelative("types");
+                    if (typesProperty != null) {
+                        typesProperty.arraySize = 0;
                     }
                 }
 
-                if (arrayProp.arraySize > 0) {
+                if (arrayProperty.arraySize > 0) {
                     WithRedBackground(() => {
                         if (GUILayout.Button("Clear", EditorStyles.miniButton, GUILayout.Width(clearWidth))) {
-                            arrayProp.arraySize = 0;
+                            arrayProperty.arraySize = 0;
                         }
                     });
                 }
@@ -267,13 +279,12 @@ namespace Flock.Editor {
             EditorGUI.indentLevel--;
         }
 
-        void DrawTypeCounts(SerializedProperty typesProp) {
-            if (!typesProp.isArray) {
+        private void DrawTypeCounts(SerializedProperty typesProperty) {
+            if (!typesProperty.isArray) {
                 return;
             }
 
-            // Source list – canonical fish types from controller / setup
-            FishTypePreset[] fishTypes = controller != null ? controller.FishTypes : null;
+            FishTypePreset[] fishTypes = (controller != null) ? controller.FishTypes : null;
 
             EditorGUILayout.LabelField("Types", EditorStyles.label);
             EditorGUI.indentLevel++;
@@ -283,116 +294,116 @@ namespace Flock.Editor {
                     "No FishTypes found on FlockController.\n" +
                     "Configure them in FlockSetup and Apply Setup → Controller first.",
                     MessageType.Info);
+
                 EditorGUI.indentLevel--;
                 return;
             }
 
-            // Quick names array for popup
             string[] names = new string[fishTypes.Length];
-            for (int i = 0; i < fishTypes.Length; i++) {
-                FishTypePreset preset = fishTypes[i];
+            for (int index = 0; index < fishTypes.Length; index += 1) {
+                FishTypePreset preset = fishTypes[index];
+
                 if (preset == null) {
-                    names[i] = $"<Null {i}>";
-                } else if (!string.IsNullOrEmpty(preset.DisplayName)) {
-                    names[i] = preset.DisplayName;
-                } else {
-                    names[i] = preset.name;
+                    names[index] = $"<Null {index}>";
+                    continue;
                 }
+
+                if (!string.IsNullOrEmpty(preset.DisplayName)) {
+                    names[index] = preset.DisplayName;
+                    continue;
+                }
+
+                names[index] = preset.name;
             }
 
             int removeIndex = -1;
 
-            // One row per entry
-            for (int i = 0; i < typesProp.arraySize; i++) {
-                SerializedProperty entryProp = typesProp.GetArrayElementAtIndex(i);
-                if (entryProp == null) {
+            for (int index = 0; index < typesProperty.arraySize; index += 1) {
+                SerializedProperty entryProperty = typesProperty.GetArrayElementAtIndex(index);
+                if (entryProperty == null) {
                     continue;
                 }
 
-                SerializedProperty presetProp = entryProp.FindPropertyRelative("preset");
-                SerializedProperty countProp = entryProp.FindPropertyRelative("count");
+                SerializedProperty presetProperty = entryProperty.FindPropertyRelative("preset");
+                SerializedProperty countProperty = entryProperty.FindPropertyRelative("count");
 
-                // Resolve current index for popup
                 int currentIndex = 0;
-                FishTypePreset currentPreset = presetProp != null
-                    ? presetProp.objectReferenceValue as FishTypePreset
+
+                FishTypePreset currentPreset = (presetProperty != null)
+                    ? presetProperty.objectReferenceValue as FishTypePreset
                     : null;
 
                 if (currentPreset != null) {
-                    for (int j = 0; j < fishTypes.Length; j++) {
-                        if (fishTypes[j] == currentPreset) {
-                            currentIndex = j;
+                    for (int fishIndex = 0; fishIndex < fishTypes.Length; fishIndex += 1) {
+                        if (fishTypes[fishIndex] == currentPreset) {
+                            currentIndex = fishIndex;
                             break;
                         }
                     }
                 }
 
                 EditorGUILayout.BeginHorizontal();
-
-                // Push everything to the right
                 GUILayout.FlexibleSpace();
 
                 const float popupWidth = 140f;
                 const float countWidth = 60f;
 
-                // Smaller, right-aligned popup
                 int newIndex = EditorGUILayout.Popup(
                     currentIndex,
                     names,
                     EditorStyles.popup,
                     GUILayout.Width(popupWidth));
 
-                if (presetProp != null &&
-                    newIndex >= 0 &&
-                    newIndex < fishTypes.Length) {
-                    presetProp.objectReferenceValue = fishTypes[newIndex];
+                if (presetProperty != null
+                    && newIndex >= 0
+                    && newIndex < fishTypes.Length) {
+                    presetProperty.objectReferenceValue = fishTypes[newIndex];
                 }
 
-                // Count field
-                if (countProp != null) {
+                if (countProperty != null) {
                     EditorGUILayout.PropertyField(
-                        countProp,
+                        countProperty,
                         GUIContent.none,
                         GUILayout.Width(countWidth));
                 }
 
                 if (GUILayout.Button("X", EditorStyles.miniButton, GUILayout.Width(18f))) {
-                    removeIndex = i;
+                    removeIndex = index;
                 }
 
                 EditorGUILayout.EndHorizontal();
             }
 
-            if (removeIndex >= 0 && removeIndex < typesProp.arraySize) {
-                typesProp.DeleteArrayElementAtIndex(removeIndex);
+            if (removeIndex >= 0 && removeIndex < typesProperty.arraySize) {
+                typesProperty.DeleteArrayElementAtIndex(removeIndex);
             }
 
-            // Bottom-right Add / Clear for types
             EditorGUILayout.Space(2f);
+
             using (new EditorGUILayout.HorizontalScope()) {
                 GUILayout.FlexibleSpace();
 
                 if (GUILayout.Button("Add Type", EditorStyles.miniButton, GUILayout.Width(90f))) {
-                    int newIndex = typesProp.arraySize;
-                    typesProp.InsertArrayElementAtIndex(newIndex);
+                    int newIndex = typesProperty.arraySize;
+                    typesProperty.InsertArrayElementAtIndex(newIndex);
 
-                    SerializedProperty newEntry = typesProp.GetArrayElementAtIndex(newIndex);
-                    SerializedProperty presetProp = newEntry.FindPropertyRelative("preset");
-                    SerializedProperty countProp = newEntry.FindPropertyRelative("count");
+                    SerializedProperty newEntry = typesProperty.GetArrayElementAtIndex(newIndex);
+                    SerializedProperty presetProperty = newEntry.FindPropertyRelative("preset");
+                    SerializedProperty countProperty = newEntry.FindPropertyRelative("count");
 
-                    if (presetProp != null && fishTypes.Length > 0) {
-                        presetProp.objectReferenceValue = fishTypes[0];
+                    if (presetProperty != null && fishTypes.Length > 0) {
+                        presetProperty.objectReferenceValue = fishTypes[0];
                     }
 
-                    if (countProp != null) {
-                        countProp.intValue = 0;
+                    if (countProperty != null) {
+                        countProperty.intValue = 0;
                     }
                 }
 
-                if (typesProp.arraySize > 0) {
+                if (typesProperty.arraySize > 0) {
                     WithRedBackground(() => {
                         if (GUILayout.Button("Clear", EditorStyles.miniButton, GUILayout.Width(70f))) {
-                            typesProp.arraySize = 0;
+                            typesProperty.arraySize = 0;
                         }
                     });
                 }
@@ -401,34 +412,57 @@ namespace Flock.Editor {
             EditorGUI.indentLevel--;
         }
 
-        static UnityEngine.Object TryGetSpawnSourceObject(SerializedProperty cfgProp) {
-            // Try the most likely field names first; safe if they don't exist.
-            SerializedProperty p;
+        private static UnityEngine.Object TryGetSpawnSourceObject(SerializedProperty configProperty) {
+            SerializedProperty property;
 
-            p = cfgProp.FindPropertyRelative("spawnPoint");
-            if (p != null && p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue != null) return p.objectReferenceValue;
+            property = configProperty.FindPropertyRelative("spawnPoint");
+            if (property != null
+                && property.propertyType == SerializedPropertyType.ObjectReference
+                && property.objectReferenceValue != null) {
+                return property.objectReferenceValue;
+            }
 
-            p = cfgProp.FindPropertyRelative("point");
-            if (p != null && p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue != null) return p.objectReferenceValue;
+            property = configProperty.FindPropertyRelative("point");
+            if (property != null
+                && property.propertyType == SerializedPropertyType.ObjectReference
+                && property.objectReferenceValue != null) {
+                return property.objectReferenceValue;
+            }
 
-            p = cfgProp.FindPropertyRelative("transform");
-            if (p != null && p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue != null) return p.objectReferenceValue;
+            property = configProperty.FindPropertyRelative("transform");
+            if (property != null
+                && property.propertyType == SerializedPropertyType.ObjectReference
+                && property.objectReferenceValue != null) {
+                return property.objectReferenceValue;
+            }
 
-            p = cfgProp.FindPropertyRelative("spawnTransform");
-            if (p != null && p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue != null) return p.objectReferenceValue;
+            property = configProperty.FindPropertyRelative("spawnTransform");
+            if (property != null
+                && property.propertyType == SerializedPropertyType.ObjectReference
+                && property.objectReferenceValue != null) {
+                return property.objectReferenceValue;
+            }
 
-            p = cfgProp.FindPropertyRelative("spawn");
-            if (p != null && p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue != null) return p.objectReferenceValue;
+            property = configProperty.FindPropertyRelative("spawn");
+            if (property != null
+                && property.propertyType == SerializedPropertyType.ObjectReference
+                && property.objectReferenceValue != null) {
+                return property.objectReferenceValue;
+            }
 
             return null;
         }
 
-        static void WithRedBackground(System.Action draw) {
-            Color prev = GUI.backgroundColor;
-            GUI.backgroundColor = new Color(1.0f, 0.55f, 0.55f, 1.0f); // reddish
-            try { draw?.Invoke(); } finally { GUI.backgroundColor = prev; }
-        }
+        private static void WithRedBackground(System.Action draw) {
+            Color previousColor = GUI.backgroundColor;
+            GUI.backgroundColor = new Color(1.0f, 0.55f, 0.55f, 1.0f);
 
+            try {
+                draw?.Invoke();
+            } finally {
+                GUI.backgroundColor = previousColor;
+            }
+        }
     }
 }
 #endif

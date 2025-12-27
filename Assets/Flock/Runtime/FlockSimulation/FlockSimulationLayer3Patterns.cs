@@ -6,7 +6,20 @@ namespace Flock.Runtime {
     using Unity.Jobs;
     using Unity.Mathematics;
 
+    /**
+     * <summary>
+     * Simulation runtime that manages native state for agents, grids, attractors, and Layer-3 pattern steering.
+     * </summary>
+     */
     public sealed partial class FlockSimulation {
+        /**
+         * <summary>
+         * Sets the baked Layer-3 pattern command stream and payload arrays used by the simulation.
+         * </summary>
+         * <param name="commands">Baked command list.</param>
+         * <param name="sphereShellPayloads">Sphere-shell payloads referenced by commands.</param>
+         * <param name="boxShellPayloads">Box-shell payloads referenced by commands.</param>
+         */
         public void SetLayer3Patterns(
             FlockLayer3PatternCommand[] commands,
             FlockLayer3PatternSphereShell[] sphereShellPayloads,
@@ -23,10 +36,17 @@ namespace Flock.Runtime {
                 null);
         }
 
-        /// <summary>
-        /// Enable or update the pattern sphere that layer-3 patterns steer towards.
-        /// Only behaviours with PatternWeight > 0 will react to this.
-        /// </summary>
+        /**
+         * <summary>
+         * Enables or updates the pattern sphere that Layer-3 patterns steer towards.
+         * Only behaviours with PatternWeight &gt; 0 will react to this.
+         * </summary>
+         * <param name="center">World-space center.</param>
+         * <param name="radius">Sphere radius.</param>
+         * <param name="thickness">Shell thickness; if &lt;= 0 uses radius * 0.25.</param>
+         * <param name="strength">Steering strength.</param>
+         * <param name="behaviourMask">Behaviour mask filter.</param>
+         */
         public void SetPatternSphereTarget(
             float3 center,
             float radius,
@@ -46,13 +66,301 @@ namespace Flock.Runtime {
             }
         }
 
-        /// <summary>
-        /// Disable the pattern sphere influence completely.
-        /// </summary>
+        /**
+         * <summary>
+         * Disables the pattern sphere influence completely.
+         * </summary>
+         */
         public void ClearPatternSphere() {
             patternSphereRadius = 0f;
             patternSphereStrength = 0f;
             patternSphereThickness = 0f;
+        }
+
+        /**
+         * <summary>
+         * Starts a runtime Layer-3 sphere-shell pattern instance.
+         * Returns an invalid handle if the simulation is not created or if the parameters produce no influence.
+         * </summary>
+         * <param name="center">World-space center.</param>
+         * <param name="radius">Sphere radius.</param>
+         * <param name="thickness">Shell thickness; if &lt;= 0 uses radius * 0.25.</param>
+         * <param name="strength">Steering strength.</param>
+         * <param name="behaviourMask">Behaviour mask filter.</param>
+         * <returns>A handle to the runtime pattern instance, or <see cref="FlockLayer3PatternHandle.Invalid"/>.</returns>
+         */
+        public FlockLayer3PatternHandle StartPatternSphereShell(
+            float3 center,
+            float radius,
+            float thickness = -1f,
+            float strength = 1f,
+            uint behaviourMask = uint.MaxValue) {
+
+            if (!IsCreated) {
+                return FlockLayer3PatternHandle.Invalid;
+            }
+
+            if (!TryValidateSphereShellStart(radius, strength, thickness, out float clampedRadius, out float clampedStrength, out float clampedThickness)) {
+                return FlockLayer3PatternHandle.Invalid;
+            }
+
+            int payloadIndex = AcquireSphereShellPayloadSlot();
+            runtimeSphereShells[payloadIndex] = new FlockLayer3PatternSphereShell {
+                Center = center,
+                Radius = clampedRadius,
+                Thickness = clampedThickness,
+            };
+
+            int patternIndex = AcquireRuntimePatternSlot();
+            RuntimeLayer3PatternInstance runtimePatternInstance = runtimeLayer3Patterns[patternIndex];
+
+            runtimePatternInstance.Active = 1;
+            runtimePatternInstance.Kind = FlockLayer3PatternKind.SphereShell;
+            runtimePatternInstance.PayloadIndex = payloadIndex;
+            runtimePatternInstance.Strength = clampedStrength;
+            runtimePatternInstance.BehaviourMask = behaviourMask;
+
+            runtimePatternInstance.ActiveListIndex = runtimeLayer3Active.Count;
+            runtimeLayer3Active.Add(patternIndex);
+
+            runtimeLayer3Patterns[patternIndex] = runtimePatternInstance;
+
+            FlockLayer3PatternHandle handle = new FlockLayer3PatternHandle {
+                Index = patternIndex,
+                Generation = runtimePatternInstance.Generation,
+            };
+
+            FlockLog.Info(
+                logger,
+                FlockLogCategory.Patterns,
+                $"StartPatternSphereShell: handle=({handle.Index}:{handle.Generation}) radius={clampedRadius:0.###} thickness={clampedThickness:0.###} strength={clampedStrength:0.###}.",
+                null);
+
+            return handle;
+        }
+
+        /**
+         * <summary>
+         * Updates a runtime Layer-3 sphere-shell pattern instance.
+         * Returns false if the handle is invalid, stale, or does not reference a sphere-shell instance.
+         * </summary>
+         * <param name="handle">Runtime pattern handle.</param>
+         * <param name="center">World-space center.</param>
+         * <param name="radius">Sphere radius.</param>
+         * <param name="thickness">Shell thickness; if &lt;= 0 uses radius * 0.25.</param>
+         * <param name="strength">Steering strength.</param>
+         * <param name="behaviourMask">Behaviour mask filter.</param>
+         * <returns>True if the instance was updated; otherwise false.</returns>
+         */
+        public bool UpdatePatternSphereShell(
+            FlockLayer3PatternHandle handle,
+            float3 center,
+            float radius,
+            float thickness = -1f,
+            float strength = 1f,
+            uint behaviourMask = uint.MaxValue) {
+
+            if (!IsCreated) {
+                return false;
+            }
+
+            if (!TryGetRuntimePattern(handle, out RuntimeLayer3PatternInstance runtimePatternInstance)) {
+                return false;
+            }
+
+            if (runtimePatternInstance.Active == 0 || runtimePatternInstance.Kind != FlockLayer3PatternKind.SphereShell) {
+                return false;
+            }
+
+            int payloadIndex = runtimePatternInstance.PayloadIndex;
+            if ((uint)payloadIndex >= (uint)runtimeSphereShells.Count) {
+                return false;
+            }
+
+            float clampedRadius = math.max(0f, radius);
+            float clampedStrength = math.max(0f, strength);
+            float clampedThickness = ComputeSphereShellThickness(clampedRadius, thickness);
+
+            runtimeSphereShells[payloadIndex] = new FlockLayer3PatternSphereShell {
+                Center = center,
+                Radius = clampedRadius,
+                Thickness = clampedThickness,
+            };
+
+            runtimePatternInstance.Strength = clampedStrength;
+            runtimePatternInstance.BehaviourMask = behaviourMask;
+
+            runtimeLayer3Patterns[handle.Index] = runtimePatternInstance;
+            return true;
+        }
+
+        /**
+         * <summary>
+         * Starts a runtime Layer-3 box-shell pattern instance.
+         * Returns an invalid handle if the simulation is not created or if the parameters produce no influence.
+         * </summary>
+         * <param name="center">World-space center.</param>
+         * <param name="halfExtents">Box half extents.</param>
+         * <param name="thickness">Shell thickness; if &lt;= 0 uses min(halfExtents) * 0.25.</param>
+         * <param name="strength">Steering strength.</param>
+         * <param name="behaviourMask">Behaviour mask filter.</param>
+         * <returns>A handle to the runtime pattern instance, or <see cref="FlockLayer3PatternHandle.Invalid"/>.</returns>
+         */
+        public FlockLayer3PatternHandle StartPatternBoxShell(
+            float3 center,
+            float3 halfExtents,
+            float thickness = -1f,
+            float strength = 1f,
+            uint behaviourMask = uint.MaxValue) {
+
+            if (!IsCreated) {
+                return FlockLayer3PatternHandle.Invalid;
+            }
+
+            if (!TryValidateBoxShellStart(halfExtents, strength, thickness, out float3 clampedHalfExtents, out float clampedStrength, out float clampedThickness)) {
+                return FlockLayer3PatternHandle.Invalid;
+            }
+
+            int payloadIndex = AcquireBoxShellPayloadSlot();
+            runtimeBoxShells[payloadIndex] = new FlockLayer3PatternBoxShell {
+                Center = center,
+                HalfExtents = clampedHalfExtents,
+                Thickness = clampedThickness,
+            };
+
+            int patternIndex = AcquireRuntimePatternSlot();
+            RuntimeLayer3PatternInstance runtimePatternInstance = runtimeLayer3Patterns[patternIndex];
+
+            runtimePatternInstance.Active = 1;
+            runtimePatternInstance.Kind = FlockLayer3PatternKind.BoxShell;
+            runtimePatternInstance.PayloadIndex = payloadIndex;
+            runtimePatternInstance.Strength = clampedStrength;
+            runtimePatternInstance.BehaviourMask = behaviourMask;
+
+            runtimePatternInstance.ActiveListIndex = runtimeLayer3Active.Count;
+            runtimeLayer3Active.Add(patternIndex);
+
+            runtimeLayer3Patterns[patternIndex] = runtimePatternInstance;
+
+            FlockLayer3PatternHandle handle = new FlockLayer3PatternHandle {
+                Index = patternIndex,
+                Generation = runtimePatternInstance.Generation,
+            };
+
+            FlockLog.Info(
+                logger,
+                FlockLogCategory.Patterns,
+                $"StartPatternBoxShell: handle=({handle.Index}:{handle.Generation}) halfExtents=({clampedHalfExtents.x:0.###},{clampedHalfExtents.y:0.###},{clampedHalfExtents.z:0.###}) thickness={clampedThickness:0.###} strength={clampedStrength:0.###}.",
+                null);
+
+            return handle;
+        }
+
+        /**
+         * <summary>
+         * Updates a runtime Layer-3 box-shell pattern instance.
+         * Returns false if the handle is invalid, stale, or does not reference a box-shell instance.
+         * </summary>
+         * <param name="handle">Runtime pattern handle.</param>
+         * <param name="center">World-space center.</param>
+         * <param name="halfExtents">Box half extents.</param>
+         * <param name="thickness">Shell thickness; if &lt;= 0 uses min(halfExtents) * 0.25.</param>
+         * <param name="strength">Steering strength.</param>
+         * <param name="behaviourMask">Behaviour mask filter.</param>
+         * <returns>True if the instance was updated; otherwise false.</returns>
+         */
+        public bool UpdatePatternBoxShell(
+            FlockLayer3PatternHandle handle,
+            float3 center,
+            float3 halfExtents,
+            float thickness = -1f,
+            float strength = 1f,
+            uint behaviourMask = uint.MaxValue) {
+
+            if (!IsCreated) {
+                return false;
+            }
+
+            if (!TryGetRuntimePattern(handle, out RuntimeLayer3PatternInstance runtimePatternInstance)) {
+                return false;
+            }
+
+            if (runtimePatternInstance.Active == 0 || runtimePatternInstance.Kind != FlockLayer3PatternKind.BoxShell) {
+                return false;
+            }
+
+            int payloadIndex = runtimePatternInstance.PayloadIndex;
+            if ((uint)payloadIndex >= (uint)runtimeBoxShells.Count) {
+                return false;
+            }
+
+            strength = math.max(0f, strength);
+
+            if (halfExtents.x <= 0f
+                || halfExtents.y <= 0f
+                || halfExtents.z <= 0f
+                || strength <= 0f) {
+                return false;
+            }
+
+            float3 clampedHalfExtents = ClampPositiveHalfExtents(halfExtents);
+            float clampedThickness = ComputeBoxShellThickness(clampedHalfExtents, thickness);
+
+            runtimeBoxShells[payloadIndex] = new FlockLayer3PatternBoxShell {
+                Center = center,
+                HalfExtents = clampedHalfExtents,
+                Thickness = clampedThickness,
+            };
+
+            runtimePatternInstance.Strength = strength;
+            runtimePatternInstance.BehaviourMask = behaviourMask;
+
+            runtimeLayer3Patterns[handle.Index] = runtimePatternInstance;
+            return true;
+        }
+
+        /**
+         * <summary>
+         * Stops a runtime Layer-3 pattern instance and releases its resources back to the internal pools.
+         * </summary>
+         * <param name="handle">Runtime pattern handle.</param>
+         * <returns>True if the pattern was active and is now stopped; otherwise false.</returns>
+         */
+        public bool StopLayer3Pattern(FlockLayer3PatternHandle handle) {
+            if (!IsCreated) {
+                return false;
+            }
+
+            if (!TryGetRuntimePattern(handle, out RuntimeLayer3PatternInstance runtimePatternInstance)) {
+                return false;
+            }
+
+            if (runtimePatternInstance.Active == 0) {
+                return false;
+            }
+
+            int patternIndex = handle.Index;
+
+            RemoveFromActiveList(patternIndex, ref runtimePatternInstance);
+            ReleaseRuntimePatternPayload(runtimePatternInstance);
+
+            runtimePatternInstance.Active = 0;
+            runtimePatternInstance.PayloadIndex = -1;
+            runtimePatternInstance.Strength = 0f;
+            runtimePatternInstance.BehaviourMask = 0u;
+
+            runtimePatternInstance.Generation += 1;
+
+            runtimeLayer3Patterns[patternIndex] = runtimePatternInstance;
+            runtimeLayer3Free.Push(patternIndex);
+
+            FlockLog.Info(
+                logger,
+                FlockLogCategory.Patterns,
+                $"StopLayer3Pattern: stopped handle=({handle.Index}:{handle.Generation}) kind={runtimePatternInstance.Kind}.",
+                null);
+
+            return true;
         }
 
         static JobHandle ScheduleLayer3PatternJob<T>(
@@ -78,9 +386,9 @@ namespace Flock.Runtime {
 
         bool TryGetRuntimePattern(
             FlockLayer3PatternHandle handle,
-            out RuntimeLayer3PatternInstance inst) {
+            out RuntimeLayer3PatternInstance runtimePatternInstance) {
 
-            inst = default;
+            runtimePatternInstance = default;
 
             if (!handle.IsValid) {
                 return false;
@@ -92,10 +400,10 @@ namespace Flock.Runtime {
                 return false;
             }
 
-            inst = runtimeLayer3Patterns[index];
+            runtimePatternInstance = runtimeLayer3Patterns[index];
 
-            if (inst.Generation != handle.Generation) {
-                return false; // stale handle
+            if (runtimePatternInstance.Generation != handle.Generation) {
+                return false;
             }
 
             return true;
@@ -137,303 +445,110 @@ namespace Flock.Runtime {
             return runtimeBoxShells.Count - 1;
         }
 
-        void RemoveFromActiveList(int patternIndex, ref RuntimeLayer3PatternInstance inst) {
-            int listIndex = inst.ActiveListIndex;
+        void RemoveFromActiveList(int patternIndex, ref RuntimeLayer3PatternInstance runtimePatternInstance) {
+            int activeListIndex = runtimePatternInstance.ActiveListIndex;
 
-            if (listIndex < 0 || listIndex >= runtimeLayer3Active.Count) {
-                inst.ActiveListIndex = -1;
+            if (activeListIndex < 0 || activeListIndex >= runtimeLayer3Active.Count) {
+                runtimePatternInstance.ActiveListIndex = -1;
                 return;
             }
 
-            int last = runtimeLayer3Active.Count - 1;
-            int movedPatternIndex = runtimeLayer3Active[last];
+            int lastIndex = runtimeLayer3Active.Count - 1;
+            int movedPatternIndex = runtimeLayer3Active[lastIndex];
 
-            runtimeLayer3Active[listIndex] = movedPatternIndex;
-            runtimeLayer3Active.RemoveAt(last);
+            runtimeLayer3Active[activeListIndex] = movedPatternIndex;
+            runtimeLayer3Active.RemoveAt(lastIndex);
 
             if (movedPatternIndex != patternIndex) {
-                RuntimeLayer3PatternInstance moved = runtimeLayer3Patterns[movedPatternIndex];
-                moved.ActiveListIndex = listIndex;
-                runtimeLayer3Patterns[movedPatternIndex] = moved;
+                RuntimeLayer3PatternInstance movedPatternInstance = runtimeLayer3Patterns[movedPatternIndex];
+                movedPatternInstance.ActiveListIndex = activeListIndex;
+                runtimeLayer3Patterns[movedPatternIndex] = movedPatternInstance;
             }
 
-            inst.ActiveListIndex = -1;
+            runtimePatternInstance.ActiveListIndex = -1;
         }
 
-        public FlockLayer3PatternHandle StartPatternSphereShell(
-            float3 center,
+        bool TryValidateSphereShellStart(
             float radius,
-            float thickness = -1f,
-            float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
+            float strength,
+            float thickness,
+            out float clampedRadius,
+            out float clampedStrength,
+            out float clampedThickness) {
 
-            if (!IsCreated) {
-                return FlockLayer3PatternHandle.Invalid;
-            }
+            clampedRadius = math.max(0f, radius);
+            clampedStrength = math.max(0f, strength);
 
-            radius = math.max(0f, radius);
-            strength = math.max(0f, strength);
-
-            if (radius <= 0f || strength <= 0f) {
-                return FlockLayer3PatternHandle.Invalid;
-            }
-
-            float t = thickness <= 0f ? (radius * 0.25f) : thickness;
-            t = math.max(0.001f, t);
-
-            int payloadIndex = AcquireSphereShellPayloadSlot();
-            runtimeSphereShells[payloadIndex] = new FlockLayer3PatternSphereShell {
-                Center = center,
-                Radius = radius,
-                Thickness = t,
-            };
-
-            int patternIndex = AcquireRuntimePatternSlot();
-            RuntimeLayer3PatternInstance inst = runtimeLayer3Patterns[patternIndex];
-
-            inst.Active = 1;
-            inst.Kind = FlockLayer3PatternKind.SphereShell;
-            inst.PayloadIndex = payloadIndex;
-            inst.Strength = strength;
-            inst.BehaviourMask = behaviourMask;
-
-            inst.ActiveListIndex = runtimeLayer3Active.Count;
-            runtimeLayer3Active.Add(patternIndex);
-
-            runtimeLayer3Patterns[patternIndex] = inst;
-
-            var handle = new FlockLayer3PatternHandle {
-                Index = patternIndex,
-                Generation = inst.Generation,
-            };
-
-            FlockLog.Info(
-                logger,
-                FlockLogCategory.Patterns,
-                $"StartPatternSphereShell: handle=({handle.Index}:{handle.Generation}) radius={radius:0.###} thickness={t:0.###} strength={strength:0.###}.",
-                null);
-
-            return handle;
-        }
-
-        public bool UpdatePatternSphereShell(
-            FlockLayer3PatternHandle handle,
-            float3 center,
-            float radius,
-            float thickness = -1f,
-            float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
-
-            if (!IsCreated) {
+            if (clampedRadius <= 0f || clampedStrength <= 0f) {
+                clampedThickness = 0f;
                 return false;
             }
 
-            if (!TryGetRuntimePattern(handle, out RuntimeLayer3PatternInstance inst)) {
-                return false;
-            }
-
-            if (inst.Active == 0 || inst.Kind != FlockLayer3PatternKind.SphereShell) {
-                return false;
-            }
-
-            int payloadIndex = inst.PayloadIndex;
-            if ((uint)payloadIndex >= (uint)runtimeSphereShells.Count) {
-                return false;
-            }
-
-            radius = math.max(0f, radius);
-            strength = math.max(0f, strength);
-
-            float t = thickness <= 0f ? (radius * 0.25f) : thickness;
-            t = math.max(0.001f, t);
-
-            runtimeSphereShells[payloadIndex] = new FlockLayer3PatternSphereShell {
-                Center = center,
-                Radius = radius,
-                Thickness = t,
-            };
-
-            inst.Strength = strength;
-            inst.BehaviourMask = behaviourMask;
-
-            runtimeLayer3Patterns[handle.Index] = inst;
+            clampedThickness = ComputeSphereShellThickness(clampedRadius, thickness);
             return true;
         }
 
-        public FlockLayer3PatternHandle StartPatternBoxShell(
-            float3 center,
+        static float ComputeSphereShellThickness(float radius, float thickness) {
+            float thicknessValue = thickness <= 0f ? (radius * 0.25f) : thickness;
+            return math.max(0.001f, thicknessValue);
+        }
+
+        bool TryValidateBoxShellStart(
             float3 halfExtents,
-            float thickness = -1f,
-            float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
+            float strength,
+            float thickness,
+            out float3 clampedHalfExtents,
+            out float clampedStrength,
+            out float clampedThickness) {
 
-            if (!IsCreated) {
-                return FlockLayer3PatternHandle.Invalid;
-            }
-
-            strength = math.max(0f, strength);
+            clampedStrength = math.max(0f, strength);
 
             if (halfExtents.x <= 0f
                 || halfExtents.y <= 0f
                 || halfExtents.z <= 0f
-                || strength <= 0f) {
-                return FlockLayer3PatternHandle.Invalid;
-            }
-
-            float3 he = new float3(
-                math.max(halfExtents.x, 0.001f),
-                math.max(halfExtents.y, 0.001f),
-                math.max(halfExtents.z, 0.001f));
-
-            float t = thickness <= 0f
-                ? math.cmin(he) * 0.25f
-                : thickness;
-
-            t = math.max(0.001f, t);
-
-            int payloadIndex = AcquireBoxShellPayloadSlot();
-            runtimeBoxShells[payloadIndex] = new FlockLayer3PatternBoxShell {
-                Center = center,
-                HalfExtents = he,
-                Thickness = t,
-            };
-
-            int patternIndex = AcquireRuntimePatternSlot();
-            RuntimeLayer3PatternInstance inst = runtimeLayer3Patterns[patternIndex];
-
-            inst.Active = 1;
-            inst.Kind = FlockLayer3PatternKind.BoxShell;
-            inst.PayloadIndex = payloadIndex;
-            inst.Strength = strength;
-            inst.BehaviourMask = behaviourMask;
-
-            inst.ActiveListIndex = runtimeLayer3Active.Count;
-            runtimeLayer3Active.Add(patternIndex);
-
-            runtimeLayer3Patterns[patternIndex] = inst;
-
-            var handle = new FlockLayer3PatternHandle {
-                Index = patternIndex,
-                Generation = inst.Generation,
-            };
-
-            FlockLog.Info(
-                logger,
-                FlockLogCategory.Patterns,
-                $"StartPatternBoxShell: handle=({handle.Index}:{handle.Generation}) halfExtents=({he.x:0.###},{he.y:0.###},{he.z:0.###}) thickness={t:0.###} strength={strength:0.###}.",
-                null);
-
-            return handle;
-        }
-
-        public bool UpdatePatternBoxShell(
-            FlockLayer3PatternHandle handle,
-            float3 center,
-            float3 halfExtents,
-            float thickness = -1f,
-            float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
-
-            if (!IsCreated) {
+                || clampedStrength <= 0f) {
+                clampedHalfExtents = default;
+                clampedThickness = 0f;
                 return false;
             }
 
-            if (!TryGetRuntimePattern(handle, out RuntimeLayer3PatternInstance inst)) {
-                return false;
-            }
+            clampedHalfExtents = ClampPositiveHalfExtents(halfExtents);
+            clampedThickness = ComputeBoxShellThickness(clampedHalfExtents, thickness);
 
-            if (inst.Active == 0 || inst.Kind != FlockLayer3PatternKind.BoxShell) {
-                return false;
-            }
-
-            int payloadIndex = inst.PayloadIndex;
-            if ((uint)payloadIndex >= (uint)runtimeBoxShells.Count) {
-                return false;
-            }
-
-            strength = math.max(0f, strength);
-
-            if (halfExtents.x <= 0f
-                || halfExtents.y <= 0f
-                || halfExtents.z <= 0f
-                || strength <= 0f) {
-                return false;
-            }
-
-            float3 he = new float3(
-                math.max(halfExtents.x, 0.001f),
-                math.max(halfExtents.y, 0.001f),
-                math.max(halfExtents.z, 0.001f));
-
-            float t = thickness <= 0f
-                ? math.cmin(he) * 0.25f
-                : thickness;
-
-            t = math.max(0.001f, t);
-
-            runtimeBoxShells[payloadIndex] = new FlockLayer3PatternBoxShell {
-                Center = center,
-                HalfExtents = he,
-                Thickness = t,
-            };
-
-            inst.Strength = strength;
-            inst.BehaviourMask = behaviourMask;
-
-            runtimeLayer3Patterns[handle.Index] = inst;
             return true;
         }
 
-        public bool StopLayer3Pattern(FlockLayer3PatternHandle handle) {
-            if (!IsCreated) {
-                return false;
-            }
+        static float3 ClampPositiveHalfExtents(float3 halfExtents) {
+            return new float3(
+                math.max(halfExtents.x, 0.001f),
+                math.max(halfExtents.y, 0.001f),
+                math.max(halfExtents.z, 0.001f));
+        }
 
-            if (!TryGetRuntimePattern(handle, out RuntimeLayer3PatternInstance inst)) {
-                return false;
-            }
+        static float ComputeBoxShellThickness(float3 halfExtents, float thickness) {
+            float thicknessValue = thickness <= 0f
+                ? math.cmin(halfExtents) * 0.25f
+                : thickness;
 
-            if (inst.Active == 0) {
-                return false;
-            }
+            return math.max(0.001f, thicknessValue);
+        }
 
-            int patternIndex = handle.Index;
-
-            RemoveFromActiveList(patternIndex, ref inst);
-
-            switch (inst.Kind) {
+        void ReleaseRuntimePatternPayload(in RuntimeLayer3PatternInstance runtimePatternInstance) {
+            switch (runtimePatternInstance.Kind) {
                 case FlockLayer3PatternKind.SphereShell: {
-                        if (inst.PayloadIndex >= 0) {
-                            runtimeSphereShellFree.Push(inst.PayloadIndex);
+                        if (runtimePatternInstance.PayloadIndex >= 0) {
+                            runtimeSphereShellFree.Push(runtimePatternInstance.PayloadIndex);
                         }
                         break;
                     }
 
                 case FlockLayer3PatternKind.BoxShell: {
-                        if (inst.PayloadIndex >= 0) {
-                            runtimeBoxShellFree.Push(inst.PayloadIndex);
+                        if (runtimePatternInstance.PayloadIndex >= 0) {
+                            runtimeBoxShellFree.Push(runtimePatternInstance.PayloadIndex);
                         }
                         break;
                     }
             }
-
-            inst.Active = 0;
-            inst.PayloadIndex = -1;
-            inst.Strength = 0f;
-            inst.BehaviourMask = 0u;
-
-            inst.Generation += 1;
-
-            runtimeLayer3Patterns[patternIndex] = inst;
-            runtimeLayer3Free.Push(patternIndex);
-
-            FlockLog.Info(
-                logger,
-                FlockLogCategory.Patterns,
-                $"StopLayer3Pattern: stopped handle=({handle.Index}:{handle.Generation}) kind={inst.Kind}.",
-                null);
-
-            return true;
         }
     }
 }

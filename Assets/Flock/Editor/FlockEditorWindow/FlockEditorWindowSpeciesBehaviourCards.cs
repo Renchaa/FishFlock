@@ -4,139 +4,162 @@ using Flock.Runtime.Data;
 using UnityEditor;
 
 namespace Flock.Editor {
+    /**
+    * <summary>
+    * Editor window UI for configuring and inspecting flock systems.
+    * This partial renders the BehaviourProfile inspector as a set of consistent cards.
+    * </summary>
+    */
     public sealed partial class FlockEditorWindow {
-        void DrawBehaviourProfileInspectorCards(FishBehaviourProfile target) {
-            if (target == null) return;
+        private void DrawBehaviourProfileInspectorCards(FishBehaviourProfile behaviourProfile) {
+            if (behaviourProfile == null) {
+                return;
+            }
 
-            var so = new SerializedObject(target);
-            so.Update();
+            SerializedObject serializedObject = new SerializedObject(behaviourProfile);
+            serializedObject.Update();
 
             FlockEditorGUI.WithLabelWidth(FlockEditorUI.DefaultLabelWidth, () => {
-
-                FlockEditorGUI.BeginCard("Movement");
-                {
-                    DrawPropertyNoDecorators(so.FindProperty("maxSpeed"));
-                    DrawPropertyNoDecorators(so.FindProperty("maxAcceleration"));
-                    DrawPropertyNoDecorators(so.FindProperty("desiredSpeed"));
-                }
-                FlockEditorGUI.EndCard();
-
-                FlockEditorGUI.BeginCard("Noise");
-                {
-                    DrawPropertyNoDecorators(so.FindProperty("wanderStrength"));
-                    DrawPropertyNoDecorators(so.FindProperty("wanderFrequency"));
-                    DrawPropertyNoDecorators(so.FindProperty("groupNoiseStrength"));
-                    DrawPropertyNoDecorators(so.FindProperty("groupNoiseDirectionRate"));
-                    DrawPropertyNoDecorators(so.FindProperty("groupNoiseSpeedWeight"));
-                    DrawPropertyNoDecorators(so.FindProperty("patternWeight"));
-                }
-                FlockEditorGUI.EndCard();
-
-                FlockEditorGUI.BeginCard("Size & Schooling");
-                {
-                    DrawPropertyNoDecorators(so.FindProperty("bodyRadius"));
-                    DrawPropertyNoDecorators(so.FindProperty("schoolingSpacingFactor"));
-                    DrawPropertyNoDecorators(so.FindProperty("schoolingOuterFactor"));
-                    DrawPropertyNoDecorators(so.FindProperty("schoolingStrength"));
-                    DrawPropertyNoDecorators(so.FindProperty("schoolingInnerSoftness"));
-                    DrawPropertyNoDecorators(so.FindProperty("schoolingRadialDamping"));
-                    DrawPropertyNoDecorators(so.FindProperty("schoolingDeadzoneFraction"));
-                }
-                FlockEditorGUI.EndCard();
-
-                FlockEditorGUI.BeginCard("Neighbourhood");
-                {
-                    DrawPropertyNoDecorators(so.FindProperty("neighbourRadius"));
-                    DrawPropertyNoDecorators(so.FindProperty("separationRadius"));
-                }
-                FlockEditorGUI.EndCard();
-
-                FlockEditorGUI.BeginCard("Neighbour Sampling Caps");
-                {
-                    DrawPropertyNoDecorators(so.FindProperty("maxNeighbourChecks"));
-                    DrawPropertyNoDecorators(so.FindProperty("maxFriendlySamples"));
-                    DrawPropertyNoDecorators(so.FindProperty("maxSeparationSamples"));
-                }
-                FlockEditorGUI.EndCard();
-
-                FlockEditorGUI.BeginCard("Rule Weights");
-                {
-                    DrawPropertyNoDecorators(so.FindProperty("alignmentWeight"));
-                    DrawPropertyNoDecorators(so.FindProperty("cohesionWeight"));
-                    DrawPropertyNoDecorators(so.FindProperty("separationWeight"));
-                    DrawPropertyNoDecorators(so.FindProperty("influenceWeight"));
-                }
-                FlockEditorGUI.EndCard();
-
-                FlockEditorGUI.BeginCard("Relationships");
-                {
-                    DrawPropertyNoDecorators(so.FindProperty("avoidanceWeight"));
-                    DrawPropertyNoDecorators(so.FindProperty("neutralWeight"));
-                    DrawPropertyNoDecorators(so.FindProperty("attractionResponse"));
-                    DrawPropertyNoDecorators(so.FindProperty("avoidResponse"));
-                }
-                FlockEditorGUI.EndCard();
-
-                FlockEditorGUI.BeginCard("Split Behaviour");
-                {
-                    DrawPropertyNoDecorators(so.FindProperty("splitPanicThreshold"));
-                    DrawPropertyNoDecorators(so.FindProperty("splitLateralWeight"));
-                    DrawPropertyNoDecorators(so.FindProperty("splitAccelBoost"));
-                }
-                FlockEditorGUI.EndCard();
-
-                FlockEditorGUI.BeginCard("Attraction");
-                {
-                    DrawPropertyNoDecorators(so.FindProperty("attractionWeight"));
-                }
-                FlockEditorGUI.EndCard();
-
-                FlockEditorGUI.BeginCard("Bounds");
-                {
-                    DrawPropertyNoDecorators(so.FindProperty("boundsWeight"));
-                    DrawPropertyNoDecorators(so.FindProperty("boundsTangentialDamping"));
-                    DrawPropertyNoDecorators(so.FindProperty("boundsInfluenceSuppression"));
-                }
-                FlockEditorGUI.EndCard();
-
-                FlockEditorGUI.BeginCard("Grouping");
-                {
-                    DrawPropertyNoDecorators(so.FindProperty("groupFlowWeight"));
-
-                    DrawPropertyNoDecorators(so.FindProperty("minGroupSize"));
-                    DrawPropertyNoDecorators(so.FindProperty("maxGroupSize"));
-                    DrawPropertyNoDecorators(so.FindProperty("minGroupSizeWeight"));
-                    DrawPropertyNoDecorators(so.FindProperty("maxGroupSizeWeight"));
-
-                    DrawPropertyNoDecorators(so.FindProperty("groupRadiusMultiplier"));
-                    DrawPropertyNoDecorators(so.FindProperty("lonerRadiusMultiplier"));
-                    DrawPropertyNoDecorators(so.FindProperty("lonerCohesionBoost"));
-                }
-                FlockEditorGUI.EndCard();
-
-                FlockEditorGUI.BeginCard("Preferred Depth");
-                {
-                    var useDepth = so.FindProperty("usePreferredDepth");
-                    if (useDepth != null) {
-                        DrawPropertyNoDecorators(useDepth);
-                        bool enabled = useDepth.boolValue;
-
-                        using (new EditorGUI.DisabledScope(!enabled)) {
-                            DrawPropertyNoDecorators(so.FindProperty("preferredDepthMin"));
-                            DrawPropertyNoDecorators(so.FindProperty("preferredDepthMax"));
-                            DrawPropertyNoDecorators(so.FindProperty("preferredDepthWeight"));
-                            DrawPropertyNoDecorators(so.FindProperty("depthBiasStrength"));
-                            DrawPropertyNoDecorators(so.FindProperty("depthWinsOverAttractor"));
-                            DrawPropertyNoDecorators(so.FindProperty("preferredDepthEdgeFraction"));
-                        }
-                    }
-                }
-                FlockEditorGUI.EndCard();
+                DrawBehaviourMovementCard(serializedObject);
+                DrawBehaviourNoiseCard(serializedObject);
+                DrawBehaviourSizeAndSchoolingCard(serializedObject);
+                DrawBehaviourNeighbourhoodCard(serializedObject);
+                DrawBehaviourNeighbourSamplingCapsCard(serializedObject);
+                DrawBehaviourRuleWeightsCard(serializedObject);
+                DrawBehaviourRelationshipsCard(serializedObject);
+                DrawBehaviourSplitBehaviourCard(serializedObject);
+                DrawBehaviourAttractionCard(serializedObject);
+                DrawBehaviourBoundsCard(serializedObject);
+                DrawBehaviourGroupingCard(serializedObject);
+                DrawBehaviourPreferredDepthCard(serializedObject);
             });
 
-            if (so.ApplyModifiedProperties()) {
-                EditorUtility.SetDirty(target);
+            if (serializedObject.ApplyModifiedProperties()) {
+                EditorUtility.SetDirty(behaviourProfile);
             }
+        }
+
+        private void DrawBehaviourMovementCard(SerializedObject serializedObject) {
+            FlockEditorGUI.BeginCard("Movement");
+            DrawPropertyNoDecorators(serializedObject.FindProperty("maxSpeed"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("maxAcceleration"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("desiredSpeed"));
+            FlockEditorGUI.EndCard();
+        }
+
+        private void DrawBehaviourNoiseCard(SerializedObject serializedObject) {
+            FlockEditorGUI.BeginCard("Noise");
+            DrawPropertyNoDecorators(serializedObject.FindProperty("wanderStrength"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("wanderFrequency"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("groupNoiseStrength"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("groupNoiseDirectionRate"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("groupNoiseSpeedWeight"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("patternWeight"));
+            FlockEditorGUI.EndCard();
+        }
+
+        private void DrawBehaviourSizeAndSchoolingCard(SerializedObject serializedObject) {
+            FlockEditorGUI.BeginCard("Size & Schooling");
+            DrawPropertyNoDecorators(serializedObject.FindProperty("bodyRadius"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("schoolingSpacingFactor"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("schoolingOuterFactor"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("schoolingStrength"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("schoolingInnerSoftness"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("schoolingRadialDamping"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("schoolingDeadzoneFraction"));
+            FlockEditorGUI.EndCard();
+        }
+
+        private void DrawBehaviourNeighbourhoodCard(SerializedObject serializedObject) {
+            FlockEditorGUI.BeginCard("Neighbourhood");
+            DrawPropertyNoDecorators(serializedObject.FindProperty("neighbourRadius"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("separationRadius"));
+            FlockEditorGUI.EndCard();
+        }
+
+        private void DrawBehaviourNeighbourSamplingCapsCard(SerializedObject serializedObject) {
+            FlockEditorGUI.BeginCard("Neighbour Sampling Caps");
+            DrawPropertyNoDecorators(serializedObject.FindProperty("maxNeighbourChecks"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("maxFriendlySamples"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("maxSeparationSamples"));
+            FlockEditorGUI.EndCard();
+        }
+
+        private void DrawBehaviourRuleWeightsCard(SerializedObject serializedObject) {
+            FlockEditorGUI.BeginCard("Rule Weights");
+            DrawPropertyNoDecorators(serializedObject.FindProperty("alignmentWeight"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("cohesionWeight"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("separationWeight"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("influenceWeight"));
+            FlockEditorGUI.EndCard();
+        }
+
+        private void DrawBehaviourRelationshipsCard(SerializedObject serializedObject) {
+            FlockEditorGUI.BeginCard("Relationships");
+            DrawPropertyNoDecorators(serializedObject.FindProperty("avoidanceWeight"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("neutralWeight"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("attractionResponse"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("avoidResponse"));
+            FlockEditorGUI.EndCard();
+        }
+
+        private void DrawBehaviourSplitBehaviourCard(SerializedObject serializedObject) {
+            FlockEditorGUI.BeginCard("Split Behaviour");
+            DrawPropertyNoDecorators(serializedObject.FindProperty("splitPanicThreshold"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("splitLateralWeight"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("splitAccelBoost"));
+            FlockEditorGUI.EndCard();
+        }
+
+        private void DrawBehaviourAttractionCard(SerializedObject serializedObject) {
+            FlockEditorGUI.BeginCard("Attraction");
+            DrawPropertyNoDecorators(serializedObject.FindProperty("attractionWeight"));
+            FlockEditorGUI.EndCard();
+        }
+
+        private void DrawBehaviourBoundsCard(SerializedObject serializedObject) {
+            FlockEditorGUI.BeginCard("Bounds");
+            DrawPropertyNoDecorators(serializedObject.FindProperty("boundsWeight"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("boundsTangentialDamping"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("boundsInfluenceSuppression"));
+            FlockEditorGUI.EndCard();
+        }
+
+        private void DrawBehaviourGroupingCard(SerializedObject serializedObject) {
+            FlockEditorGUI.BeginCard("Grouping");
+            DrawPropertyNoDecorators(serializedObject.FindProperty("groupFlowWeight"));
+
+            DrawPropertyNoDecorators(serializedObject.FindProperty("minGroupSize"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("maxGroupSize"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("minGroupSizeWeight"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("maxGroupSizeWeight"));
+
+            DrawPropertyNoDecorators(serializedObject.FindProperty("groupRadiusMultiplier"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("lonerRadiusMultiplier"));
+            DrawPropertyNoDecorators(serializedObject.FindProperty("lonerCohesionBoost"));
+            FlockEditorGUI.EndCard();
+        }
+
+        private void DrawBehaviourPreferredDepthCard(SerializedObject serializedObject) {
+            FlockEditorGUI.BeginCard("Preferred Depth");
+
+            SerializedProperty useDepthProperty = serializedObject.FindProperty("usePreferredDepth");
+            if (useDepthProperty != null) {
+                DrawPropertyNoDecorators(useDepthProperty);
+
+                bool isEnabled = useDepthProperty.boolValue;
+
+                using (new EditorGUI.DisabledScope(!isEnabled)) {
+                    DrawPropertyNoDecorators(serializedObject.FindProperty("preferredDepthMin"));
+                    DrawPropertyNoDecorators(serializedObject.FindProperty("preferredDepthMax"));
+                    DrawPropertyNoDecorators(serializedObject.FindProperty("preferredDepthWeight"));
+                    DrawPropertyNoDecorators(serializedObject.FindProperty("depthBiasStrength"));
+                    DrawPropertyNoDecorators(serializedObject.FindProperty("depthWinsOverAttractor"));
+                    DrawPropertyNoDecorators(serializedObject.FindProperty("preferredDepthEdgeFraction"));
+                }
+            }
+
+            FlockEditorGUI.EndCard();
         }
     }
 }

@@ -1,84 +1,31 @@
 #if UNITY_EDITOR
 using Flock.Runtime;
 using Flock.Runtime.Data;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
 namespace Flock.Editor {
+    /**
+    * <summary>
+    * Editor window UI for configuring and inspecting flock systems.
+    * This partial renders the Fish Types (Presets) list panel, detail panel, and editor caching for the selected preset.
+    * </summary>
+    */
     public sealed partial class FlockEditorWindow {
         private void DrawSpeciesListPanel() {
             using (new EditorGUILayout.VerticalScope(GUILayout.Width(FlockEditorUI.SpeciesListPanelWidth))) {
-                EditorGUILayout.LabelField("Fish Types (Presets)", EditorStyles.boldLabel);
+                DrawSpeciesListHeader();
 
-                if (_setup.FishTypes == null) {
-                    _setup.FishTypes = new System.Collections.Generic.List<FishTypePreset>();
-                    EditorUtility.SetDirty(_setup);
-                }
+                EnsureFishTypesListInitialized();
 
                 _speciesListScroll = EditorGUILayout.BeginScrollView(_speciesListScroll);
-
-                var types = _setup.FishTypes;
-                for (int i = 0; i < types.Count; i++) {
-                    using (new EditorGUILayout.HorizontalScope()) {
-                        var preset = types[i];
-
-                        GUIStyle buttonStyle = (i == _selectedSpeciesIndex)
-                            ? EditorStyles.miniButtonMid
-                            : EditorStyles.miniButton;
-
-                        string label;
-                        if (preset == null) {
-                            label = "<Empty Slot>";
-                        } else if (!string.IsNullOrEmpty(preset.DisplayName)) {
-                            label = preset.DisplayName;
-                        } else {
-                            label = preset.name;
-                        }
-
-                        if (GUILayout.Button(label, buttonStyle)) {
-                            if (_selectedSpeciesIndex != i) {
-                                _selectedSpeciesIndex = i;
-                                RebuildSpeciesEditor();
-                            }
-                        }
-
-                        types[i] = (FishTypePreset)EditorGUILayout.ObjectField(
-                            GUIContent.none,
-                            preset,
-                            typeof(FishTypePreset),
-                            false,
-                            GUILayout.Width(FlockEditorUI.SpeciesInlineObjectFieldWidth));
-
-                        if (GUILayout.Button("X", GUILayout.Width(FlockEditorUI.RemoveRowButtonWidth))) {
-                            types.RemoveAt(i);
-                            EditorUtility.SetDirty(_setup);
-
-                            if (_selectedSpeciesIndex == i) {
-                                _selectedSpeciesIndex = -1;
-                                DestroySpeciesEditor();
-                            } else if (_selectedSpeciesIndex > i) {
-                                _selectedSpeciesIndex--;
-                            }
-
-                            break;
-                        }
-                    }
-                }
-
+                DrawSpeciesListRows(_setup.FishTypes);
                 EditorGUILayout.EndScrollView();
 
                 EditorGUILayout.Space();
 
-                using (new EditorGUILayout.HorizontalScope()) {
-                    if (GUILayout.Button("Add Empty Slot", GUILayout.Width(FlockEditorUI.AddEmptySlotButtonWidth))) {
-                        _setup.FishTypes.Add(null);
-                        EditorUtility.SetDirty(_setup);
-                    }
-
-                    if (GUILayout.Button("Add New Preset", GUILayout.Width(FlockEditorUI.AddNewPresetButtonWidth))) {
-                        CreateNewFishTypePreset();
-                    }
-                }
+                DrawSpeciesListFooter();
             }
         }
 
@@ -89,132 +36,232 @@ namespace Flock.Editor {
                 "asset",
                 "Choose a location for the new FishTypePreset asset");
 
-            if (string.IsNullOrEmpty(path))
+            if (string.IsNullOrEmpty(path)) {
                 return;
+            }
 
-            var preset = ScriptableObject.CreateInstance<FishTypePreset>();
-            AssetDatabase.CreateAsset(preset, path);
+            FishTypePreset fishTypePreset = ScriptableObject.CreateInstance<FishTypePreset>();
+            AssetDatabase.CreateAsset(fishTypePreset, path);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            _setup.FishTypes.Add(preset);
+            _setup.FishTypes.Add(fishTypePreset);
             EditorUtility.SetDirty(_setup);
             _selectedSpeciesIndex = _setup.FishTypes.Count - 1;
 
             RebuildSpeciesEditor();
-            EditorGUIUtility.PingObject(preset);
+            EditorGUIUtility.PingObject(fishTypePreset);
         }
 
         private void DrawSpeciesDetailPanel() {
             using (new EditorGUILayout.VerticalScope()) {
                 EditorGUILayout.LabelField("Selected Fish Type", EditorStyles.boldLabel);
 
-                if (_setup.FishTypes == null || _setup.FishTypes.Count == 0) {
-                    EditorGUILayout.HelpBox(
-                        "No fish types in this setup yet.\n\n" +
-                        "Use 'Add Empty Slot' or 'Add New Preset' to create entries.",
-                        MessageType.Info);
+                if (!TryGetSelectedFishTypePreset(out FishTypePreset fishTypePreset)) {
                     return;
                 }
 
-                if (_selectedSpeciesIndex < 0 || _selectedSpeciesIndex >= _setup.FishTypes.Count) {
-                    EditorGUILayout.HelpBox(
-                        "Select a fish type from the list on the left to edit its preset / behaviour.",
-                        MessageType.Info);
-                    return;
-                }
+                EnsureSpeciesEditorsAreBuiltForSelection(fishTypePreset);
 
-                var preset = _setup.FishTypes[_selectedSpeciesIndex];
-                if (preset == null) {
-                    EditorGUILayout.HelpBox(
-                        "This slot is empty. Assign an existing FishTypePreset or create a new one.",
-                        MessageType.Warning);
-                    return;
-                }
-
-                bool needRebuild = false;
-
-                if (_presetEditor == null || _presetEditor.target != preset) {
-                    needRebuild = true;
-                } else {
-                    var profile = preset.BehaviourProfile;
-                    if (profile == null) {
-                        if (_behaviourEditor != null && _behaviourEditor.target != null) {
-                            needRebuild = true;
-                        }
-                    } else {
-                        if (_behaviourEditor == null || _behaviourEditor.target != profile) {
-                            needRebuild = true;
-                        }
-                    }
-                }
-
-                if (needRebuild) {
-                    RebuildSpeciesEditor();
-                }
-
-                var behaviourProfile = preset.BehaviourProfile;
-
-                EditorGUILayout.Space();
-
-                using (new EditorGUILayout.HorizontalScope()) {
-                    GUILayout.FlexibleSpace();
-
-                    string[] modeLabels = { "Preset", "Behaviour" };
-                    _speciesInspectorMode = Mathf.Clamp(_speciesInspectorMode, 0, 1);
-                    _speciesInspectorMode = GUILayout.Toolbar(
-                        _speciesInspectorMode,
-                        modeLabels,
-                        GUILayout.Width(FlockEditorUI.InspectorModeToolbarWidth));
-
-                    if (behaviourProfile == null && _speciesInspectorMode == 1) {
-                        _speciesInspectorMode = 0;
-                    }
-                }
-
-                EditorGUILayout.Space();
+                DrawSpeciesInspectorModeToolbar(fishTypePreset);
 
                 _detailScroll = EditorGUILayout.BeginScrollView(_detailScroll);
-
-                if (_speciesInspectorMode == 0) {
-                    if (_presetEditor != null) {
-                        _presetEditor.OnInspectorGUI();
-                    }
-                } else {
-                    if (behaviourProfile == null) {
-                        EditorGUILayout.HelpBox(
-                            "This FishTypePreset has no BehaviourProfile assigned.\n" +
-                            "Assign one in the Preset view first.",
-                            MessageType.Info);
-                    } else {
-                        DrawBehaviourProfileInspectorCards(behaviourProfile);
-                    }
-                }
-
+                DrawSpeciesInspectorBody(fishTypePreset);
                 EditorGUILayout.EndScrollView();
             }
         }
 
         private void RebuildSpeciesEditor() {
-            if (_setup == null ||
-                _setup.FishTypes == null ||
-                _selectedSpeciesIndex < 0 ||
-                _selectedSpeciesIndex >= _setup.FishTypes.Count) {
+            if (_setup == null
+                || _setup.FishTypes == null
+                || _selectedSpeciesIndex < 0
+                || _selectedSpeciesIndex >= _setup.FishTypes.Count) {
 
                 DestroySpeciesEditor();
                 return;
             }
 
-            var preset = _setup.FishTypes[_selectedSpeciesIndex];
-            EnsureEditor(ref _presetEditor, preset);
+            FishTypePreset fishTypePreset = _setup.FishTypes[_selectedSpeciesIndex];
+            EnsureEditor(ref _presetEditor, fishTypePreset);
 
-            var profile = preset != null ? preset.BehaviourProfile : null;
-            EnsureEditor(ref _behaviourEditor, profile);
+            FishBehaviourProfile behaviourProfile = fishTypePreset != null ? fishTypePreset.BehaviourProfile : null;
+            EnsureEditor(ref _behaviourEditor, behaviourProfile);
         }
 
         private void DestroySpeciesEditor() {
             DestroyEditor(ref _presetEditor);
             DestroyEditor(ref _behaviourEditor);
+        }
+
+        private void DrawSpeciesListHeader() {
+            EditorGUILayout.LabelField("Fish Types (Presets)", EditorStyles.boldLabel);
+        }
+
+        private void EnsureFishTypesListInitialized() {
+            if (_setup.FishTypes != null) {
+                return;
+            }
+
+            _setup.FishTypes = new List<FishTypePreset>();
+            EditorUtility.SetDirty(_setup);
+        }
+
+        private void DrawSpeciesListRows(List<FishTypePreset> fishTypePresets) {
+            for (int index = 0; index < fishTypePresets.Count; index += 1) {
+                using (new EditorGUILayout.HorizontalScope()) {
+                    FishTypePreset fishTypePreset = fishTypePresets[index];
+
+                    GUIStyle buttonStyle = index == _selectedSpeciesIndex
+                        ? EditorStyles.miniButtonMid
+                        : EditorStyles.miniButton;
+
+                    string label;
+                    if (fishTypePreset == null) {
+                        label = "<Empty Slot>";
+                    } else if (!string.IsNullOrEmpty(fishTypePreset.DisplayName)) {
+                        label = fishTypePreset.DisplayName;
+                    } else {
+                        label = fishTypePreset.name;
+                    }
+
+                    if (GUILayout.Button(label, buttonStyle)) {
+                        if (_selectedSpeciesIndex != index) {
+                            _selectedSpeciesIndex = index;
+                            RebuildSpeciesEditor();
+                        }
+                    }
+
+                    fishTypePresets[index] = (FishTypePreset)EditorGUILayout.ObjectField(
+                        GUIContent.none,
+                        fishTypePreset,
+                        typeof(FishTypePreset),
+                        false,
+                        GUILayout.Width(FlockEditorUI.SpeciesInlineObjectFieldWidth));
+
+                    if (GUILayout.Button("X", GUILayout.Width(FlockEditorUI.RemoveRowButtonWidth))) {
+                        fishTypePresets.RemoveAt(index);
+                        EditorUtility.SetDirty(_setup);
+
+                        if (_selectedSpeciesIndex == index) {
+                            _selectedSpeciesIndex = -1;
+                            DestroySpeciesEditor();
+                        } else if (_selectedSpeciesIndex > index) {
+                            _selectedSpeciesIndex -= 1;
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void DrawSpeciesListFooter() {
+            using (new EditorGUILayout.HorizontalScope()) {
+                if (GUILayout.Button("Add Empty Slot", GUILayout.Width(FlockEditorUI.AddEmptySlotButtonWidth))) {
+                    _setup.FishTypes.Add(null);
+                    EditorUtility.SetDirty(_setup);
+                }
+
+                if (GUILayout.Button("Add New Preset", GUILayout.Width(FlockEditorUI.AddNewPresetButtonWidth))) {
+                    CreateNewFishTypePreset();
+                }
+            }
+        }
+
+        private bool TryGetSelectedFishTypePreset(out FishTypePreset fishTypePreset) {
+            fishTypePreset = null;
+
+            if (_setup.FishTypes == null || _setup.FishTypes.Count == 0) {
+                EditorGUILayout.HelpBox(
+                    "No fish types in this setup yet.\n\n" +
+                    "Use 'Add Empty Slot' or 'Add New Preset' to create entries.",
+                    MessageType.Info);
+                return false;
+            }
+
+            if (_selectedSpeciesIndex < 0 || _selectedSpeciesIndex >= _setup.FishTypes.Count) {
+                EditorGUILayout.HelpBox(
+                    "Select a fish type from the list on the left to edit its preset / behaviour.",
+                    MessageType.Info);
+                return false;
+            }
+
+            fishTypePreset = _setup.FishTypes[_selectedSpeciesIndex];
+            if (fishTypePreset == null) {
+                EditorGUILayout.HelpBox(
+                    "This slot is empty. Assign an existing FishTypePreset or create a new one.",
+                    MessageType.Warning);
+                return false;
+            }
+
+            return true;
+        }
+
+        private void EnsureSpeciesEditorsAreBuiltForSelection(FishTypePreset fishTypePreset) {
+            bool needRebuild = false;
+
+            if (_presetEditor == null || _presetEditor.target != fishTypePreset) {
+                needRebuild = true;
+            } else {
+                FishBehaviourProfile behaviourProfile = fishTypePreset.BehaviourProfile;
+                if (behaviourProfile == null) {
+                    if (_behaviourEditor != null && _behaviourEditor.target != null) {
+                        needRebuild = true;
+                    }
+                } else {
+                    if (_behaviourEditor == null || _behaviourEditor.target != behaviourProfile) {
+                        needRebuild = true;
+                    }
+                }
+            }
+
+            if (needRebuild) {
+                RebuildSpeciesEditor();
+            }
+        }
+
+        private void DrawSpeciesInspectorModeToolbar(FishTypePreset fishTypePreset) {
+            FishBehaviourProfile behaviourProfile = fishTypePreset.BehaviourProfile;
+
+            EditorGUILayout.Space();
+
+            using (new EditorGUILayout.HorizontalScope()) {
+                GUILayout.FlexibleSpace();
+
+                string[] modeLabels = { "Preset", "Behaviour" };
+                _speciesInspectorMode = Mathf.Clamp(_speciesInspectorMode, 0, 1);
+                _speciesInspectorMode = GUILayout.Toolbar(
+                    _speciesInspectorMode,
+                    modeLabels,
+                    GUILayout.Width(FlockEditorUI.InspectorModeToolbarWidth));
+
+                if (behaviourProfile == null && _speciesInspectorMode == 1) {
+                    _speciesInspectorMode = 0;
+                }
+            }
+
+            EditorGUILayout.Space();
+        }
+
+        private void DrawSpeciesInspectorBody(FishTypePreset fishTypePreset) {
+            FishBehaviourProfile behaviourProfile = fishTypePreset.BehaviourProfile;
+
+            if (_speciesInspectorMode == 0) {
+                if (_presetEditor != null) {
+                    _presetEditor.OnInspectorGUI();
+                }
+                return;
+            }
+
+            if (behaviourProfile == null) {
+                EditorGUILayout.HelpBox(
+                    "This FishTypePreset has no BehaviourProfile assigned.\n" +
+                    "Assign one in the Preset view first.",
+                    MessageType.Info);
+                return;
+            }
+
+            DrawBehaviourProfileInspectorCards(behaviourProfile);
         }
     }
 }

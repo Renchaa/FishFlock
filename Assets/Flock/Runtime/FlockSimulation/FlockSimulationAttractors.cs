@@ -3,74 +3,20 @@ namespace Flock.Runtime {
     using Unity.Collections;
     using Unity.Mathematics;
 
+    /**
+     * <summary>
+     * Simulation runtime that manages native state for agents, grids, and attractors.
+     * </summary>
+     */
     public sealed partial class FlockSimulation {
-        void AllocateAttractors(FlockAttractorData[] source, Allocator allocator) {
-            if (source == null || source.Length == 0) {
-                attractorCount = 0;
-                attractors = default;
-                return;
-            }
-
-            attractorCount = source.Length;
-
-            attractors = new NativeArray<FlockAttractorData>(
-                attractorCount,
-                allocator,
-                NativeArrayOptions.UninitializedMemory);
-
-            float envMinY = environmentData.BoundsCenter.y - environmentData.BoundsExtents.y;
-            float envMaxY = environmentData.BoundsCenter.y + environmentData.BoundsExtents.y;
-            float envHeight = math.max(envMaxY - envMinY, 0.0001f);
-
-            for (int index = 0; index < attractorCount; index += 1) {
-                FlockAttractorData data = source[index];
-
-                float worldMinY;
-                float worldMaxY;
-
-                if (data.Shape == FlockAttractorShape.Sphere) {
-                    worldMinY = data.Position.y - data.Radius;
-                    worldMaxY = data.Position.y + data.Radius;
-                } else {
-                    quaternion rot = data.BoxRotation;
-                    float3 halfExtents = data.BoxHalfExtents;
-
-                    float3 right = math.mul(rot, new float3(1f, 0f, 0f));
-                    float3 up = math.mul(rot, new float3(0f, 1f, 0f));
-                    float3 fwd = math.mul(rot, new float3(0f, 0f, 1f));
-
-                    float extentY =
-                        math.abs(right.y) * halfExtents.x +
-                        math.abs(up.y) * halfExtents.y +
-                        math.abs(fwd.y) * halfExtents.z;
-
-                    worldMinY = data.Position.y - extentY;
-                    worldMaxY = data.Position.y + extentY;
-                }
-
-                float depthMinNorm = math.saturate((worldMinY - envMinY) / envHeight);
-                float depthMaxNorm = math.saturate((worldMaxY - envMinY) / envHeight);
-
-                if (depthMaxNorm < depthMinNorm) {
-                    float tmp = depthMinNorm;
-                    depthMinNorm = depthMaxNorm;
-                    depthMaxNorm = tmp;
-                }
-
-                data.DepthMinNorm = depthMinNorm;
-                data.DepthMaxNorm = depthMaxNorm;
-
-                attractors[index] = data;
-            }
-        }
-
-        void AllocateAttractorSimulationData(Allocator allocator) {
-            attractionSteering = new NativeArray<float3>(
-                AgentCount,
-                allocator,
-                NativeArrayOptions.ClearMemory);
-        }
-
+        /**
+         * <summary>
+         * Queues a single attractor data update to be applied to the simulation.
+         * Marks the attractor grid as dirty so spatial stamping can be rebuilt.
+         * </summary>
+         * <param name="index">Index of the attractor to update.</param>
+         * <param name="data">New attractor data to apply.</param>
+         */
         public void SetAttractorData(int index, FlockAttractorData data) {
             if (!IsCreated || !attractors.IsCreated) {
                 return;
@@ -88,8 +34,110 @@ namespace Flock.Runtime {
             attractorGridDirty = true;
         }
 
+        /**
+         * <summary>
+         * Marks the attractor grid as dirty so it will be rebuilt on the next simulation update.
+         * </summary>
+         */
         public void RebuildAttractorGrid() {
             attractorGridDirty = true;
+        }
+
+        void AllocateAttractors(FlockAttractorData[] sourceAttractors, Allocator allocator) {
+            if (!TryAllocateAttractorArray(sourceAttractors, allocator)) {
+                return;
+            }
+
+            GetEnvironmentDepthBounds(out float environmentMinimumY, out float environmentHeight);
+
+            for (int index = 0; index < attractorCount; index += 1) {
+                FlockAttractorData attractorData = sourceAttractors[index];
+                ApplyNormalizedDepthRange(ref attractorData, environmentMinimumY, environmentHeight);
+                attractors[index] = attractorData;
+            }
+        }
+
+        void AllocateAttractorSimulationData(Allocator allocator) {
+            attractionSteering = new NativeArray<float3>(
+                AgentCount,
+                allocator,
+                NativeArrayOptions.ClearMemory);
+        }
+
+        bool TryAllocateAttractorArray(FlockAttractorData[] sourceAttractors, Allocator allocator) {
+            if (sourceAttractors == null || sourceAttractors.Length == 0) {
+                attractorCount = 0;
+                attractors = default;
+                return false;
+            }
+
+            attractorCount = sourceAttractors.Length;
+
+            attractors = new NativeArray<FlockAttractorData>(
+                attractorCount,
+                allocator,
+                NativeArrayOptions.UninitializedMemory);
+
+            return true;
+        }
+
+        void GetEnvironmentDepthBounds(out float environmentMinimumY, out float environmentHeight) {
+            environmentMinimumY = environmentData.BoundsCenter.y - environmentData.BoundsExtents.y;
+
+            float environmentMaximumY = environmentData.BoundsCenter.y + environmentData.BoundsExtents.y;
+            environmentHeight = math.max(environmentMaximumY - environmentMinimumY, 0.0001f);
+        }
+
+        void ApplyNormalizedDepthRange(
+            ref FlockAttractorData attractorData,
+            float environmentMinimumY,
+            float environmentHeight) {
+
+            GetAttractorWorldMinMaxY(attractorData, out float worldMinimumY, out float worldMaximumY);
+
+            float depthMinimumNormalized = math.saturate((worldMinimumY - environmentMinimumY) / environmentHeight);
+            float depthMaximumNormalized = math.saturate((worldMaximumY - environmentMinimumY) / environmentHeight);
+
+            EnsureOrderedMinMax(ref depthMinimumNormalized, ref depthMaximumNormalized);
+
+            attractorData.DepthMinNorm = depthMinimumNormalized;
+            attractorData.DepthMaxNorm = depthMaximumNormalized;
+        }
+
+        void GetAttractorWorldMinMaxY(
+            in FlockAttractorData attractorData,
+            out float worldMinimumY,
+            out float worldMaximumY) {
+
+            if (attractorData.Shape == FlockAttractorShape.Sphere) {
+                worldMinimumY = attractorData.Position.y - attractorData.Radius;
+                worldMaximumY = attractorData.Position.y + attractorData.Radius;
+                return;
+            }
+
+            float worldExtentY = ComputeWorldBoxExtentY(attractorData.BoxRotation, attractorData.BoxHalfExtents);
+            worldMinimumY = attractorData.Position.y - worldExtentY;
+            worldMaximumY = attractorData.Position.y + worldExtentY;
+        }
+
+        float ComputeWorldBoxExtentY(quaternion rotation, float3 halfExtents) {
+            float3 right = math.mul(rotation, new float3(1f, 0f, 0f));
+            float3 up = math.mul(rotation, new float3(0f, 1f, 0f));
+            float3 forward = math.mul(rotation, new float3(0f, 0f, 1f));
+
+            return math.abs(right.y) * halfExtents.x
+                + math.abs(up.y) * halfExtents.y
+                + math.abs(forward.y) * halfExtents.z;
+        }
+
+        static void EnsureOrderedMinMax(ref float minimum, ref float maximum) {
+            if (maximum >= minimum) {
+                return;
+            }
+
+            float temporary = minimum;
+            minimum = maximum;
+            maximum = temporary;
         }
     }
 }

@@ -13,7 +13,6 @@ namespace Flock.Runtime.Jobs {
      */
     [BurstCompile]
     public struct ObstacleAvoidanceJob : IJobParallelFor {
-        #region Inputs
 
         [ReadOnly]
         public NativeArray<float3> Positions;
@@ -34,21 +33,12 @@ namespace Flock.Runtime.Jobs {
         public NativeParallelMultiHashMap<int, int> CellToObstacles;
 
         public float3 GridOrigin;
-
         public int3 GridResolution;
-
         public float CellSize;
-
         public float AvoidStrength;
-
-        #endregion
-
-        #region Outputs
 
         [WriteOnly]
         public NativeArray<float3> ObstacleSteering;
-
-        #endregion
 
         public void Execute(int agentIndex) {
             float3 agentPosition = Positions[agentIndex];

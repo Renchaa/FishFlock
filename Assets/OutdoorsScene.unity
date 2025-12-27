@@ -1317,7 +1317,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
   mainSpawner: {fileID: 745878724}
-  groupNoisePattern: {fileID: 11400000, guid: 0cf9db20c6ef69a40aba5e2a14a83848, type: 2}
+  groupNoisePattern: {fileID: 11400000, guid: 5db971d17ac9bec4388a58f9b56f0a70, type: 2}
   boundsType: 0
   boundsCenter: {x: 50, y: 8, z: 50}
   boundsExtents: {x: 10, y: 8, z: 11}
@@ -1347,8 +1347,7 @@ MonoBehaviour:
   debugObstacleAvoidance: 0
   debugObstacleCellsToLog: 4
   interactionMatrix: {fileID: 11400000, guid: 69997841281513840a4f142d2cae17de, type: 2}
-  staticAttractors:
-  - {fileID: 235993011}
+  staticAttractors: []
   dynamicAttractors: []
   layer3Patterns: []
 --- !u!4 &731534110
@@ -1558,7 +1557,7 @@ MonoBehaviour:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
       count: 0
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
-      count: 3
+      count: 0
     - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
       count: 0
   - point: {fileID: 499848434}
@@ -1568,7 +1567,7 @@ MonoBehaviour:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
       count: 5000
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
-      count: 2
+      count: 0
     - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
       count: 0
   - point: {fileID: 639351748}
@@ -2553,13 +2552,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1823688464}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.24648386, y: 0.2946387, z: -0.078948066, w: 0.91989183}
-  m_LocalPosition: {x: 38.41, y: 8.94, z: 40}
+  m_LocalRotation: {x: 0.24983354, y: 0.25229853, z: -0.06760307, w: 0.93239397}
+  m_LocalPosition: {x: 39.75, y: 13.75, z: 35.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 30, y: 35.52, z: 0}
+  m_LocalEulerAnglesHint: {x: 30, y: 30.282, z: 0}
 --- !u!114 &1823688468
 MonoBehaviour:
   m_ObjectHideFlags: 0

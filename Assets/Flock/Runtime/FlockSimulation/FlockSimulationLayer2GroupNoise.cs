@@ -2,7 +2,20 @@ namespace Flock.Runtime {
     using Flock.Runtime.Data;
     using Flock.Runtime.Logging;
 
+    /**
+     * <summary>
+     * Core flock simulation runtime. Owns native buffers, maintains simulation state, and schedules the per-frame job graph.
+     * This partial definition contains the public Layer-2 group-noise configuration API.
+     * </summary>
+     */
     public sealed partial class FlockSimulation {
+        /**
+         * <summary>
+         * Sets the active Layer-2 group-noise pattern to <see cref="FlockGroupNoisePatternType.SimpleSine"/>.
+         * </summary>
+         * <param name="common">Common group-noise settings applied to the active Layer-2 pattern.</param>
+         * <param name="payload">Simple-sine pattern payload for the active Layer-2 pattern.</param>
+         */
         public void SetLayer2GroupNoiseSimpleSine(
             in FlockGroupNoiseCommonSettings common,
             in FlockGroupNoiseSimpleSinePayload payload) {
@@ -18,6 +31,13 @@ namespace Flock.Runtime {
                 null);
         }
 
+        /**
+         * <summary>
+         * Sets the active Layer-2 group-noise pattern to <see cref="FlockGroupNoisePatternType.VerticalBands"/>.
+         * </summary>
+         * <param name="common">Common group-noise settings applied to the active Layer-2 pattern.</param>
+         * <param name="payload">Vertical-bands pattern payload for the active Layer-2 pattern.</param>
+         */
         public void SetLayer2GroupNoiseVerticalBands(
             in FlockGroupNoiseCommonSettings common,
             in FlockGroupNoiseVerticalBandsPayload payload) {
@@ -33,6 +53,13 @@ namespace Flock.Runtime {
                 null);
         }
 
+        /**
+         * <summary>
+         * Sets the active Layer-2 group-noise pattern to <see cref="FlockGroupNoisePatternType.Vortex"/>.
+         * </summary>
+         * <param name="common">Common group-noise settings applied to the active Layer-2 pattern.</param>
+         * <param name="payload">Vortex pattern payload for the active Layer-2 pattern.</param>
+         */
         public void SetLayer2GroupNoiseVortex(
             in FlockGroupNoiseCommonSettings common,
             in FlockGroupNoiseVortexPayload payload) {
@@ -48,6 +75,13 @@ namespace Flock.Runtime {
                 null);
         }
 
+        /**
+         * <summary>
+         * Sets the active Layer-2 group-noise pattern to <see cref="FlockGroupNoisePatternType.SphereShell"/>.
+         * </summary>
+         * <param name="common">Common group-noise settings applied to the active Layer-2 pattern.</param>
+         * <param name="payload">Sphere-shell pattern payload for the active Layer-2 pattern.</param>
+         */
         public void SetLayer2GroupNoiseSphereShell(
             in FlockGroupNoiseCommonSettings common,
             in FlockGroupNoiseSphereShellPayload payload) {
@@ -63,4 +97,5 @@ namespace Flock.Runtime {
                 null);
         }
     }
+
 }

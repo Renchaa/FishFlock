@@ -2,18 +2,26 @@ using UnityEditor;
 using UnityEngine;
 
 namespace Flock.Runtime.Editor {
+    /**
+     * <summary>
+     * Custom inspector for FlockObstacle that displays only the relevant shape settings.
+     * </summary>
+     */
     [CustomEditor(typeof(Flock.Runtime.FlockObstacle))]
+
     [CanEditMultipleObjects]
     public sealed class FlockObstacleEditor : UnityEditor.Editor {
-        const string ShapePropName = "shape";
-        const string SphereRadiusPropName = "sphereRadius";
-        const string BoxSizePropName = "boxSize";
+        private const string ShapePropName = "shape";
+        private const string SphereRadiusPropName = "sphereRadius";
+        private const string BoxSizePropName = "boxSize";
 
-        SerializedProperty shapeProp;
-        SerializedProperty sphereRadiusProp;
-        SerializedProperty boxSizeProp;
+        private const int SphereShapeIndex = 0;
 
-        void OnEnable() {
+        private SerializedProperty shapeProp;
+        private SerializedProperty sphereRadiusProp;
+        private SerializedProperty boxSizeProp;
+
+        private void OnEnable() {
             shapeProp = serializedObject.FindProperty(ShapePropName);
             sphereRadiusProp = serializedObject.FindProperty(SphereRadiusPropName);
             boxSizeProp = serializedObject.FindProperty(BoxSizePropName);
@@ -24,28 +32,33 @@ namespace Flock.Runtime.Editor {
 
             EditorGUILayout.PropertyField(shapeProp);
 
-            // If multi-editing with mixed values, don't guess which block to show.
             if (shapeProp.hasMultipleDifferentValues) {
-                EditorGUILayout.HelpBox("Multiple objects selected with different Shape values. Set Shape to edit the corresponding settings.", MessageType.Info);
+                EditorGUILayout.HelpBox(
+                    "Multiple objects selected with different Shape values. Set Shape to edit the corresponding settings.",
+                    MessageType.Info);
+
                 serializedObject.ApplyModifiedProperties();
                 return;
             }
 
-            // Draw only the relevant settings.
-            var shapeValue = shapeProp.enumValueIndex;
+            DrawShapeSpecificSettings();
 
-            // 0 = Sphere, 1 = Box (matches your enum order). If that changes, this should be updated accordingly.
-            if (shapeValue == 0) {
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        private void DrawShapeSpecificSettings() {
+            int shapeValue = shapeProp.enumValueIndex;
+
+            if (shapeValue == SphereShapeIndex) {
                 EditorGUILayout.Space(8);
                 EditorGUILayout.LabelField("Sphere Settings", EditorStyles.boldLabel);
                 EditorGUILayout.PropertyField(sphereRadiusProp, new GUIContent("Radius"));
-            } else {
-                EditorGUILayout.Space(8);
-                EditorGUILayout.LabelField("Box Settings", EditorStyles.boldLabel);
-                EditorGUILayout.PropertyField(boxSizeProp, new GUIContent("Size"));
+                return;
             }
 
-            serializedObject.ApplyModifiedProperties();
+            EditorGUILayout.Space(8);
+            EditorGUILayout.LabelField("Box Settings", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(boxSizeProp, new GUIContent("Size"));
         }
     }
 }

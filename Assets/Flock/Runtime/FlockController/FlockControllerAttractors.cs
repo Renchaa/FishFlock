@@ -1,28 +1,33 @@
+using System;
+using Flock.Runtime.Data;
+using UnityEngine;
+
 namespace Flock.Runtime {
-    using Flock.Runtime.Data;
-    using System;
-    using UnityEngine;
-
+    /**
+     * <summary>
+     * Runtime controller that owns flock simulation state, configuration, and per-frame updates.
+     * </summary>
+     */
     public sealed partial class FlockController {
-        int[] dynamicAttractorIndices;
+        private int[] dynamicAttractorIndices;
 
-        FlockAttractorData[] BuildAttractorData() {
-            int staticCount = staticAttractors != null ? staticAttractors.Length : 0;
-            int dynamicCount = dynamicAttractors != null ? dynamicAttractors.Length : 0;
+        private FlockAttractorData[] BuildAttractorData() {
+            int staticAttractorCount = staticAttractors != null ? staticAttractors.Length : 0;
+            int dynamicAttractorCount = dynamicAttractors != null ? dynamicAttractors.Length : 0;
 
             int totalCount = 0;
 
-            if (staticCount > 0) {
-                for (int i = 0; i < staticCount; i += 1) {
-                    if (staticAttractors[i] != null) {
+            if (staticAttractorCount > 0) {
+                for (int index = 0; index < staticAttractorCount; index += 1) {
+                    if (staticAttractors[index] != null) {
                         totalCount += 1;
                     }
                 }
             }
 
-            if (dynamicCount > 0) {
-                for (int i = 0; i < dynamicCount; i += 1) {
-                    if (dynamicAttractors[i] != null) {
+            if (dynamicAttractorCount > 0) {
+                for (int index = 0; index < dynamicAttractorCount; index += 1) {
+                    if (dynamicAttractors[index] != null) {
                         totalCount += 1;
                     }
                 }
@@ -36,10 +41,9 @@ namespace Flock.Runtime {
             FlockAttractorData[] data = new FlockAttractorData[totalCount];
             int writeIndex = 0;
 
-            // Static attractors
-            if (staticCount > 0) {
-                for (int i = 0; i < staticCount; i += 1) {
-                    FlockAttractorArea area = staticAttractors[i];
+            if (staticAttractorCount > 0) {
+                for (int index = 0; index < staticAttractorCount; index += 1) {
+                    FlockAttractorArea area = staticAttractors[index];
                     if (area == null) {
                         continue;
                     }
@@ -50,23 +54,22 @@ namespace Flock.Runtime {
                 }
             }
 
-            // Dynamic attractors
-            if (dynamicCount > 0) {
-                if (dynamicAttractorIndices == null || dynamicAttractorIndices.Length != dynamicCount) {
-                    dynamicAttractorIndices = new int[dynamicCount];
+            if (dynamicAttractorCount > 0) {
+                if (dynamicAttractorIndices == null || dynamicAttractorIndices.Length != dynamicAttractorCount) {
+                    dynamicAttractorIndices = new int[dynamicAttractorCount];
                 }
 
-                for (int i = 0; i < dynamicCount; i += 1) {
-                    FlockAttractorArea area = dynamicAttractors[i];
+                for (int index = 0; index < dynamicAttractorCount; index += 1) {
+                    FlockAttractorArea area = dynamicAttractors[index];
 
                     if (area == null) {
-                        dynamicAttractorIndices[i] = -1;
+                        dynamicAttractorIndices[index] = -1;
                         continue;
                     }
 
                     uint mask = ComputeAttractorMask(area);
                     data[writeIndex] = area.ToData(mask);
-                    dynamicAttractorIndices[i] = writeIndex;
+                    dynamicAttractorIndices[index] = writeIndex;
                     writeIndex += 1;
                 }
             } else {
@@ -80,42 +83,43 @@ namespace Flock.Runtime {
             return data;
         }
 
-        uint ComputeAttractorMask(FlockAttractorArea area) {
+        private uint ComputeAttractorMask(FlockAttractorArea area) {
             if (area == null || fishTypes == null || fishTypes.Length == 0) {
-                return uint.MaxValue; // affect all types
+                return uint.MaxValue;
             }
 
             FishTypePreset[] targetTypes = area.AttractedTypes;
             if (targetTypes == null || targetTypes.Length == 0) {
-                return uint.MaxValue; // affect all types
+                return uint.MaxValue;
             }
 
             uint mask = 0u;
 
-            for (int t = 0; t < targetTypes.Length; t += 1) {
-                FishTypePreset target = targetTypes[t];
-                if (target == null) {
+            for (int targetTypeIndex = 0; targetTypeIndex < targetTypes.Length; targetTypeIndex += 1) {
+                FishTypePreset targetType = targetTypes[targetTypeIndex];
+                if (targetType == null) {
                     continue;
                 }
 
-                for (int i = 0; i < fishTypes.Length; i += 1) {
-                    if (fishTypes[i] == target) {
-                        if (i < 32) {
-                            mask |= (1u << i);
+                for (int fishTypeIndex = 0; fishTypeIndex < fishTypes.Length; fishTypeIndex += 1) {
+                    if (fishTypes[fishTypeIndex] == targetType) {
+                        if (fishTypeIndex < 32) {
+                            mask |= 1u << fishTypeIndex;
                         }
+
                         break;
                     }
                 }
             }
 
             if (mask == 0u) {
-                return uint.MaxValue; // fallback: if mapping failed, affect everyone
+                return uint.MaxValue;
             }
 
             return mask;
         }
 
-        void UpdateDynamicAttractors() {
+        private void UpdateDynamicAttractors() {
             if (simulation == null || !simulation.IsCreated) {
                 return;
             }
@@ -130,13 +134,13 @@ namespace Flock.Runtime {
             int count = Mathf.Min(dynamicAttractors.Length, dynamicAttractorIndices.Length);
             bool anyUpdated = false;
 
-            for (int i = 0; i < count; i += 1) {
-                int attractorIndex = dynamicAttractorIndices[i];
+            for (int index = 0; index < count; index += 1) {
+                int attractorIndex = dynamicAttractorIndices[index];
                 if (attractorIndex < 0) {
                     continue;
                 }
 
-                FlockAttractorArea area = dynamicAttractors[i];
+                FlockAttractorArea area = dynamicAttractors[index];
                 if (area == null) {
                     continue;
                 }
@@ -147,7 +151,6 @@ namespace Flock.Runtime {
                 anyUpdated = true;
             }
 
-            // Re-stamp attractors into grid if anything moved / changed
             if (anyUpdated) {
                 simulation.RebuildAttractorGrid();
             }

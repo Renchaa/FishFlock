@@ -6,147 +6,212 @@ using UnityEditor;
 using UnityEngine;
 
 namespace Flock.Editor {
+    /**
+    * <summary>
+    * Editor-only property drawing helpers for the flock editor window.
+    * This partial contains attribute-driven drawer routing and header resolution utilities.
+    * </summary>
+    */
     public sealed partial class FlockEditorWindow {
-        static bool ShouldUseAttributeDrivenDrawer(SerializedProperty p) {
-            if (p == null || p.serializedObject == null || p.serializedObject.targetObject == null) {
+        // Routes int/float fields through Unity's attribute-aware drawers (Range/Min) when present.
+        private static bool ShouldUseAttributeDrivenDrawer(SerializedProperty property) {
+            if (property == null || property.serializedObject == null || property.serializedObject.targetObject == null) {
                 return false;
             }
 
-            var rootType = p.serializedObject.targetObject.GetType();
+            Type rootType = property.serializedObject.targetObject.GetType();
 
-            if (!TryGetFieldInfoFromPropertyPath(rootType, p.propertyPath, out FieldInfo fi) || fi == null) {
+            if (!TryGetFieldInfoFromPropertyPath(rootType, property.propertyPath, out FieldInfo fieldInfo) || fieldInfo == null) {
                 return false;
             }
 
-            if (fi.GetCustomAttribute<RangeAttribute>(inherit: true) != null) return true;
-            if (fi.GetCustomAttribute<MinAttribute>(inherit: true) != null) return true;
+            if (fieldInfo.GetCustomAttribute<RangeAttribute>(inherit: true) != null) {
+                return true;
+            }
+
+            if (fieldInfo.GetCustomAttribute<MinAttribute>(inherit: true) != null) {
+                return true;
+            }
 
             return false;
         }
 
-        static void DrawPropertyNoDecorators(SerializedProperty p, GUIContent labelOverride = null) {
-            if (p == null) return;
+        private static void DrawPropertyNoDecorators(SerializedProperty property, GUIContent labelOverride = null) {
+            if (property == null) {
+                return;
+            }
 
-            GUIContent label = labelOverride ?? EditorGUIUtility.TrTextContent(p.displayName);
+            GUIContent label = labelOverride ?? EditorGUIUtility.TrTextContent(property.displayName);
 
-            switch (p.propertyType) {
-                case SerializedPropertyType.Boolean: {
-                        EditorGUI.BeginChangeCheck();
-                        bool v = EditorGUILayout.Toggle(label, p.boolValue);
-                        if (EditorGUI.EndChangeCheck()) p.boolValue = v;
-                        break;
-                    }
+            switch (property.propertyType) {
+                case SerializedPropertyType.Boolean:
+                    DrawBooleanProperty(property, label);
+                    break;
 
-                case SerializedPropertyType.Integer: {
-                        if (ShouldUseAttributeDrivenDrawer(p)) {
-                            FlockEditorGUI.PropertyFieldClamped(p, includeChildren: true, labelOverride: labelOverride);
-                            break;
-                        }
+                case SerializedPropertyType.Integer:
+                    DrawIntegerProperty(property, label, labelOverride);
+                    break;
 
-                        EditorGUI.BeginChangeCheck();
-                        int v = EditorGUILayout.IntField(label, p.intValue);
-                        if (EditorGUI.EndChangeCheck()) p.intValue = v;
-                        break;
-                    }
+                case SerializedPropertyType.Float:
+                    DrawFloatProperty(property, label, labelOverride);
+                    break;
 
-                case SerializedPropertyType.Float: {
-                        if (ShouldUseAttributeDrivenDrawer(p)) {
-                            FlockEditorGUI.PropertyFieldClamped(p, includeChildren: true, labelOverride: labelOverride);
-                            break;
-                        }
+                case SerializedPropertyType.Enum:
+                    DrawEnumProperty(property, label);
+                    break;
 
-                        EditorGUI.BeginChangeCheck();
-                        float v = EditorGUILayout.FloatField(label, p.floatValue);
-                        if (EditorGUI.EndChangeCheck()) p.floatValue = v;
-                        break;
-                    }
+                case SerializedPropertyType.Vector2:
+                    DrawVector2Property(property, label);
+                    break;
 
-                case SerializedPropertyType.Enum: {
-                        EditorGUI.BeginChangeCheck();
-                        int v = EditorGUILayout.Popup(label, p.enumValueIndex, p.enumDisplayNames);
-                        if (EditorGUI.EndChangeCheck()) p.enumValueIndex = v;
-                        break;
-                    }
-
-                case SerializedPropertyType.Vector2: {
-                        EditorGUI.BeginChangeCheck();
-                        Vector2 v = EditorGUILayout.Vector2Field(label, p.vector2Value);
-                        if (EditorGUI.EndChangeCheck()) p.vector2Value = v;
-                        break;
-                    }
-
-                case SerializedPropertyType.Vector3: {
-                        EditorGUI.BeginChangeCheck();
-                        Vector3 v = EditorGUILayout.Vector3Field(label, p.vector3Value);
-                        if (EditorGUI.EndChangeCheck()) p.vector3Value = v;
-                        break;
-                    }
+                case SerializedPropertyType.Vector3:
+                    DrawVector3Property(property, label);
+                    break;
 
                 default:
-                    FlockEditorGUI.PropertyFieldClamped(p, includeChildren: true, labelOverride: labelOverride);
+                    DrawFallbackProperty(property, labelOverride);
                     break;
             }
         }
 
-        static bool TryGetHeaderForPropertyPath(Type rootType, string propertyPath, out string header) {
+        private static void DrawBooleanProperty(SerializedProperty property, GUIContent label) {
+            EditorGUI.BeginChangeCheck();
+            bool value = EditorGUILayout.Toggle(label, property.boolValue);
+            if (EditorGUI.EndChangeCheck()) {
+                property.boolValue = value;
+            }
+        }
+
+        private static void DrawIntegerProperty(SerializedProperty property, GUIContent label, GUIContent labelOverride) {
+            if (ShouldUseAttributeDrivenDrawer(property)) {
+                FlockEditorGUI.PropertyFieldClamped(property, includeChildren: true, labelOverride: labelOverride);
+                return;
+            }
+
+            EditorGUI.BeginChangeCheck();
+            int value = EditorGUILayout.IntField(label, property.intValue);
+            if (EditorGUI.EndChangeCheck()) {
+                property.intValue = value;
+            }
+        }
+
+        private static void DrawFloatProperty(SerializedProperty property, GUIContent label, GUIContent labelOverride) {
+            if (ShouldUseAttributeDrivenDrawer(property)) {
+                FlockEditorGUI.PropertyFieldClamped(property, includeChildren: true, labelOverride: labelOverride);
+                return;
+            }
+
+            EditorGUI.BeginChangeCheck();
+            float value = EditorGUILayout.FloatField(label, property.floatValue);
+            if (EditorGUI.EndChangeCheck()) {
+                property.floatValue = value;
+            }
+        }
+
+        private static void DrawEnumProperty(SerializedProperty property, GUIContent label) {
+            EditorGUI.BeginChangeCheck();
+            int value = EditorGUILayout.Popup(label, property.enumValueIndex, property.enumDisplayNames);
+            if (EditorGUI.EndChangeCheck()) {
+                property.enumValueIndex = value;
+            }
+        }
+
+        private static void DrawVector2Property(SerializedProperty property, GUIContent label) {
+            EditorGUI.BeginChangeCheck();
+            Vector2 value = EditorGUILayout.Vector2Field(label, property.vector2Value);
+            if (EditorGUI.EndChangeCheck()) {
+                property.vector2Value = value;
+            }
+        }
+
+        private static void DrawVector3Property(SerializedProperty property, GUIContent label) {
+            EditorGUI.BeginChangeCheck();
+            Vector3 value = EditorGUILayout.Vector3Field(label, property.vector3Value);
+            if (EditorGUI.EndChangeCheck()) {
+                property.vector3Value = value;
+            }
+        }
+
+        private static void DrawFallbackProperty(SerializedProperty property, GUIContent labelOverride) {
+            FlockEditorGUI.PropertyFieldClamped(property, includeChildren: true, labelOverride: labelOverride);
+        }
+
+        private static bool TryGetHeaderForPropertyPath(Type rootType, string propertyPath, out string header) {
             header = null;
-            if (!TryGetFieldInfoFromPropertyPath(rootType, propertyPath, out FieldInfo fi)) {
+
+            if (!TryGetFieldInfoFromPropertyPath(rootType, propertyPath, out FieldInfo fieldInfo)) {
                 return false;
             }
 
-            var h = fi.GetCustomAttribute<HeaderAttribute>(inherit: true);
-            if (h == null || string.IsNullOrEmpty(h.header)) {
+            HeaderAttribute headerAttribute = fieldInfo.GetCustomAttribute<HeaderAttribute>(inherit: true);
+            if (headerAttribute == null || string.IsNullOrEmpty(headerAttribute.header)) {
                 return false;
             }
 
-            header = h.header;
+            header = headerAttribute.header;
             return true;
         }
 
-        static bool TryGetFieldInfoFromPropertyPath(Type rootType, string propertyPath, out FieldInfo field) {
-            field = null;
-            if (rootType == null || string.IsNullOrEmpty(propertyPath)) return false;
+        private static bool TryGetFieldInfoFromPropertyPath(Type rootType, string propertyPath, out FieldInfo fieldInfo) {
+            fieldInfo = null;
 
-            string[] parts = propertyPath.Split('.');
+            if (rootType == null || string.IsNullOrEmpty(propertyPath)) {
+                return false;
+            }
+
+            string[] propertyPathParts = propertyPath.Split('.');
             Type currentType = rootType;
-            FieldInfo currentField = null;
+            FieldInfo currentFieldInfo = null;
 
-            for (int i = 0; i < parts.Length; i++) {
-                string part = parts[i];
+            for (int partIndex = 0; partIndex < propertyPathParts.Length; partIndex += 1) {
+                string part = propertyPathParts[partIndex];
 
-                if (part == "Array") continue;
+                if (part == "Array") {
+                    continue;
+                }
 
                 if (part.StartsWith("data[", StringComparison.Ordinal)) {
-                    if (currentField == null) return false;
+                    if (currentFieldInfo == null) {
+                        return false;
+                    }
 
-                    Type ft = currentField.FieldType;
-                    if (ft.IsArray) currentType = ft.GetElementType();
-                    else if (ft.IsGenericType && ft.GetGenericTypeDefinition() == typeof(List<>))
-                        currentType = ft.GetGenericArguments()[0];
-                    else
-                        currentType = ft;
+                    Type fieldType = currentFieldInfo.FieldType;
+
+                    if (fieldType.IsArray) {
+                        currentType = fieldType.GetElementType();
+                    } else if (fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(List<>)) {
+                        currentType = fieldType.GetGenericArguments()[0];
+                    } else {
+                        currentType = fieldType;
+                    }
 
                     continue;
                 }
 
-                currentField = FindFieldInHierarchy(currentType, part);
-                if (currentField == null) return false;
+                currentFieldInfo = FindFieldInHierarchy(currentType, part);
+                if (currentFieldInfo == null) {
+                    return false;
+                }
 
-                currentType = currentField.FieldType;
+                currentType = currentFieldInfo.FieldType;
             }
 
-            field = currentField;
-            return field != null;
+            fieldInfo = currentFieldInfo;
+            return fieldInfo != null;
         }
 
-        static FieldInfo FindFieldInHierarchy(Type t, string name) {
-            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        private static FieldInfo FindFieldInHierarchy(Type type, string fieldName) {
+            const BindingFlags fieldSearchFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-            while (t != null) {
-                var f = t.GetField(name, Flags);
-                if (f != null) return f;
-                t = t.BaseType;
+            while (type != null) {
+                FieldInfo fieldInfo = type.GetField(fieldName, fieldSearchFlags);
+                if (fieldInfo != null) {
+                    return fieldInfo;
+                }
+
+                type = type.BaseType;
             }
+
             return null;
         }
     }

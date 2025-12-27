@@ -9,141 +9,148 @@ namespace Flock.Runtime {
     using Unity.Jobs;
     using Unity.Mathematics;
 
+    /**
+    * <summary>
+    * Core flock simulation runtime. Owns native buffers and schedules the per-frame job graph.
+    * </summary>
+    */
     public sealed partial class FlockSimulation {
-        const float DefaultObstacleAvoidStrength = 2.0f;
-        const float DefaultObstacleAvoidWeight = 1.0f;
-        const float DefaultAttractionWeight = 1.0f;
+        #region Constants
 
-        NativeArray<float3> positions;
-        NativeArray<float3> velocities;
-        NativeArray<float3> prevVelocities;
-        // NEW: per-behaviour bounds response
+        private const float DefaultObstacleAvoidStrength = 2.0f;
+        private const float DefaultObstacleAvoidWeight = 1.0f;
+        private const float DefaultAttractionWeight = 1.0f;
 
+        #endregion
 
-        NativeArray<float3> wallDirections; // inward normal(s) near walls
-        NativeArray<float> wallDangers;     // 0..1 (or a bit >1 if outside)
+        #region Public Properties
 
-        NativeArray<float3> patternSteering;
-
-        NativeArray<float3> cellGroupNoise;  // NEW: per-cell group noise direction
-
-        float simulationTime; // NEW: accumulated sim time for noise
-        FlockLayer3PatternCommand[] layer3PatternCommands = Array.Empty<FlockLayer3PatternCommand>();
-        FlockLayer3PatternSphereShell[] layer3SphereShells = Array.Empty<FlockLayer3PatternSphereShell>();
-        FlockLayer3PatternBoxShell[] layer3BoxShells = Array.Empty<FlockLayer3PatternBoxShell>();
-
-        // ==============================
-        // Runtime-instanced Layer-3 patterns (start/stop by handle)
-        // ==============================
-        struct RuntimeLayer3PatternInstance {
-            public int Generation;          // increments on Stop() to invalidate stale handles
-            public byte Active;             // 1 = active, 0 = inactive
-            public int ActiveListIndex;     // index inside runtimeLayer3Active for O(1) removal
-
-            public FlockLayer3PatternKind Kind;
-            public int PayloadIndex;        // index into the kind-specific runtime payload list
-            public float Strength;
-            public uint BehaviourMask;
-        }
-
-        readonly List<RuntimeLayer3PatternInstance> runtimeLayer3Patterns = new List<RuntimeLayer3PatternInstance>(16);
-        readonly List<int> runtimeLayer3Active = new List<int>(16);
-        readonly Stack<int> runtimeLayer3Free = new Stack<int>(16);
-
-        // Runtime payload storage per-kind (add more lists/stacks here when you add new kinds)
-        readonly List<FlockLayer3PatternSphereShell> runtimeSphereShells = new List<FlockLayer3PatternSphereShell>(16);
-        readonly Stack<int> runtimeSphereShellFree = new Stack<int>(16);
-
-        readonly List<FlockLayer3PatternBoxShell> runtimeBoxShells = new List<FlockLayer3PatternBoxShell>(16);
-        readonly Stack<int> runtimeBoxShellFree = new Stack<int>(16);
-
-        // Per-agent behaviour id
-        NativeArray<int> behaviourIds;
-
-        // Per-behaviour parameter block (Phase 1)
-        NativeArray<FlockBehaviourSettings> behaviourSettings;
-
-        // Derived per-behaviour runtime param (kept separate on purpose)
-        NativeArray<int> behaviourCellSearchRadius;
-
-        NativeArray<FlockObstacleData> obstacles;
-        NativeArray<float3> obstacleSteering;
-
-        // Grouping behaviour
-        NativeArray<int> cellAgentStarts;      // per cell: start index into cellAgentPairs
-        NativeArray<int> cellAgentCounts;      // per cell: number of entries
-        NativeArray<CellAgentPair> cellAgentPairs; // packed (CellId, AgentIndex), sorted by CellId
-        NativeArray<int> agentCellCounts;      // how many cells this agent occupies this frame
-        NativeArray<int> agentCellIds;         // size = AgentCount * maxCellsPerAgent (per-agent block)
-        NativeArray<int> agentEntryStarts;     // exclusive prefix sum of agentCellCounts
-        NativeArray<int> totalAgentPairCount;  // length 1: total occupied-cell entries this frame
-        NativeArray<int> touchedAgentCells;    // unique cell ids written this frame
-        NativeArray<int> touchedAgentCellCount;// length 1: how many touched cells
-        NativeParallelMultiHashMap<int, int> cellToObstacles;
-        FlockEnvironmentData environmentData;
-
-        int maxCellsPerAgent;
-        IFlockLogger logger;
-
-        NativeArray<FlockAttractorData> attractors;
-        NativeArray<float3> attractionSteering;
-        int attractorCount;        // NEW: relationship-related behaviour arrays
-        NativeArray<int> cellToIndividualAttractor;
-        NativeArray<int> cellToGroupAttractor;
-        NativeArray<float> cellIndividualPriority;
-        NativeArray<float> cellGroupPriority;
-
-        int obstacleCount;
-        int gridCellCount;
         public int AgentCount { get; private set; }
 
         public bool IsCreated => positions.IsCreated;
-
         public NativeArray<float3> Positions => positions;
         public NativeArray<float3> Velocities => velocities;
-
-        public int ObstacleCount => obstacleCount;
-
         public float GlobalWanderMultiplier { get; set; } = 1.0f;
         public float GlobalGroupNoiseMultiplier { get; set; } = 1.0f;
         public float GlobalPatternMultiplier { get; set; } = 1.0f;
         public float GroupNoiseFrequency { get; set; } = 0.3f;
 
-        FlockGroupNoisePatternType activeLayer2GroupNoiseKind = FlockGroupNoisePatternType.SimpleSine;
-        FlockGroupNoiseCommonSettings activeLayer2GroupNoiseCommon = FlockGroupNoiseCommonSettings.Default;
-        FlockGroupNoiseSimpleSinePayload activeLayer2SimpleSine = FlockGroupNoiseSimpleSinePayload.Default;
-        FlockGroupNoiseVerticalBandsPayload activeLayer2VerticalBands = FlockGroupNoiseVerticalBandsPayload.Default;
-        FlockGroupNoiseVortexPayload activeLayer2Vortex = FlockGroupNoiseVortexPayload.Default;
-        FlockGroupNoiseSphereShellPayload activeLayer2SphereShell = FlockGroupNoiseSphereShellPayload.Default;
+        #endregion
 
-        float3 patternSphereCenter;
-        float patternSphereRadius;
-        float patternSphereThickness;
-        float patternSphereStrength;
-        uint patternSphereBehaviourMask;
+        #region Private Fields
 
-        // ------------------------------------------
-        // Job safety / staging
-        // ------------------------------------------
-        JobHandle inFlightHandle;
+        // Core agent state.
+        private NativeArray<float3> positions;
+        private NativeArray<float3> velocities;
+        private NativeArray<float3> prevVelocities;
+        private NativeArray<int> behaviourIds;
+        private NativeArray<FlockBehaviourSettings> behaviourSettings;
+        private NativeArray<int> behaviourCellSearchRadius;
+        private float simulationTime;
 
-        // Dirty flags (set by setters, consumed by ScheduleStepJobs)
-        bool obstacleGridDirty;
-        bool attractorGridDirty;
+        // Environment / bounds response.
+        private FlockEnvironmentData environmentData;
+        private NativeArray<float3> wallDirections;
+        private NativeArray<float> wallDangers;
 
-        // Staged agent behaviour ids (managed -> applied at next ScheduleStepJobs)
-        bool pendingBehaviourIdsDirty;
-        int pendingBehaviourIdsCount;
-        int[] pendingBehaviourIdsManaged;
+        // Patterns.
+        private NativeArray<float3> patternSteering;
+        private NativeArray<float3> cellGroupNoise;
+        private FlockLayer3PatternCommand[] layer3PatternCommands = Array.Empty<FlockLayer3PatternCommand>();
+        private FlockLayer3PatternSphereShell[] layer3SphereShells = Array.Empty<FlockLayer3PatternSphereShell>();
+        private FlockLayer3PatternBoxShell[] layer3BoxShells = Array.Empty<FlockLayer3PatternBoxShell>();
 
-        // Staged indexed updates (managed -> copied into TempJob arrays on schedule)
-        readonly List<IndexedObstacleChange> pendingObstacleChanges =
+        private float3 patternSphereCenter;
+        private float patternSphereRadius;
+        private float patternSphereThickness;
+        private float patternSphereStrength;
+        private uint patternSphereBehaviourMask;
+
+        private readonly List<int> runtimeLayer3Active = new List<int>(16);
+        private readonly List<FlockLayer3PatternBoxShell> runtimeBoxShells =
+            new List<FlockLayer3PatternBoxShell>(16);
+        private readonly List<FlockLayer3PatternSphereShell> runtimeSphereShells =
+            new List<FlockLayer3PatternSphereShell>(16);
+        private readonly List<RuntimeLayer3PatternInstance> runtimeLayer3Patterns =
+            new List<RuntimeLayer3PatternInstance>(16);
+
+        private readonly Stack<int> runtimeBoxShellFree = new Stack<int>(16);
+        private readonly Stack<int> runtimeSphereShellFree = new Stack<int>(16);
+        private readonly Stack<int> runtimeLayer3Free = new Stack<int>(16);
+
+        // Obstacles.
+        private NativeArray<FlockObstacleData> obstacles;
+        private NativeArray<float3> obstacleSteering;
+        private NativeParallelMultiHashMap<int, int> cellToObstacles;
+        private readonly List<IndexedObstacleChange> pendingObstacleChanges =
             new List<IndexedObstacleChange>(32);
 
-        readonly List<IndexedAttractorChange> pendingAttractorChanges =
+        private int obstacleCount;
+        private bool obstacleGridDirty;
+
+        // Attractors.
+        private NativeArray<FlockAttractorData> attractors;
+        private NativeArray<float3> attractionSteering;
+        private NativeArray<int> cellToIndividualAttractor;
+        private NativeArray<int> cellToGroupAttractor;
+        private NativeArray<float> cellIndividualPriority;
+        private NativeArray<float> cellGroupPriority;
+        private readonly List<IndexedAttractorChange> pendingAttractorChanges =
             new List<IndexedAttractorChange>(32);
 
-        NativeArray<Flock.Runtime.Data.NeighbourAggregate> neighbourAggregates;
+        private int attractorCount;
+        private bool attractorGridDirty;
+
+        // Grid / neighbour sampling.
+
+        private NativeArray<int> cellAgentStarts;
+        private NativeArray<int> cellAgentCounts;
+        private NativeArray<CellAgentPair> cellAgentPairs;
+        private NativeArray<int> agentCellCounts;
+        private NativeArray<int> agentCellIds;
+        private NativeArray<int> agentEntryStarts;
+        private NativeArray<int> totalAgentPairCount;
+        private NativeArray<int> touchedAgentCells;
+        private NativeArray<int> touchedAgentCellCount;
+        private NativeArray<Flock.Runtime.Data.NeighbourAggregate> neighbourAggregates;
+
+        private int gridCellCount;
+        private int maxCellsPerAgent;
+
+        // Job safety / staging.
+        private JobHandle inFlightHandle;
+
+        private bool pendingBehaviourIdsDirty;
+        private int pendingBehaviourIdsCount;
+        private int[] pendingBehaviourIdsManaged;
+
+        // Logging / services.
+        private IFlockLogger logger;
+
+        // Layer-2 group noise active state.
+        private FlockGroupNoisePatternType activeLayer2GroupNoiseKind = FlockGroupNoisePatternType.SimpleSine;
+        private FlockGroupNoiseCommonSettings activeLayer2GroupNoiseCommon = FlockGroupNoiseCommonSettings.Default;
+        private FlockGroupNoiseSimpleSinePayload activeLayer2SimpleSine = FlockGroupNoiseSimpleSinePayload.Default;
+        private FlockGroupNoiseVerticalBandsPayload activeLayer2VerticalBands = FlockGroupNoiseVerticalBandsPayload.Default;
+        private FlockGroupNoiseVortexPayload activeLayer2Vortex = FlockGroupNoiseVortexPayload.Default;
+        private FlockGroupNoiseSphereShellPayload activeLayer2SphereShell = FlockGroupNoiseSphereShellPayload.Default;
+
+        #endregion
+
+        #region Public API
+
+        /**
+        * <summary>
+        * Initializes (or re-initializes) the simulation, allocating all native buffers and building initial grids.
+        * </summary>
+        * <param name="agentCount">Total number of agents to simulate.</param>
+        * <param name="environment">Environment configuration (bounds/grid).</param>
+        * <param name="behaviourSettings">Per-behaviour parameter array.</param>
+        * <param name="obstaclesSource">Initial obstacle data.</param>
+        * <param name="attractorsSource">Initial attractor data.</param>
+        * <param name="allocator">Allocator used for native buffers.</param>
+        * <param name="logger">Logger sink.</param>
+        */
         public void Initialize(
             int agentCount,
             FlockEnvironmentData environment,
@@ -235,7 +242,6 @@ namespace Flock.Runtime {
                 attractorGridDirty = false;
             }
 
-
             InitializeAgentsRandomInsideBounds();
 
             FlockLog.Info(
@@ -266,7 +272,14 @@ namespace Flock.Runtime {
             }
         }
 
-
+        /**
+        * <summary>
+        * Schedules the simulation step jobs for this frame and returns the final dependency handle.
+        * </summary>
+        * <param name="deltaTime">Frame delta time.</param>
+        * <param name="inputHandle">Caller-provided dependencies.</param>
+        * <returns>Handle for the scheduled job chain.</returns>
+        */
         public JobHandle ScheduleStepJobs(
            float deltaTime,
            JobHandle inputHandle = default) {
@@ -280,10 +293,8 @@ namespace Flock.Runtime {
                 return inputHandle;
             }
 
-            // Accumulate simulation time for noise / patterns
             simulationTime += deltaTime;
 
-            // Hard fence: this frame must run after caller deps + previous frame jobs
             JobHandle frameDeps = JobHandle.CombineDependencies(inputHandle, inFlightHandle);
 
             // Validate packed grid buffers exist
@@ -296,41 +307,31 @@ namespace Flock.Runtime {
                 return frameDeps;
             }
 
-            // Stage 0: apply pending main-thread changes via jobs (safe)
             JobHandle applyDeps = ScheduleApplyPendingChanges(frameDeps);
 
-            // Stage 1: clear per-frame buffers
             JobHandle clearPatternHandle = ScheduleClearPatternSteering(applyDeps);
 
-            // Stage 2/3 feature flags + grid rebuilds
             bool useObstacleAvoidance = ShouldUseObstacleAvoidance();
             JobHandle obstacleGridHandle = ScheduleRebuildObstacleGridIfDirty(applyDeps, useObstacleAvoidance);
 
             bool useAttraction = ShouldUseAttraction();
             JobHandle attractorGridHandle = ScheduleRebuildAttractorGridIfDirty(applyDeps, useAttraction);
 
-            // Packed agent grid rebuild (no hash map)
             JobHandle assignHandle = ScheduleRebuildPackedAgentGrid(applyDeps);
 
-            // Bounds probe (independent)
             JobHandle boundsHandle = ScheduleBoundsProbe(applyDeps);
 
-            // Velocity double-buffering
-            NativeArray<float3> velRead = velocities;       // last frame (stable)
-            NativeArray<float3> velWrite = prevVelocities;  // this frame (write target)
+            NativeArray<float3> velRead = velocities;
+            NativeArray<float3> velWrite = prevVelocities;
 
-            // Obstacles / attraction sampling (depends on assign + relevant grids)
             JobHandle obstacleHandle = ScheduleObstacleAvoidance(assignHandle, obstacleGridHandle, useObstacleAvoidance, velRead);
             JobHandle attractionHandle = ScheduleAttractorSampling(assignHandle, attractorGridHandle, useAttraction);
 
-            // Layer-2 group noise field (per-cell)
             bool useGroupNoiseField = ShouldUseGroupNoiseField();
             JobHandle groupNoiseHandle = ScheduleGroupNoiseField(applyDeps, useGroupNoiseField);
 
-            // Layer-3 patterns (stacked into patternSteering)
             JobHandle patternHandle = ScheduleLayer3Patterns(clearPatternHandle, out bool anyPattern);
 
-            // Combine dependencies for flock job
             JobHandle flockDeps = JobHandle.CombineDependencies(obstacleHandle, attractionHandle);
             flockDeps = JobHandle.CombineDependencies(flockDeps, boundsHandle);
             flockDeps = JobHandle.CombineDependencies(flockDeps, clearPatternHandle);
@@ -343,11 +344,8 @@ namespace Flock.Runtime {
                 flockDeps = JobHandle.CombineDependencies(flockDeps, patternHandle);
             }
 
-            // Main flock step
-            // Phase 2: neighbour aggregates (depends on packed agent grid)
             JobHandle neighbourAggHandle = ScheduleNeighbourAggregate(velRead, assignHandle);
 
-            // Phase 2: steering + integrate velocities (depends on aggregates + environment fields)
             JobHandle steeringHandle = ScheduleSteeringIntegrate(
                 deltaTime,
                 velRead,
@@ -357,22 +355,82 @@ namespace Flock.Runtime {
                 neighbourAggHandle,
                 flockDeps);
 
-            // Integrate positions
             JobHandle integrateHandle = ScheduleIntegrate(deltaTime, velWrite, steeringHandle);
 
-
-            // Swap buffers for next frame
             velocities = velWrite;
             prevVelocities = velRead;
 
-            // Record as our internal in-flight fence
             inFlightHandle = integrateHandle;
 
             return integrateHandle;
         }
 
-        // ADD: schedules neighbour aggregation
-        JobHandle ScheduleNeighbourAggregate(NativeArray<float3> velRead, JobHandle deps) {
+        /**
+        * <summary>
+        * Disposes all native allocations owned by the simulation. Completes any in-flight jobs first.
+        * </summary>
+        */
+        public void Dispose() {
+            inFlightHandle.Complete();
+            inFlightHandle = default;
+
+            DisposeArray(ref positions);
+            DisposeArray(ref velocities);
+            DisposeArray(ref prevVelocities);
+            DisposeArray(ref behaviourIds);
+            DisposeArray(ref wallDirections);
+            DisposeArray(ref wallDangers);
+
+            DisposeArray(ref obstacles);
+            DisposeArray(ref obstacleSteering);
+
+            DisposeArray(ref patternSteering);
+
+            DisposeArray(ref cellAgentStarts);
+            DisposeArray(ref cellAgentCounts);
+            DisposeArray(ref cellAgentPairs);
+
+            DisposeArray(ref agentCellCounts);
+            DisposeArray(ref agentCellIds);
+            DisposeArray(ref agentEntryStarts);
+            DisposeArray(ref totalAgentPairCount);
+
+            DisposeArray(ref touchedAgentCells);
+            DisposeArray(ref touchedAgentCellCount);
+
+            if (cellToObstacles.IsCreated) {
+                cellToObstacles.Dispose();
+                cellToObstacles = default;
+            }
+
+            DisposeArray(ref attractors);
+            DisposeArray(ref attractionSteering);
+
+            DisposeArray(ref cellToIndividualAttractor);
+            DisposeArray(ref cellToGroupAttractor);
+            DisposeArray(ref cellIndividualPriority);
+            DisposeArray(ref cellGroupPriority);
+            DisposeArray(ref cellGroupNoise);
+
+            DisposeArray(ref behaviourSettings);
+            DisposeArray(ref behaviourCellSearchRadius);
+
+            DisposeArray(ref neighbourAggregates);
+
+            AgentCount = 0;
+
+            // Optional hygiene (managed state)
+            pendingObstacleChanges.Clear();
+            pendingAttractorChanges.Clear();
+            pendingBehaviourIdsDirty = false;
+            pendingBehaviourIdsCount = 0;
+        }
+
+        #endregion
+
+        #region Normal Methods
+
+        private JobHandle ScheduleNeighbourAggregate(NativeArray<float3> velRead, JobHandle deps) {
             var job = new Flock.Runtime.Jobs.NeighbourAggregateJob {
                 Positions = positions,
                 PrevVelocities = velRead,
@@ -395,8 +453,7 @@ namespace Flock.Runtime {
             return job.Schedule(AgentCount, 64, deps);
         }
 
-        // ADD: schedules steering/integration using aggregates
-        JobHandle ScheduleSteeringIntegrate(
+        private JobHandle ScheduleSteeringIntegrate(
             float deltaTime,
             NativeArray<float3> velRead,
             NativeArray<float3> velWrite,
@@ -405,9 +462,6 @@ namespace Flock.Runtime {
             JobHandle neighbourAggHandle,
             JobHandle deps) {
 
-            // steering job depends on everything that affects steering:
-            // deps already includes obstacle/attractor/bounds/pattern clears etc in your flow,
-            // and we explicitly add neighbourAggHandle.
             JobHandle steeringDeps = JobHandle.CombineDependencies(deps, neighbourAggHandle);
 
             var job = new Flock.Runtime.Jobs.SteeringIntegrateJob {
@@ -450,10 +504,7 @@ namespace Flock.Runtime {
             return job.Schedule(AgentCount, 64, steeringDeps);
         }
 
-        // -----------------------------
-        // Validation
-        // -----------------------------
-        bool ValidatePackedAgentGridCreated() {
+        private bool ValidatePackedAgentGridCreated() {
             return cellAgentStarts.IsCreated
                 && cellAgentCounts.IsCreated
                 && cellAgentPairs.IsCreated
@@ -465,13 +516,9 @@ namespace Flock.Runtime {
                 && touchedAgentCellCount.IsCreated;
         }
 
-        // -----------------------------
-        // Stage 0: pending changes
-        // -----------------------------
-        JobHandle ScheduleApplyPendingChanges(JobHandle frameDeps) {
+        private JobHandle ScheduleApplyPendingChanges(JobHandle frameDeps) {
             JobHandle applyDeps = frameDeps;
 
-            // A) Pending behaviour ids (managed -> TempJob -> copy job -> dispose)
             if (pendingBehaviourIdsDirty && pendingBehaviourIdsCount > 0) {
                 int count = math.min(pendingBehaviourIdsCount, AgentCount);
 
@@ -494,7 +541,6 @@ namespace Flock.Runtime {
                 pendingBehaviourIdsCount = 0;
             }
 
-            // B) Pending obstacle changes (managed list -> TempJob -> apply job -> dispose)
             if (pendingObstacleChanges.Count > 0 && obstacles.IsCreated) {
                 int changeCount = pendingObstacleChanges.Count;
 
@@ -521,7 +567,6 @@ namespace Flock.Runtime {
                 obstacleGridDirty = true;
             }
 
-            // C) Pending attractor changes (managed list -> TempJob -> apply job -> dispose)
             if (pendingAttractorChanges.Count > 0 && attractors.IsCreated) {
                 int changeCount = pendingAttractorChanges.Count;
 
@@ -557,10 +602,7 @@ namespace Flock.Runtime {
             return applyDeps;
         }
 
-        // -----------------------------
-        // Stage 1: per-frame clears
-        // -----------------------------
-        JobHandle ScheduleClearPatternSteering(JobHandle deps) {
+        private JobHandle ScheduleClearPatternSteering(JobHandle deps) {
             var clearPatternJob = new Flock.Runtime.Jobs.ClearFloat3ArrayJob {
                 Array = patternSteering,
             };
@@ -568,17 +610,14 @@ namespace Flock.Runtime {
             return clearPatternJob.Schedule(AgentCount, 64, deps);
         }
 
-        // -----------------------------
-        // Feature flags
-        // -----------------------------
-        bool ShouldUseObstacleAvoidance() {
+        private bool ShouldUseObstacleAvoidance() {
             return obstacleCount > 0
                 && cellToObstacles.IsCreated
                 && obstacles.IsCreated
                 && gridCellCount > 0;
         }
 
-        bool ShouldUseAttraction() {
+        private bool ShouldUseAttraction() {
             return attractorCount > 0
                 && attractors.IsCreated
                 && cellToIndividualAttractor.IsCreated
@@ -588,14 +627,11 @@ namespace Flock.Runtime {
                 && gridCellCount > 0;
         }
 
-        bool ShouldUseGroupNoiseField() {
+        private bool ShouldUseGroupNoiseField() {
             return cellGroupNoise.IsCreated && gridCellCount > 0;
         }
 
-        // -----------------------------
-        // Stage 2: obstacle grid rebuild
-        // -----------------------------
-        JobHandle ScheduleRebuildObstacleGridIfDirty(JobHandle deps, bool useObstacleAvoidance) {
+        private JobHandle ScheduleRebuildObstacleGridIfDirty(JobHandle deps, bool useObstacleAvoidance) {
             if (!useObstacleAvoidance || !obstacleGridDirty) {
                 return deps;
             }
@@ -620,10 +656,7 @@ namespace Flock.Runtime {
             return obstacleGridHandle;
         }
 
-        // -----------------------------
-        // Stage 3: attractor grid rebuild
-        // -----------------------------
-        JobHandle ScheduleRebuildAttractorGridIfDirty(JobHandle deps, bool useAttraction) {
+        private JobHandle ScheduleRebuildAttractorGridIfDirty(JobHandle deps, bool useAttraction) {
             if (!useAttraction || !attractorGridDirty) {
                 return deps;
             }
@@ -648,10 +681,7 @@ namespace Flock.Runtime {
             return attractorGridHandle;
         }
 
-        // -----------------------------
-        // Stage 4: packed agent grid rebuild
-        // -----------------------------
-        JobHandle ScheduleRebuildPackedAgentGrid(JobHandle deps) {
+        private JobHandle ScheduleRebuildPackedAgentGrid(JobHandle deps) {
             var clearTouchedJob = new Flock.Runtime.Jobs.ClearTouchedAgentCellsJob {
                 TouchedCells = touchedAgentCells,
                 TouchedCount = touchedAgentCellCount,
@@ -714,10 +744,7 @@ namespace Flock.Runtime {
             return buildRangesJob.Schedule(sortPairsHandle);
         }
 
-        // -----------------------------
-        // Bounds probe
-        // -----------------------------
-        JobHandle ScheduleBoundsProbe(JobHandle deps) {
+        private JobHandle ScheduleBoundsProbe(JobHandle deps) {
             var boundsJob = new BoundsProbeJob {
                 Positions = positions,
                 BehaviourIds = behaviourIds,
@@ -728,14 +755,10 @@ namespace Flock.Runtime {
                 WallDangers = wallDangers,
             };
 
-
             return boundsJob.Schedule(AgentCount, 64, deps);
         }
 
-        // -----------------------------
-        // Obstacles avoidance
-        // -----------------------------
-        JobHandle ScheduleObstacleAvoidance(
+        private JobHandle ScheduleObstacleAvoidance(
             JobHandle assignHandle,
             JobHandle obstacleGridHandle,
             bool useObstacleAvoidance,
@@ -768,10 +791,7 @@ namespace Flock.Runtime {
             return obstacleJob.Schedule(AgentCount, 64, obstacleDeps);
         }
 
-        // -----------------------------
-        // Attraction sampling
-        // -----------------------------
-        JobHandle ScheduleAttractorSampling(
+        private JobHandle ScheduleAttractorSampling(
             JobHandle assignHandle,
             JobHandle attractorGridHandle,
             bool useAttraction) {
@@ -801,10 +821,7 @@ namespace Flock.Runtime {
             return attractionJob.Schedule(AgentCount, 64, attractionDeps);
         }
 
-        // -----------------------------
-        // Layer-2 group noise field
-        // -----------------------------
-        JobHandle ScheduleGroupNoiseField(JobHandle deps, bool useGroupNoiseField) {
+        private JobHandle ScheduleGroupNoiseField(JobHandle deps, bool useGroupNoiseField) {
             if (!useGroupNoiseField) {
                 return deps;
             }
@@ -861,10 +878,7 @@ namespace Flock.Runtime {
             }
         }
 
-        // -----------------------------
-        // Layer-3 patterns
-        // -----------------------------
-        JobHandle ScheduleLayer3Patterns(JobHandle clearPatternHandle, out bool anyPattern) {
+        private JobHandle ScheduleLayer3Patterns(JobHandle clearPatternHandle, out bool anyPattern) {
             JobHandle patternHandle = clearPatternHandle;
             anyPattern = false;
 
@@ -941,7 +955,6 @@ namespace Flock.Runtime {
                 }
             }
 
-            // 2) Runtime-instanced patterns
             if (runtimeLayer3Active.Count > 0) {
                 for (int a = 0; a < runtimeLayer3Active.Count; a += 1) {
                     int patternIndex = runtimeLayer3Active[a];
@@ -1020,7 +1033,6 @@ namespace Flock.Runtime {
                 }
             }
 
-            // 3) Dynamic runtime sphere (SetPatternSphereTarget)
             bool useDynamicSphere = patternSphereRadius > 0f && patternSphereStrength > 0f;
             if (useDynamicSphere) {
                 var dynJob = new PatternSphereJob {
@@ -1045,7 +1057,7 @@ namespace Flock.Runtime {
             return patternHandle;
         }
 
-        JobHandle ScheduleIntegrate(float deltaTime, NativeArray<float3> velWrite, JobHandle deps) {
+        private JobHandle ScheduleIntegrate(float deltaTime, NativeArray<float3> velWrite, JobHandle deps) {
             var integrateJob = new IntegrateJob {
                 Positions = positions,
                 Velocities = velWrite,
@@ -1056,68 +1068,13 @@ namespace Flock.Runtime {
             return integrateJob.Schedule(AgentCount, 64, deps);
         }
 
-        // File: Assets/Flock/Runtime/FlockSimulation.cs
-        // FIX 2: dispose bounds + wall arrays to avoid leaks
+        #endregion
 
-        public void Dispose() {
-            // HARD RULE: complete all jobs before freeing any memory they may touch.
-            inFlightHandle.Complete();
-            inFlightHandle = default;
+        #region Private Static Methods
 
-            DisposeArray(ref positions);
-            DisposeArray(ref velocities);
-            DisposeArray(ref prevVelocities);
-            DisposeArray(ref behaviourIds);
-            DisposeArray(ref wallDirections);
-            DisposeArray(ref wallDangers);
-
-            DisposeArray(ref obstacles);
-            DisposeArray(ref obstacleSteering);
-
-            DisposeArray(ref patternSteering);
-
-            DisposeArray(ref cellAgentStarts);
-            DisposeArray(ref cellAgentCounts);
-            DisposeArray(ref cellAgentPairs);
-
-            DisposeArray(ref agentCellCounts);
-            DisposeArray(ref agentCellIds);
-            DisposeArray(ref agentEntryStarts);
-            DisposeArray(ref totalAgentPairCount);
-
-            DisposeArray(ref touchedAgentCells);
-            DisposeArray(ref touchedAgentCellCount);
-
-            if (cellToObstacles.IsCreated) {
-                cellToObstacles.Dispose();
-                cellToObstacles = default;
-            }
-
-            DisposeArray(ref attractors);
-            DisposeArray(ref attractionSteering);
-
-            DisposeArray(ref cellToIndividualAttractor);
-            DisposeArray(ref cellToGroupAttractor);
-            DisposeArray(ref cellIndividualPriority);
-            DisposeArray(ref cellGroupPriority);
-            DisposeArray(ref cellGroupNoise);
-
-            DisposeArray(ref behaviourSettings);
-            DisposeArray(ref behaviourCellSearchRadius);
-
-            DisposeArray(ref neighbourAggregates);
-
-            AgentCount = 0;
-
-            // Optional hygiene (managed state)
-            pendingObstacleChanges.Clear();
-            pendingAttractorChanges.Clear();
-            pendingBehaviourIdsDirty = false;
-            pendingBehaviourIdsCount = 0;
-        }
-
-        static void DisposeArray<T>(ref NativeArray<T> array)
+        private static void DisposeArray<T>(ref NativeArray<T> array)
             where T : struct {
+
             if (!array.IsCreated) {
                 return;
             }
@@ -1125,5 +1082,22 @@ namespace Flock.Runtime {
             array.Dispose();
             array = default;
         }
+
+        #endregion
+
+        #region Inner Structs
+
+        private struct RuntimeLayer3PatternInstance {
+            public int Generation;
+            public byte Active;
+            public int ActiveListIndex;
+
+            public FlockLayer3PatternKind Kind;
+            public int PayloadIndex;
+            public float Strength;
+            public uint BehaviourMask;
+        }
+
+        #endregion
     }
 }

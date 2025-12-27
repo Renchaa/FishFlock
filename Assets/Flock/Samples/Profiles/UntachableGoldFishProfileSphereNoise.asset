@@ -22,7 +22,7 @@ MonoBehaviour:
   groupNoiseSpeedWeight: 0.512
   patternWeight: 1
   groupFlowWeight: 2
-  bodyRadius: 0.1
+  bodyRadius: 0.5
   schoolingSpacingFactor: 1.2
   schoolingOuterFactor: 1.6
   schoolingStrength: 1.2
@@ -30,7 +30,7 @@ MonoBehaviour:
   schoolingRadialDamping: 0.7
   schoolingDeadzoneFraction: 0.219
   neighbourRadius: 1.5
-  separationRadius: 1
+  separationRadius: 0.5
   alignmentWeight: 0.8
   cohesionWeight: 0.6
   separationWeight: 1.4
@@ -47,10 +47,10 @@ MonoBehaviour:
   boundsTangentialDamping: 2
   boundsInfluenceSuppression: 1
   minGroupSize: 50
-  maxGroupSize: 200
+  maxGroupSize: 1000
   minGroupSizeWeight: 3
   maxGroupSizeWeight: 3
-  usePreferredDepth: 1
+  usePreferredDepth: 0
   preferredDepthMin: 0
   preferredDepthMax: 0.4
   preferredDepthWeight: 100
