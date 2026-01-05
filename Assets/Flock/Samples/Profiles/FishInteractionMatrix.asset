@@ -19,13 +19,13 @@ MonoBehaviour:
   relationTypes: 01000000000000000000000000000000
   neutralWeights:
   - 1
-  - 1
+  - 2
   leadershipWeights:
   - 1
-  - 1
+  - 2
   avoidanceWeights:
   - 1
-  - 1
+  - 2
   defaultLeadershipWeight: 1
   defaultAvoidanceWeight: 1
   defaultNeutralWeight: 1

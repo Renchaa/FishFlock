@@ -14,10 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   enabled: 1
   strength: 100
-  affectedTypes:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  affectedTypes: []
   useBoundsCenter: 0
   centerNorm: {x: 0.5, y: 0.5, z: 0.5}
   radius: 6

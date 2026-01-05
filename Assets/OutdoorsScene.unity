@@ -1141,7 +1141,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9cb305353033a8640a971025e22c3cd7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  shape: 0
+  shape: 2
   radius: 3
   halfExtents: {x: 3, y: 3, z: 3}
 --- !u!4 &639351749
@@ -1317,7 +1317,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
   mainSpawner: {fileID: 745878724}
-  groupNoisePattern: {fileID: 11400000, guid: 5db971d17ac9bec4388a58f9b56f0a70, type: 2}
+  groupNoisePattern: {fileID: 11400000, guid: 0cf9db20c6ef69a40aba5e2a14a83848, type: 2}
   boundsType: 0
   boundsCenter: {x: 50, y: 8, z: 50}
   boundsExtents: {x: 10, y: 8, z: 11}

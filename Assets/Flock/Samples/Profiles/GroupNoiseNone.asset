@@ -17,7 +17,7 @@ MonoBehaviour:
   phaseOffset: {x: 0, y: 0, z: 0}
   worldScale: 0
   seed: 0
-  patternType: 1
+  patternType: 0
   swirlStrength: 0
   verticalBias: 0
   vortexCenterNorm: {x: 0, y: 0, z: 0}

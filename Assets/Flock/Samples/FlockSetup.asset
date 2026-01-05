@@ -17,5 +17,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
   - {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
   InteractionMatrix: {fileID: 11400000, guid: 69997841281513840a4f142d2cae17de, type: 2}
-  GroupNoiseSettings: {fileID: 11400000, guid: 5db971d17ac9bec4388a58f9b56f0a70, type: 2}
+  GroupNoiseSettings: {fileID: 11400000, guid: 0cf9db20c6ef69a40aba5e2a14a83848, type: 2}
   PatternAssets: []
