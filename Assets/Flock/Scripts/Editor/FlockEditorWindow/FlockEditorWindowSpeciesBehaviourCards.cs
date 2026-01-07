@@ -19,7 +19,7 @@ namespace Flock.Editor {
             SerializedObject serializedObject = new SerializedObject(behaviourProfile);
             serializedObject.Update();
 
-            FlockEditorGUI.WithLabelWidth(FlockEditorUI.DefaultLabelWidth, () => {
+            FlockEditorGUI.WithLabelWidth(EditorUI.DefaultLabelWidth, () => {
                 DrawBehaviourMovementCard(serializedObject);
                 DrawBehaviourNoiseCard(serializedObject);
                 DrawBehaviourSizeAndSchoolingCard(serializedObject);

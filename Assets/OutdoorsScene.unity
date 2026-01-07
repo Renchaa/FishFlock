@@ -1319,8 +1319,8 @@ MonoBehaviour:
   mainSpawner: {fileID: 745878724}
   groupNoisePattern: {fileID: 11400000, guid: 0cf9db20c6ef69a40aba5e2a14a83848, type: 2}
   boundsType: 0
-  boundsCenter: {x: 50, y: 8, z: 50}
-  boundsExtents: {x: 10, y: 8, z: 11}
+  boundsCenter: {x: 50, y: 5, z: 50}
+  boundsExtents: {x: 10, y: 5, z: 11}
   boundsSphereRadius: 25
   cellSize: 2
   globalDamping: 0.1
@@ -1565,7 +1565,7 @@ MonoBehaviour:
     seed: 0
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 5000
+      count: 3000
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
       count: 0
     - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
@@ -1575,7 +1575,7 @@ MonoBehaviour:
     seed: 0
     types:
     - preset: {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
-      count: 5000
+      count: 3000
     - preset: {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
       count: 0
     - preset: {fileID: 11400000, guid: 6672a4ada954c6b4ab3eea236a50c5ca, type: 2}
@@ -2553,7 +2553,7 @@ Transform:
   m_GameObject: {fileID: 1823688464}
   serializedVersion: 2
   m_LocalRotation: {x: 0.24983354, y: 0.25229853, z: -0.06760307, w: 0.93239397}
-  m_LocalPosition: {x: 39.75, y: 13.75, z: 35.5}
+  m_LocalPosition: {x: 43.25, y: 8, z: 42.75}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2949,7 +2949,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!65 &2003321849
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -3146,8 +3146,8 @@ Transform:
   m_GameObject: {fileID: 2003321848}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 48.45, y: 9.53, z: 54.25}
-  m_LocalScale: {x: 30, y: 2, z: 30}
+  m_LocalPosition: {x: 48.45, y: 10.25, z: 54.25}
+  m_LocalScale: {x: 50, y: 2, z: 50}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}

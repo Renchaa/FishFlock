@@ -39,7 +39,7 @@ namespace Flock.Editor {
             TryDrawSetupAssetField();
 
             using (new EditorGUILayout.HorizontalScope()) {
-                if (GUILayout.Button("Create Setup", GUILayout.Width(FlockEditorUI.CreateSetupButtonWidth))) {
+                if (GUILayout.Button("Create Setup", GUILayout.Width(EditorUI.CreateSetupButtonWidth))) {
                     CreateSetupAsset();
                 }
             }

@@ -1,0 +1,26 @@
+{
+    "name": "Flock.Scripts.Build.Core.Simulation",
+    "rootNamespace": "",
+    "references": [
+        "GUID:d15ce43ad9dbffd4a97719bf8ce941d4",
+        "GUID:b56619cea2cbe3f4bacbf92fb8bab8d8",
+        "GUID:a93a498afac448940a509725441a9fce",
+        "GUID:05700f61bae30304faa089c577e353aa",
+        "GUID:83d1b4494165fe546b31eb5fc3371a0e",
+        "GUID:5dacb091a32897240bef71724e57a436",
+        "GUID:16395247a3d395549aff706b2ed81d43",
+        "GUID:10f48408b928935478319870a26060e1",
+        "GUID:d8b63aba1907145bea998dd612889d6b",
+        "GUID:e0cd26848372d4e5c891c569017e11f1",
+        "GUID:e573a9ed50f596c46bff3928b8ac83fe"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

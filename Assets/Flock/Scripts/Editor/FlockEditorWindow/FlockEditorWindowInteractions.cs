@@ -131,7 +131,7 @@ namespace Flock.Editor {
         private void DrawCreateMatrixAssetButton() {
             using (new EditorGUILayout.HorizontalScope())
             using (new EditorGUI.DisabledScope(_setup == null || _setup.InteractionMatrix != null)) {
-                if (GUILayout.Button("Create Matrix Asset", GUILayout.Width(FlockEditorUI.CreateMatrixAssetButtonWidth))) { CreateInteractionMatrixAsset(); }
+                if (GUILayout.Button("Create Matrix Asset", GUILayout.Width(EditorUI.CreateMatrixAssetButtonWidth))) { CreateInteractionMatrixAsset(); }
             }
         }
 
@@ -142,7 +142,7 @@ namespace Flock.Editor {
         private void DrawInteractionMatrixInspector() {
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox)) {
                 EditorGUILayout.LabelField("Interaction Matrix Editor", EditorStyles.boldLabel);
-                EditorGUILayout.Space(FlockEditorUI.SpaceSmall);
+                EditorGUILayout.Space(EditorUI.SpaceSmall);
 
                 _interactionsScroll = EditorGUILayout.BeginScrollView(_interactionsScroll);
                 if (_interactionMatrixEditor != null) { _interactionMatrixEditor.OnInspectorGUI(); }

@@ -14,7 +14,7 @@ namespace Flock.Editor {
     */
     public sealed partial class FlockEditorWindow {
         private void DrawSpeciesListPanel() {
-            using (new EditorGUILayout.VerticalScope(GUILayout.Width(FlockEditorUI.SpeciesListPanelWidth))) {
+            using (new EditorGUILayout.VerticalScope(GUILayout.Width(EditorUI.SpeciesListPanelWidth))) {
                 DrawSpeciesListHeader();
 
                 EnsureFishTypesListInitialized();
@@ -136,9 +136,9 @@ namespace Flock.Editor {
                         fishTypePreset,
                         typeof(FishTypePreset),
                         false,
-                        GUILayout.Width(FlockEditorUI.SpeciesInlineObjectFieldWidth));
+                        GUILayout.Width(EditorUI.SpeciesInlineObjectFieldWidth));
 
-                    if (GUILayout.Button("X", GUILayout.Width(FlockEditorUI.RemoveRowButtonWidth))) {
+                    if (GUILayout.Button("X", GUILayout.Width(EditorUI.RemoveRowButtonWidth))) {
                         fishTypePresets.RemoveAt(index);
                         EditorUtility.SetDirty(_setup);
 
@@ -157,12 +157,12 @@ namespace Flock.Editor {
 
         private void DrawSpeciesListFooter() {
             using (new EditorGUILayout.HorizontalScope()) {
-                if (GUILayout.Button("Add Empty Slot", GUILayout.Width(FlockEditorUI.AddEmptySlotButtonWidth))) {
+                if (GUILayout.Button("Add Empty Slot", GUILayout.Width(EditorUI.AddEmptySlotButtonWidth))) {
                     _setup.FishTypes.Add(null);
                     EditorUtility.SetDirty(_setup);
                 }
 
-                if (GUILayout.Button("Add New Preset", GUILayout.Width(FlockEditorUI.AddNewPresetButtonWidth))) {
+                if (GUILayout.Button("Add New Preset", GUILayout.Width(EditorUI.AddNewPresetButtonWidth))) {
                     CreateNewFishTypePreset();
                 }
             }
@@ -234,7 +234,7 @@ namespace Flock.Editor {
                 int newModeIndex = GUILayout.Toolbar(
                     currentModeIndex,
                     modeLabels,
-                    GUILayout.Width(FlockEditorUI.InspectorModeToolbarWidth));
+                    GUILayout.Width(EditorUI.InspectorModeToolbarWidth));
 
                 newModeIndex = Mathf.Clamp(newModeIndex, 0, 1);
                 CurrentSpeciesInspectorMode = (SpeciesInspectorMode)newModeIndex;

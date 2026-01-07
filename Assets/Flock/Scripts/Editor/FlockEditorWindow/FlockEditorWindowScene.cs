@@ -119,7 +119,7 @@ namespace Flock.Editor {
 
         private void DrawFindInSceneButton() {
             using (new EditorGUILayout.HorizontalScope()) {
-                if (GUILayout.Button("Find In Scene", GUILayout.Width(FlockEditorUI.FindInSceneButtonWidth))) {
+                if (GUILayout.Button("Find In Scene", GUILayout.Width(EditorUI.FindInSceneButtonWidth))) {
                     FlockController foundController = FindObjectOfType<FlockController>();
 
                     if (foundController != null) {
@@ -188,7 +188,7 @@ namespace Flock.Editor {
                 return false;
             }
 
-            _nextSceneAutoSyncTime = currentTimeSeconds + FlockEditorUI.SceneAutoSyncIntervalSeconds;
+            _nextSceneAutoSyncTime = currentTimeSeconds + EditorUI.SceneAutoSyncIntervalSeconds;
 
             return TryAutoSyncSetupToController(sceneController);
         }
@@ -212,7 +212,7 @@ namespace Flock.Editor {
             string currentSection = null;
             bool sectionOpen = false;
 
-            FlockEditorGUI.WithLabelWidth(FlockEditorUI.DefaultLabelWidth, () => {
+            FlockEditorGUI.WithLabelWidth(EditorUI.DefaultLabelWidth, () => {
                 SerializedProperty iterator = serializedObject.GetIterator();
                 bool enterChildren = true;
 

@@ -189,7 +189,7 @@ namespace Flock.Editor {
                     return false;
                 }
 
-                _nextAutoSyncTime = now + FlockEditorUI.SceneAutoSyncIntervalSeconds;
+                _nextAutoSyncTime = now + EditorUI.SceneAutoSyncIntervalSeconds;
                 return window.TryAutoSyncSetupToController(window.sceneController);
             }
 

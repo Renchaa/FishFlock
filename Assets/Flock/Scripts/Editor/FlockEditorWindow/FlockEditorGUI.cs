@@ -27,8 +27,8 @@ namespace Flock.Editor {
             get {
                 if (_arrayElementBox == null) {
                     _arrayElementBox = new GUIStyle("HelpBox") {
-                        padding = FlockEditorUI.Copy(FlockEditorUI.ArrayElementPadding),
-                        margin = FlockEditorUI.Copy(FlockEditorUI.ArrayElementMargin)
+                        padding = EditorUI.Copy(EditorUI.ArrayElementPadding),
+                        margin = EditorUI.Copy(EditorUI.ArrayElementMargin)
                     };
                 }
 
@@ -45,8 +45,8 @@ namespace Flock.Editor {
             get {
                 if (_sectionBox == null) {
                     _sectionBox = new GUIStyle("HelpBox") {
-                        padding = FlockEditorUI.Copy(FlockEditorUI.SectionBoxPadding),
-                        margin = FlockEditorUI.Copy(FlockEditorUI.SectionBoxMargin)
+                        padding = EditorUI.Copy(EditorUI.SectionBoxPadding),
+                        margin = EditorUI.Copy(EditorUI.SectionBoxMargin)
                     };
                 }
 
@@ -111,7 +111,7 @@ namespace Flock.Editor {
             Rect controlRect = EditorGUILayout.GetControlRect(true, propertyHeight, GUILayout.ExpandWidth(true));
 
             bool needsFoldoutGutter = includeChildren && property.propertyType == SerializedPropertyType.Generic;
-            float foldoutGutterWidth = needsFoldoutGutter ? FlockEditorUI.FoldoutGutterWidth : 0f;
+            float foldoutGutterWidth = needsFoldoutGutter ? EditorUI.FoldoutGutterWidth : 0f;
 
             Rect groupRect = foldoutGutterWidth > 0f
                 ? new Rect(controlRect.x - foldoutGutterWidth, controlRect.y, controlRect.width + foldoutGutterWidth, controlRect.height)
@@ -148,11 +148,11 @@ namespace Flock.Editor {
         public static void BeginCard(string title) {
             EditorGUILayout.BeginVertical(SectionBox, GUILayout.ExpandWidth(true));
 
-            Rect titleRowRect = GUILayoutUtility.GetRect(0f, FlockEditorUI.CardTitleRowHeight, GUILayout.ExpandWidth(true));
-            titleRowRect.xMin += FlockEditorUI.CardTitleLeftInset;
+            Rect titleRowRect = GUILayoutUtility.GetRect(0f, EditorUI.CardTitleRowHeight, GUILayout.ExpandWidth(true));
+            titleRowRect.xMin += EditorUI.CardTitleLeftInset;
 
             EditorGUI.LabelField(titleRowRect, title, CardHeader);
-            EditorGUILayout.Space(FlockEditorUI.CardAfterTitleSpace);
+            EditorGUILayout.Space(EditorUI.CardAfterTitleSpace);
         }
 
         /**
@@ -162,7 +162,7 @@ namespace Flock.Editor {
         */
         public static void EndCard() {
             EditorGUILayout.EndVertical();
-            EditorGUILayout.Space(FlockEditorUI.CardAfterCardSpace);
+            EditorGUILayout.Space(EditorUI.CardAfterCardSpace);
         }
 
         private static void DrawPropertyInClampedGroup(
@@ -194,15 +194,15 @@ namespace Flock.Editor {
             DrawArrayBody(arrayProperty, isHeaderless);
             DrawArrayFooter(arrayProperty);
 
-            EditorGUILayout.Space(FlockEditorUI.ArrayFooterSpace);
+            EditorGUILayout.Space(EditorUI.ArrayFooterSpace);
         }
 
         private static bool DrawArrayHeader(SerializedProperty arrayProperty, GUIContent label) {
             Rect headerRect = EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight, GUILayout.ExpandWidth(true));
 
-            float sizeFieldWidth = FlockEditorUI.ArraySizeFieldWidth;
+            float sizeFieldWidth = EditorUI.ArraySizeFieldWidth;
             Rect sizeRect = new Rect(headerRect.xMax - sizeFieldWidth, headerRect.y, sizeFieldWidth, headerRect.height);
-            Rect foldoutRect = new Rect(headerRect.x, headerRect.y, headerRect.width - sizeFieldWidth - FlockEditorUI.ArrayHeaderGap, headerRect.height);
+            Rect foldoutRect = new Rect(headerRect.x, headerRect.y, headerRect.width - sizeFieldWidth - EditorUI.ArrayHeaderGap, headerRect.height);
 
             arrayProperty.isExpanded = EditorGUI.Foldout(foldoutRect, arrayProperty.isExpanded, label, true, ArrayFoldout);
 
@@ -239,12 +239,12 @@ namespace Flock.Editor {
             using (new EditorGUILayout.HorizontalScope()) {
                 GUILayout.FlexibleSpace();
 
-                if (GUILayout.Button("+", EditorStyles.miniButtonLeft, GUILayout.Width(FlockEditorUI.ArrayPlusMinusButtonWidth))) {
+                if (GUILayout.Button("+", EditorStyles.miniButtonLeft, GUILayout.Width(EditorUI.ArrayPlusMinusButtonWidth))) {
                     arrayProperty.arraySize += 1;
                 }
 
                 using (new EditorGUI.DisabledScope(arrayProperty.arraySize == 0)) {
-                    if (GUILayout.Button("-", EditorStyles.miniButtonRight, GUILayout.Width(FlockEditorUI.ArrayPlusMinusButtonWidth))) {
+                    if (GUILayout.Button("-", EditorStyles.miniButtonRight, GUILayout.Width(EditorUI.ArrayPlusMinusButtonWidth))) {
                         arrayProperty.arraySize = Mathf.Max(0, arrayProperty.arraySize - 1);
                     }
                 }
