@@ -2,7 +2,14 @@
     "name": "Flock.Scripts.Build.Influence.Environment.Bounds",
     "rootNamespace": "",
     "references": [
-        "GUID:d8b63aba1907145bea998dd612889d6b"
+        "GUID:d8b63aba1907145bea998dd612889d6b",
+        "GUID:2665a8d13d1b3f18800f46e256720795",
+        "GUID:e0cd26848372d4e5c891c569017e11f1",
+        "GUID:a93a498afac448940a509725441a9fce",
+        "GUID:bace9149c4e58f44089eed897cf9cd03",
+        "GUID:946698928f040e84b87bfd65c4ab54a2",
+        "GUID:a5afbc4341a19e745be38ed76637ee91",
+        "GUID:b604d42744547084e99751bcb3ed839c"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

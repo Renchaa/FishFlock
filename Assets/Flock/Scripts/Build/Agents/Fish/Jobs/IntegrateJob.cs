@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
 
 namespace Flock.Scripts.Build.Agents.Fish.Jobs {
 

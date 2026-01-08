@@ -1,5 +1,6 @@
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Burst;
 
 namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
 

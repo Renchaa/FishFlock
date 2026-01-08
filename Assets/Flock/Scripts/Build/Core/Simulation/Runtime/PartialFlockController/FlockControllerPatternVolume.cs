@@ -6,6 +6,7 @@ using Flock.Scripts.Build.Influence.PatternVolume.Data;
 using Flock.Scripts.Build.Influence.PatternVolume.Profiles;
 using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
 using Flock.Scripts.Build.Debug;
+using Flock.Scripts.Build.Influence.Environment.Data;
 
 namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
     /**
@@ -49,7 +50,7 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
          * <param name="profile">The profile to bake and apply.</param>
          * <returns>True if all handles were updated successfully; false otherwise.</returns>
          */
-        public bool UpdatePatternVolume(PatternVolumeToken token, PatternVolumeToken profile) {
+        public bool UpdatePatternVolume(PatternVolumeToken token, PatternVolumeFlockProfile profile) {
             if (!TryValidateUpdatePatternVolumeInputs(token, profile)) {
                 return false;
             }
@@ -225,7 +226,7 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             return simulation.StopPatternVolume(handle);
         }
 
-        private bool TryValidateStartPatternVolumeInputs(PatternVolumeHandle profile) {
+        private bool TryValidateStartPatternVolumeInputs(PatternVolumeFlockProfile profile) {
             if (simulation == null || !simulation.IsCreated) {
                 FlockLog.Warning(
                     this,

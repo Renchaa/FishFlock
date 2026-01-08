@@ -1,4 +1,5 @@
-using Flock.Runtime.Data;
+using Flock.Scripts.Build.Influence.Noise.Data;
+using Flock.Scripts.Build.Influence.Noise.Utilities;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -22,10 +23,10 @@ namespace Flock.Scripts.Build.Influence.Noise.Jobs {
         public int3 GridResolution;
 
         [ReadOnly]
-        public GroupNoiseCommonSettings Common;
+        public FlockGroupNoiseCommonSettings Common;
 
         [ReadOnly]
-        public GroupNoiseSphereShellPayload Payload;
+        public FlockGroupNoiseSphereShellPayload Payload;
 
         [NativeDisableParallelForRestriction]
         public NativeArray<float3> CellNoise;

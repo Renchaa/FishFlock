@@ -1,9 +1,10 @@
+using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
+
 namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
-    using Flock.Runtime.Data;
-    using Unity.Burst;
-    using Unity.Collections;
-    using Unity.Jobs;
-    using Unity.Mathematics;
 
     /**
      * <summary>
@@ -19,7 +20,7 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
         public NativeArray<IndexedAttractorChange> Changes;
 
         // This is the authoritative runtime array being edited.
-        public NativeArray<AttractorData> Attractors;
+        public NativeArray<FlockAttractorData> Attractors;
 
         // Environment vertical normalisation inputs (world -> [0..1]).
         public float EnvMinY;
@@ -33,7 +34,7 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
                 return;
             }
 
-            AttractorData data = change.Data;
+            FlockAttractorData data = change.Data;
 
             float inverseEnvironmentHeight = 1.0f / math.max(EnvHeight, MinimumEnvironmentHeight);
 
@@ -55,10 +56,10 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
         }
 
         private static void GetWorldVerticalSpan(
-            AttractorData data,
+            FlockAttractorData data,
             out float worldMinY,
             out float worldMaxY) {
-            if (data.Shape == AttractorShape.Sphere) {
+            if (data.Shape == FlockAttractorShape.Sphere) {
                 float radius = math.max(0f, data.Radius);
                 worldMinY = data.Position.y - radius;
                 worldMaxY = data.Position.y + radius;

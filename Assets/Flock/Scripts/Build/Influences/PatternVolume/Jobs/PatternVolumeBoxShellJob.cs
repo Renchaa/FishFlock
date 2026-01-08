@@ -1,9 +1,8 @@
-﻿// File: Assets/Flock/Runtime/Jobs/PatternBoxJob.cs
-using Flock.Runtime.Data;
-using Unity.Burst;
+﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Flock.Scripts.Build.Influence.PatternVolume.Data;
 
 namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
     /**

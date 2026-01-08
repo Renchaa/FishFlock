@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
-using Flock.Runtime;
-using Flock.Runtime.Data;
+using Flock.Scripts.Build.Agents.Fish.Data;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
+using Flock.Scripts.Build.Utilities.Data;
 using NUnit.Framework;
 using UnityEngine;
 namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
@@ -21,10 +22,10 @@ namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
                 a: 0,
                 b: 1,
                 enabled: true,
-                relation: FishRelationType.Friendly);
+                relation: RelationType.Friendly);
 
             // Act
-            Runtime.Data.FlockInteractionCompiler.BuildInteractionData(
+            FlockInteractionCompiler.BuildInteractionData(
                 fishTypes,
                 matrix,
                 out _,

@@ -1,3 +1,5 @@
+using Unity.Collections;
+using Unity.Burst;
 using Unity.Jobs;
 
 namespace Flock.Scripts.Build.Utilities.Jobs {

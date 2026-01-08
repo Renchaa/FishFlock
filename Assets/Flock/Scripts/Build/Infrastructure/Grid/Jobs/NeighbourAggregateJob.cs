@@ -1,6 +1,5 @@
-﻿// File: Assets/Flock/Runtime/Jobs/NeighbourAggregateJob.cs
-
-using Flock.Runtime.Data;
+﻿using Flock.Scripts.Build.Agents.Fish.Data;
+using Flock.Scripts.Build.Infrastructure.Grid.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;

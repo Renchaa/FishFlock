@@ -1,7 +1,7 @@
 #if UNITY_EDITOR
 using System.Reflection;
-using Flock.Runtime;
-using Flock.Runtime.Data;
+using Flock.Scripts.Build.Agents.Fish.Data;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
 using NUnit.Framework;
 using UnityEngine;
 namespace Flock.Scripts.Tests.EditorMode.Data.FishBehaviourProfile {
@@ -11,7 +11,7 @@ namespace Flock.Scripts.Tests.EditorMode.Data.FishBehaviourProfile {
         [Test]
         public void ToSettings_ClampsAndFallsBack_ForInvalidSerializedValues() {
             // Arrange
-            var profile = ScriptableObject.CreateInstance<Flock.Runtime.FishBehaviourProfile>();
+            var profile = ScriptableObject.CreateInstance<Build.Agents.Fish.Profiles.FishBehaviourProfile>();
 
             // Movement: desiredSpeed clamped to [0..maxSpeed]
             Set(profile, "maxSpeed", 5.0f);

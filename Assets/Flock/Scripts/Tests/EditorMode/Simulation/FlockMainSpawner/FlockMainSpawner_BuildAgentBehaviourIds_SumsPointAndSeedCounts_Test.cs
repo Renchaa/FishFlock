@@ -1,6 +1,5 @@
-// File: Assets/Flock/Tests/Runtime/Spawning/FlockMainSpawner_BuildAgentBehaviourIds_SumsPointAndSeedCounts_Test.cs
-    using Flock.Runtime;
-    using Flock.Tests.Shared;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
+using Flock.Tests.Shared;
     using NUnit.Framework;
     using UnityEngine;
     namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockMainSpawner {

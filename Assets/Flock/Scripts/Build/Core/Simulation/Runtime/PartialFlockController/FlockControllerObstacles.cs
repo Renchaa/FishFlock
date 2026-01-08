@@ -1,5 +1,4 @@
 namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
-    using Flock.Runtime.Data;
     using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
     using Flock.Scripts.Build.Influence.Environment.Obstacles.Runtime;
     using System;

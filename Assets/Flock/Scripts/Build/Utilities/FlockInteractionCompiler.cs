@@ -1,5 +1,6 @@
-﻿using Flock.Runtime;
-using Flock.Runtime.Logging;
+﻿using Flock.Scripts.Build.Agents.Fish.Profiles;
+using Flock.Scripts.Build.Agents.Fish.Data;
+using Flock.Scripts.Build.Debug;
 
 namespace Flock.Scripts.Build.Utilities.Data {
     /**
@@ -122,7 +123,7 @@ namespace Flock.Scripts.Build.Utilities.Data {
                     }
 
                     uint targetTypeBit = 1u << targetTypeIndex;
-                    FishRelationType relation = matrix.GetRelation(sourceTypeIndex, targetTypeIndex);
+                    RelationType relation = matrix.GetRelation(sourceTypeIndex, targetTypeIndex);
 
                     ApplyRelationBit(
                         relation,
@@ -136,22 +137,22 @@ namespace Flock.Scripts.Build.Utilities.Data {
         }
 
         private static void ApplyRelationBit(
-            FishRelationType relation,
+            RelationType relation,
             int sourceTypeIndex,
             uint targetTypeBit,
             uint[] friendlyMasks,
             uint[] avoidMasks,
             uint[] neutralMasks) {
             switch (relation) {
-                case FishRelationType.Friendly:
+                case RelationType.Friendly:
                     friendlyMasks[sourceTypeIndex] |= targetTypeBit;
                     return;
 
-                case FishRelationType.Avoid:
+                case RelationType.Avoid:
                     avoidMasks[sourceTypeIndex] |= targetTypeBit;
                     return;
 
-                case FishRelationType.Neutral:
+                case RelationType.Neutral:
                     neutralMasks[sourceTypeIndex] |= targetTypeBit;
                     return;
             }

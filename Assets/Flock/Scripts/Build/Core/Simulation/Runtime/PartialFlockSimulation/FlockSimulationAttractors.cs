@@ -1,5 +1,5 @@
 namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
-    using Flock.Runtime.Data;
+    using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
     using Unity.Collections;
     using Unity.Mathematics;
 
@@ -26,7 +26,7 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 return;
             }
 
-            pendingAttractorChanges.Add(new Flock.Runtime.Jobs.IndexedAttractorChange {
+            pendingAttractorChanges.Add(new IndexedAttractorChange {
                 Index = index,
                 Data = data,
             });

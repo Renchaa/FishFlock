@@ -19,6 +19,7 @@ using UnityEngine;
 using Unity.Mathematics;
 using Unity.Collections;
 using System.Collections.Generic;
+using Flock.Scripts.Build.Influence.Environment.Data;
 
 namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
 

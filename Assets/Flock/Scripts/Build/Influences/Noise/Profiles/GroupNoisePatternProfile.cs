@@ -1,4 +1,5 @@
-﻿using Unity.Mathematics;
+﻿using Flock.Scripts.Build.Influence.Noise.Data;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Flock.Scripts.Build.Influence.Noise.Profiles {
@@ -106,8 +107,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Profiles {
          * </summary>
          * <returns>The populated <see cref="GroupNoisePatternSettings"/>.</returns>
          */
-        public GroupNoisePatternSettings ToSettings() {
-            GroupNoisePatternSettings settings;
+        public FlockGroupNoisePatternSettings ToSettings() {
+            FlockGroupNoisePatternSettings settings;
 
             settings.BaseFrequency = Mathf.Max(0f, baseFrequency);
 
@@ -156,8 +157,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Profiles {
          * </summary>
          * <returns>The populated <see cref="GroupNoiseCommonSettings"/>.</returns>
          */
-        public GroupNoiseCommonSettings ToCommonSettings() {
-            return new GroupNoiseCommonSettings {
+        public FlockGroupNoiseCommonSettings ToCommonSettings() {
+            return new FlockGroupNoiseCommonSettings {
                 BaseFrequency = Mathf.Max(0f, baseFrequency),
                 TimeScale = new float3(timeScale.x, timeScale.y, timeScale.z),
                 PhaseOffset = new float3(phaseOffset.x, phaseOffset.y, phaseOffset.z),
@@ -172,8 +173,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Profiles {
          * </summary>
          * <returns>The populated <see cref="GroupNoiseSimpleSinePayload"/>.</returns>
          */
-        public GroupNoiseSimpleSinePayload ToSimpleSinePayload() {
-            return new GroupNoiseSimpleSinePayload {
+        public FlockGroupNoiseSimpleSinePayload ToSimpleSinePayload() {
+            return new FlockGroupNoiseSimpleSinePayload {
                 SwirlStrength = Mathf.Max(0f, swirlStrength),
             };
         }
@@ -184,8 +185,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Profiles {
          * </summary>
          * <returns>The populated <see cref="GroupNoiseVerticalBandsPayload"/>.</returns>
          */
-        public GroupNoiseVerticalBandsPayload ToVerticalBandsPayload() {
-            return new GroupNoiseVerticalBandsPayload {
+        public FlockGroupNoiseVerticalBandsPayload ToVerticalBandsPayload() {
+            return new FlockGroupNoiseVerticalBandsPayload {
                 VerticalBias = verticalBias,
             };
         }
@@ -214,8 +215,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Profiles {
          * </summary>
          * <returns>The populated <see cref="GroupNoiseSphereShellPayload"/>.</returns>
          */
-        public GroupNoiseSphereShellPayload ToSphereShellPayload() {
-            return new GroupNoiseSphereShellPayload {
+        public FlockGroupNoiseSphereShellPayload ToSphereShellPayload() {
+            return new FlockGroupNoiseSphereShellPayload {
                 CenterNorm = new float3(
                     Mathf.Clamp01(sphereCenterNorm.x),
                     Mathf.Clamp01(sphereCenterNorm.y),

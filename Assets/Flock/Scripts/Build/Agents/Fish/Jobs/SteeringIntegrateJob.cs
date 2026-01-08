@@ -4,6 +4,7 @@ using Unity.Mathematics;
 using Unity.Burst;
 using Flock.Scripts.Build.Agents.Fish.Data;
 using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
 
 namespace Flock.Scripts.Build.Agents.Fish.Jobs {
     /**

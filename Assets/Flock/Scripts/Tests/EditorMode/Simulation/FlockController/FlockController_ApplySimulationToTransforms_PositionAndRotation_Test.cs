@@ -2,12 +2,15 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Flock.Runtime;
-using Flock.Runtime.Data;
+using Flock.Scripts.Build.Agents.Fish.Data;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
+using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
+using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
 
 namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
     public sealed class FlockController_ApplySimulationToTransforms_PositionAndRotation_Test {
@@ -18,11 +21,11 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
             GameObject bGo = null;
 
             NativeArray<FlockBehaviourSettings> behaviourSettings = default;
-            Runtime.FlockSimulation sim = null;
+            Build.Core.Simulation.Runtime.PartialFlockSimulation.FlockSimulation sim = null;
 
             try {
                 controllerGo = new GameObject("FlockController_Test");
-                var controller = controllerGo.AddComponent<Runtime.FlockController>();
+                var controller = controllerGo.AddComponent<Build.Core.Simulation.Runtime.PartialFlockController.FlockController>();
 
                 // Derīga Box vide (lai Initialize strādā deterministiski un bez “guard” scenārijiem)
                 SetPrivateField(controller, "boundsType", FlockBoundsType.Box);
@@ -41,7 +44,7 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
                     SeparationRadius = 0.5f
                 };
 
-                sim = new Runtime.FlockSimulation();
+                sim = new Build.Core.Simulation.Runtime.PartialFlockSimulation.FlockSimulation();
                 sim.Initialize(
                     agentCount: 2,
                     environment: env,

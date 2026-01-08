@@ -7,7 +7,7 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Data {
      * </summary>
      */
     public struct FlockAttractorData {
-        public AttractorShape Shape;
+        public FlockAttractorShape Shape;
         public float3 Position;
         public float Radius;
         public float3 BoxHalfExtents;

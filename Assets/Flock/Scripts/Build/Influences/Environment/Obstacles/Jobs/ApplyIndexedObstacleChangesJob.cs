@@ -1,10 +1,10 @@
-namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
-    using Flock.Runtime.Data;
-    using Unity.Burst;
-    using Unity.Collections;
-    using Unity.Jobs;
-    using Unity.Mathematics;
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
 
+using Unity.Jobs;
+using Unity.Burst;
+using Unity.Collections;
+
+namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
     /**
      * <summary>
      * Applies indexed obstacle changes to the authoritative runtime obstacle array.

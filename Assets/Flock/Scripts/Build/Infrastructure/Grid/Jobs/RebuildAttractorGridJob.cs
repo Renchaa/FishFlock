@@ -1,6 +1,5 @@
-// File: Assets/Flock/Runtime/Jobs/RebuildAttractorGridJob.cs
-    using Flock.Runtime.Data;
-    using Unity.Burst;
+using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
+using Unity.Burst;
     using Unity.Collections;
     using Unity.Jobs;
     using Unity.Mathematics;
@@ -113,7 +112,7 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
         }
 
         private void TryWriteCellWinner(int attractorIndex, FlockAttractorData attractorData, int cellIndex) {
-            if (attractorData.Usage == FlockAttractorUsage.Individual) {
+            if (attractorData.Usage == AttractorUsage.Individual) {
                 if (attractorData.CellPriority > CellIndividualPriority[cellIndex]) {
                     CellIndividualPriority[cellIndex] = attractorData.CellPriority;
                     CellToIndividualAttractor[cellIndex] = attractorIndex;
@@ -122,7 +121,7 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
                 return;
             }
 
-            if (attractorData.Usage == FlockAttractorUsage.Group) {
+            if (attractorData.Usage == AttractorUsage.Group) {
                 if (attractorData.CellPriority > CellGroupPriority[cellIndex]) {
                     CellGroupPriority[cellIndex] = attractorData.CellPriority;
                     CellToGroupAttractor[cellIndex] = attractorIndex;

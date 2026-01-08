@@ -1,5 +1,8 @@
-using Unity.Collections;
+using Flock.Scripts.Build.Infrastructure.Grid.Data;
+
 using Unity.Jobs;
+using Unity.Burst;
+using Unity.Collections;
 
 namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
     /**

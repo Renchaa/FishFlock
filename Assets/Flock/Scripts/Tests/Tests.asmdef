@@ -4,9 +4,20 @@
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "Flock.Scripts.Runtime",
         "Unity.Mathematics",
-        "Unity.Collections"
+        "Unity.Collections",
+        "Flock.Scripts.Build.Agents.Fish.Data",
+        "Flock.Scripts.Build.Agents.Fish.Profiles",
+        "Flock.Scripts.Build.Influence.Environment.Attractors",
+        "Flock.Scripts.Build.Core.Simulation",
+        "Flock.Scripts.Build.Infrastructure.Grid",
+        "Flock.Scripts.Build.Influence.Environment.Obstacles",
+        "Flock.Scripts.Build.Influence.Environment.Obstacles.Data",
+        "Flock.Scripts.Build.Utilities",
+        "Flock.Scripts.Build.Influence.Environment.Bounds",
+        "Flock.Scripts.Build.Influence.Environment.Bounds.Data",
+        "Flock.Scripts.Build.Influence.Environment.Data",
+        "Flock.Scripts.Build.Debug"
     ],
     "includePlatforms": [
         "Editor"

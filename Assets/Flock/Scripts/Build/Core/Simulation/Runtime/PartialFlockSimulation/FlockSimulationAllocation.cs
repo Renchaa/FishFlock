@@ -1,8 +1,8 @@
-using System.Collections.Generic;
-using Flock.Runtime.Data;
-using Flock.Runtime.Logging;
 using Unity.Collections;
 using Unity.Mathematics;
+using Flock.Scripts.Build.Agents.Fish.Data;
+using Flock.Scripts.Build.Debug;
+using Flock.Scripts.Build.Infrastructure.Grid.Data;
 
 namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
     /**
@@ -179,7 +179,7 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             agentCellIds = new NativeArray<int>(AgentCount * maxCellsPerAgent, allocator, NativeArrayOptions.UninitializedMemory);
             agentEntryStarts = new NativeArray<int>(AgentCount, allocator, NativeArrayOptions.UninitializedMemory);
 
-            cellAgentPairs = new NativeArray<Flock.Runtime.Jobs.CellAgentPair>(pairCapacity, allocator, NativeArrayOptions.UninitializedMemory);
+            cellAgentPairs = new NativeArray<CellAgentPair>(pairCapacity, allocator, NativeArrayOptions.UninitializedMemory);
 
             totalAgentPairCount = new NativeArray<int>(1, allocator, NativeArrayOptions.ClearMemory);
 

@@ -2,6 +2,9 @@
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Flock.Scripts.Build.Agents.Fish.Data;
+
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
 
 namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
 

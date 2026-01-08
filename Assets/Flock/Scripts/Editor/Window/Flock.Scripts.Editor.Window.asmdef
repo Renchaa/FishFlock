@@ -1,0 +1,25 @@
+{
+    "name": "Flock.Scripts.Editor.Window",
+    "rootNamespace": "",
+    "references": [
+        "GUID:b604d42744547084e99751bcb3ed839c",
+        "GUID:05700f61bae30304faa089c577e353aa",
+        "GUID:bace9149c4e58f44089eed897cf9cd03",
+        "GUID:946698928f040e84b87bfd65c4ab54a2",
+        "GUID:19a190c69d183114292addc4e3f56948",
+        "GUID:a93a498afac448940a509725441a9fce",
+        "GUID:db4b18920e6a84449abd967604f6abcc",
+        "GUID:8b19ab5564f763a48954aed5b6e2825c",
+        "GUID:d7516f058e6e1094ab2260a242d14bc0",
+        "GUID:457756d89b35d2941b3e7b37b4ece6f1"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

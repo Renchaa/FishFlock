@@ -23,6 +23,7 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
     using Unity.Mathematics;
     using Flock.Scripts.Build.Debug;
     using System.Collections.Generic;
+    using Flock.Scripts.Build.Influence.Environment.Data;
 
     /**
     * <summary>
@@ -152,7 +153,7 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
         private FlockGroupNoisePatternType activeLayer2GroupNoiseKind = FlockGroupNoisePatternType.SimpleSine;
         private FlockGroupNoiseCommonSettings activeLayer2GroupNoiseCommon = FlockGroupNoiseCommonSettings.Default;
         private FlockGroupNoiseSimpleSinePayload activeLayer2SimpleSine = FlockGroupNoiseSimpleSinePayload.Default;
-        private GroupNoiseVerticalBandsPayload activeLayer2VerticalBands = GroupNoiseVerticalBandsPayload.Default;
+        private FlockGroupNoiseVerticalBandsPayload activeLayer2VerticalBands = FlockGroupNoiseVerticalBandsPayload.Default;
         private GroupNoiseVortexPayload activeLayer2Vortex = GroupNoiseVortexPayload.Default;
         private FlockGroupNoiseSphereShellPayload activeLayer2SphereShell = FlockGroupNoiseSphereShellPayload.Default;
 
@@ -199,7 +200,7 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             activeLayer2GroupNoiseKind = FlockGroupNoisePatternType.SimpleSine;
             activeLayer2GroupNoiseCommon = FlockGroupNoiseCommonSettings.Default;
             activeLayer2SimpleSine = FlockGroupNoiseSimpleSinePayload.Default;
-            activeLayer2VerticalBands = GroupNoiseVerticalBandsPayload.Default;
+            activeLayer2VerticalBands = FlockGroupNoiseVerticalBandsPayload.Default;
             activeLayer2Vortex = GroupNoiseVortexPayload.Default;
             activeLayer2SphereShell = FlockGroupNoiseSphereShellPayload.Default;
 
@@ -1025,7 +1026,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                                     continue;
                                 }
 
-                                StartPatternBoxShell b = runtimeBoxShells[payloadIndex];
+                                PatternVolumeBoxShell b = runtimeBoxShells[payloadIndex];
+
                                 if (b.Thickness <= 0f || b.HalfExtents.x <= 0f || b.HalfExtents.y <= 0f || b.HalfExtents.z <= 0f) {
                                     continue;
                                 }

@@ -1,6 +1,8 @@
+using Flock.Scripts.Build.Debug;
+using Flock.Scripts.Build.Influence.Noise.Data;
+using Flock.Scripts.Build.Influence.Noise.Profiles;
+
 namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
-    using Flock.Runtime.Data;
-    using Flock.Runtime.Logging;
 
     /**
      * <summary>
@@ -62,7 +64,7 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
          */
         public void SetLayer2GroupNoiseVortex(
             in FlockGroupNoiseCommonSettings common,
-            in FlockGroupNoiseVortexPayload payload) {
+            in GroupNoiseVortexPayload payload) {
 
             activeLayer2GroupNoiseKind = FlockGroupNoisePatternType.Vortex;
             activeLayer2GroupNoiseCommon = common;

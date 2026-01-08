@@ -2,7 +2,10 @@
     "name": "Flock.Scripts.Build.Influence.PatternVolume",
     "rootNamespace": "",
     "references": [
-        "GUID:d8b63aba1907145bea998dd612889d6b"
+        "GUID:d8b63aba1907145bea998dd612889d6b",
+        "GUID:2665a8d13d1b3f18800f46e256720795",
+        "GUID:a5afbc4341a19e745be38ed76637ee91",
+        "GUID:bace9149c4e58f44089eed897cf9cd03"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

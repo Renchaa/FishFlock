@@ -1,12 +1,10 @@
-// Assets/Flock/Editor/Tests/EditorMode/Jobs/BuildObstacleGridJob_OutsideGrid_DoesNotStamp_Test.cs
-
 #if UNITY_EDITOR
-using Flock.Runtime.Data;
-using Flock.Runtime.Jobs;
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+
 namespace Flock.Scripts.Tests.EditorMode.Jobs.BuildObstacleGridJob {
     public sealed class BuildObstacleGridJob_OutsideGrid_DoesNotStamp_Test {
         [Test]
@@ -26,7 +24,7 @@ namespace Flock.Scripts.Tests.EditorMode.Jobs.BuildObstacleGridJob {
             var map = new NativeParallelMultiHashMap<int, int>(16, Allocator.TempJob);
 
             try {
-                var job = new Runtime.Jobs.BuildObstacleGridJob {
+                var job = new Build.Infrastructure.Grid.Jobs.BuildObstacleGridJob {
                     Obstacles = obstacles,
                     GridOrigin = origin,
                     GridResolution = resolution,

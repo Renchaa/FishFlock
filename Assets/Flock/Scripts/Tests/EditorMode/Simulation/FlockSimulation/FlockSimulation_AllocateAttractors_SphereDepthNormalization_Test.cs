@@ -1,8 +1,10 @@
 #if UNITY_EDITOR
 using System;
 using System.Reflection;
-using Flock.Runtime;
-using Flock.Runtime.Data;
+using Flock.Scripts.Build.Agents.Fish.Data;
+using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -53,7 +55,7 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
                 Radius = 2f
             };
 
-            var sim = new Runtime.FlockSimulation();
+            var sim = new Build.Core.Simulation.Runtime.PartialFlockSimulation.FlockSimulation();
 
             try {
                 sim.Initialize(

@@ -1,10 +1,11 @@
 #if UNITY_EDITOR
+using Flock.Scripts.Build.Agents.Fish.Data;
+using Flock.Scripts.Build.Infrastructure.Grid.Data;
+using Flock.Scripts.Build.Infrastructure.Grid.Jobs;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
 
-using Flock.Runtime.Data;
-using Flock.Runtime.Jobs;
 namespace Flock.Scripts.Tests.EditorMode.Jobs.NeighbourAggregate {
     public sealed class NeighbourAggregateJob_MaskGatingTests {
         [Test]
@@ -29,7 +30,7 @@ namespace Flock.Scripts.Tests.EditorMode.Jobs.NeighbourAggregate {
             var cellCounts = new NativeArray<int>(1, Allocator.Temp);
             var cellPairs = new NativeArray<CellAgentPair>(agentCount, Allocator.Temp);
 
-            var outAgg = new NativeArray<Runtime.Data.NeighbourAggregate>(agentCount, Allocator.Temp);
+            var outAgg = new NativeArray<Build.Agents.Fish.Data.NeighbourAggregate>(agentCount, Allocator.Temp);
 
             try {
                 positions[0] = new float3(0f, 0f, 0f);
@@ -117,7 +118,7 @@ namespace Flock.Scripts.Tests.EditorMode.Jobs.NeighbourAggregate {
                 };
 
                 job.Execute(0);
-                Runtime.Data.NeighbourAggregate a0 = outAgg[0];
+                Build.Agents.Fish.Data.NeighbourAggregate a0 = outAgg[0];
 
                 Assert.That(a0.FriendlyNeighbourCount, Is.EqualTo(1), "Exactly one neighbour should be classified as friendly.");
 

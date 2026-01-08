@@ -284,19 +284,19 @@ namespace Flock.Scripts.Build.Debug {
         private static void DispatchUnityLog(FlockLogLevel level, string message, Object context) {
             switch (level) {
                 case FlockLogLevel.Info:
-                    Debug.Log(message, context);
+                    UnityEngine.Debug.Log(message, context);
                     return;
 
                 case FlockLogLevel.Warning:
-                    Debug.LogWarning(message, context);
+                    UnityEngine.Debug.LogWarning(message, context);
                     return;
 
                 case FlockLogLevel.Error:
-                    Debug.LogError(message, context);
-                    return;
+                    UnityEngine.Debug.LogError(message, context);
+                    return; 
 
                 default:
-                    Debug.Log(message, context);
+                    UnityEngine.Debug.Log(message, context);
                     return;
             }
         }

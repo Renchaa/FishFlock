@@ -1,3 +1,5 @@
+using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Influence.PatternVolume.Data;
 using Flock.Scripts.Build.Influence.PatternVolume.Profiles;
 using System.Collections.Generic;
 using Unity.Mathematics;

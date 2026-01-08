@@ -23,7 +23,7 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
 
         [SerializeField]
         [HideInInspector]
-        private FishRelationType[] relationTypes = Array.Empty<FishRelationType>();
+        private RelationType[] relationTypes = Array.Empty<RelationType>();
 
         [SerializeField]
         [HideInInspector]
@@ -74,7 +74,7 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
             int requiredMatrixSize = typeCount * typeCount;
 
             bool[] previousInteractionFlags = interactionFlags;
-            FishRelationType[] previousRelationTypes = relationTypes;
+            RelationType[] previousRelationTypes = relationTypes;
 
             float[] previousLeadershipWeights = leadershipWeights;
             float[] previousAvoidanceWeights = avoidanceWeights;
@@ -116,7 +116,7 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
         /**
          * <summary>
          * Sets interaction for (a, b) and (b, a) to the same value. If disabling interaction, also clears
-         * the corresponding relationship entries to <see cref="FishRelationType.Neutral"/>.
+         * the corresponding relationship entries to <see cref="RelationType.Neutral"/>.
          * </summary>
          * <param name="a">First fish type index.</param>
          * <param name="b">Second fish type index.</param>
@@ -145,15 +145,15 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * <param name="b">Column fish type index.</param>
          * <returns>The relationship value, or Neutral if unavailable.</returns>
          */
-        public FishRelationType GetRelation(int a, int b) {
+        public RelationType GetRelation(int a, int b) {
             int typeCount = Count;
             if (a < 0 || b < 0 || a >= typeCount || b >= typeCount || relationTypes == null) {
-                return FishRelationType.Neutral;
+                return RelationType.Neutral;
             }
 
             int index = GetMatrixIndex(a, b, typeCount);
             if (index < 0 || index >= relationTypes.Length) {
-                return FishRelationType.Neutral;
+                return RelationType.Neutral;
             }
 
             return relationTypes[index];
@@ -167,7 +167,7 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * <param name="b">Second fish type index.</param>
          * <param name="relation">The relationship value to assign.</param>
          */
-        public void SetSymmetricRelation(int a, int b, FishRelationType relation) {
+        public void SetSymmetricRelation(int a, int b, RelationType relation) {
             int typeCount = Count;
             if (a < 0 || b < 0 || a >= typeCount || b >= typeCount || relationTypes == null) {
                 return;
@@ -361,8 +361,8 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
                 return;
             }
 
-            relationTypes[indexAB] = FishRelationType.Neutral;
-            relationTypes[indexBA] = FishRelationType.Neutral;
+            relationTypes[indexAB] = RelationType.Neutral;
+            relationTypes[indexBA] = RelationType.Neutral;
         }
     }
 }

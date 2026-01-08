@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
-using Flock.Runtime;
+using Flock.Scripts.Build.Agents.Fish.Data;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
 using NUnit.Framework;
 using System.Reflection;
 using UnityEngine;
@@ -52,7 +53,7 @@ namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
             int a,
             int b,
             bool enabled,
-            FishRelationType relation) {
+            RelationType relation) {
 
             FieldInfo flagsFi = typeof(FishInteractionMatrix).GetField("interactionFlags", BF);
             FieldInfo relFi = typeof(FishInteractionMatrix).GetField("relationTypes", BF);
@@ -61,7 +62,7 @@ namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
             Assert.That(relFi, Is.Not.Null, "FishInteractionMatrix.relationTypes field not found.");
 
             bool[] flags = (bool[])flagsFi.GetValue(matrix);
-            FishRelationType[] rels = (FishRelationType[])relFi.GetValue(matrix);
+            RelationType[] rels = (RelationType[])relFi.GetValue(matrix);
 
             Assert.That(flags, Is.Not.Null);
             Assert.That(rels, Is.Not.Null);

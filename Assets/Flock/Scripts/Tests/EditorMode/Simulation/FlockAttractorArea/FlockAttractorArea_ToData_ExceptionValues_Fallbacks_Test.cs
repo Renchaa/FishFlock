@@ -1,12 +1,10 @@
-// Assets/Flock/Editor/Tests/EditorMode/Data/FlockAttractorArea_ToData_ExceptionValues_Fallbacks_Test.cs
 
 #if UNITY_EDITOR
 using System.Reflection;
-using Flock.Runtime;
-using Flock.Runtime.Data;
 using NUnit.Framework;
 using Unity.Mathematics;
 using UnityEngine;
+using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
 namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockAttractorArea {
     public sealed class FlockAttractorArea_ToData_ExceptionValues_Fallbacks_Test {
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -18,7 +16,7 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockAttractorArea {
             go.transform.position = new Vector3(1f, 2f, 3f);
             go.transform.rotation = Quaternion.Euler(10f, 20f, 30f);
 
-            var area = go.AddComponent<Runtime.FlockAttractorArea>();
+            var area = go.AddComponent<Build.Influence.Environment.Attractors.Runtime.FlockAttractorArea > ();
 
             // Exception values (inputs that must clamp / fallback)
             SetPrivateField(area, "baseStrength", -1.0f);    // => 0
@@ -27,7 +25,7 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockAttractorArea {
 
             // Pick a usage value (kept 1:1)
             // If your enum differs, change this to a valid member.
-            SetPrivateField(area, "usage", FlockAttractorUsage.Individual);
+            SetPrivateField(area, "usage", AttractorUsage.Individual);
 
             try {
                 // -------- Sphere branch --------
@@ -45,7 +43,7 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockAttractorArea {
                 Assert.That(sphere.FalloffPower, Is.EqualTo(0.1f));
                 Assert.That(sphere.CellPriority, Is.EqualTo(0f));
                 Assert.That(sphere.AffectedTypesMask, Is.EqualTo(uint.MaxValue));
-                Assert.That(sphere.Usage, Is.EqualTo(FlockAttractorUsage.Individual));
+                Assert.That(sphere.Usage, Is.EqualTo(AttractorUsage.Individual));
                 Assert.That(sphere.Shape, Is.EqualTo(FlockAttractorShape.Sphere));
 
                 // Sphere shape rules
@@ -67,7 +65,7 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockAttractorArea {
                 Assert.That(box.FalloffPower, Is.EqualTo(0.1f));
                 Assert.That(box.CellPriority, Is.EqualTo(0f));
                 Assert.That(box.AffectedTypesMask, Is.EqualTo(customMask));
-                Assert.That(box.Usage, Is.EqualTo(FlockAttractorUsage.Individual));
+                Assert.That(box.Usage, Is.EqualTo(AttractorUsage.Individual));
                 Assert.That(box.Shape, Is.EqualTo(FlockAttractorShape.Box));
 
                 // Box shape rules

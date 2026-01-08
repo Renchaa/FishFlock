@@ -2,7 +2,12 @@
     "name": "Flock.Scripts.Build.Infrastructure.Grid",
     "rootNamespace": "",
     "references": [
-        "GUID:d8b63aba1907145bea998dd612889d6b"
+        "GUID:d8b63aba1907145bea998dd612889d6b",
+        "GUID:e0cd26848372d4e5c891c569017e11f1",
+        "GUID:2665a8d13d1b3f18800f46e256720795",
+        "GUID:946698928f040e84b87bfd65c4ab54a2",
+        "GUID:16395247a3d395549aff706b2ed81d43",
+        "GUID:24cd786e31101044797b51eea95b2bbd"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

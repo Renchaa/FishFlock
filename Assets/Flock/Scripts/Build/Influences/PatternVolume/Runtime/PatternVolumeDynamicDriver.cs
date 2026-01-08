@@ -1,6 +1,7 @@
-using Flock.Runtime.Data;
+using Flock.Scripts.Build.Influence.PatternVolume.Data;
 using Unity.Mathematics;
 using UnityEngine;
+using Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController;
 
 namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime {
 

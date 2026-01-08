@@ -4,6 +4,7 @@ using Flock.Scripts.Build.Agents.Fish.Data;
 using UnityEngine;
 using Unity.Mathematics;
 using Unity.Collections;
+using Flock.Scripts.Build.Influence.Environment.Data;
 namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
 
     /**

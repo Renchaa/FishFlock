@@ -1,9 +1,8 @@
 namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
-    using Flock.Runtime.Data;
-    using Flock.Runtime.Logging;
+    using Flock.Scripts.Build.Debug;
+    using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
     using Unity.Collections;
     using Unity.Mathematics;
-
     /**
      * <summary>
      * Simulation runtime that manages native state for agents, grids, obstacles, and related steering data.
@@ -26,7 +25,7 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 return;
             }
 
-            pendingObstacleChanges.Add(new Flock.Runtime.Jobs.IndexedObstacleChange {
+            pendingObstacleChanges.Add(new IndexedObstacleChange {
                 Index = index,
                 Data = data,
             });

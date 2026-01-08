@@ -1,0 +1,20 @@
+{
+    "name": "Flock.Scripts.Editor.Sync",
+    "rootNamespace": "",
+    "references": [
+        "GUID:05700f61bae30304faa089c577e353aa",
+        "GUID:bace9149c4e58f44089eed897cf9cd03",
+        "GUID:946698928f040e84b87bfd65c4ab54a2",
+        "GUID:a93a498afac448940a509725441a9fce",
+        "GUID:19a190c69d183114292addc4e3f56948"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

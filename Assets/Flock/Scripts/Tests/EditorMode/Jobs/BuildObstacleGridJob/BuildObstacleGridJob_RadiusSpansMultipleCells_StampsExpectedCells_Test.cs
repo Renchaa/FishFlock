@@ -1,8 +1,5 @@
-// Assets/Flock/Editor/Tests/EditorMode/Jobs/BuildObstacleGridJob_RadiusSpansMultipleCells_StampsExpectedCells_Test.cs
-
 #if UNITY_EDITOR
-using Flock.Runtime.Data;
-using Flock.Runtime.Jobs;
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
@@ -32,7 +29,7 @@ namespace Flock.Scripts.Tests.EditorMode.Jobs.BuildObstacleGridJob {
             var map = new NativeParallelMultiHashMap<int, int>(expectedCellCount * 2, Allocator.TempJob);
 
             try {
-                var job = new Runtime.Jobs.BuildObstacleGridJob {
+                var job = new Build.Infrastructure.Grid.Jobs.BuildObstacleGridJob {
                     Obstacles = obstacles,
                     GridOrigin = origin,
                     GridResolution = resolution,

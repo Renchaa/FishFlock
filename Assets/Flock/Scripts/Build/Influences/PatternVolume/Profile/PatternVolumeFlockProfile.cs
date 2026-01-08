@@ -1,7 +1,9 @@
 using System.Collections.Generic;
-using Flock.Runtime.Data;
 using Unity.Mathematics;
 using UnityEngine;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
+using Flock.Scripts.Build.Influence.PatternVolume.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
 
 namespace Flock.Scripts.Build.Influence.PatternVolume.Profiles {
     /**

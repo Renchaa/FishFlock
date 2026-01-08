@@ -1,8 +1,11 @@
-﻿using Flock.Runtime.Data;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Jobs;
+﻿using Unity.Collections;
 using Unity.Mathematics;
+using Unity.Burst;
+using Unity.Jobs;
+
+using Flock.Scripts.Build.Agents.Fish.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
 
 namespace Flock.Scripts.Build.Influence.Environment.Bounds.Jobs {
     /**
@@ -23,7 +26,7 @@ namespace Flock.Scripts.Build.Influence.Environment.Bounds.Jobs {
         public NativeArray<FlockBehaviourSettings> BehaviourSettings;
 
         [ReadOnly]
-        public EnvironmentData EnvironmentData;
+        public FlockEnvironmentData EnvironmentData;
 
         [WriteOnly]
         public NativeArray<float3> WallDirections;
@@ -42,11 +45,11 @@ namespace Flock.Scripts.Build.Influence.Environment.Bounds.Jobs {
             }
 
             switch (EnvironmentData.BoundsType) {
-                case BoundsType.Box:
+                case FlockBoundsType.Box:
                     TryProbeBoxBounds(index, position, margin);
                     return;
 
-                case BoundsType.Sphere:
+                case FlockBoundsType.Sphere:
                     TryProbeSphereBounds(index, position, margin);
                     return;
             }

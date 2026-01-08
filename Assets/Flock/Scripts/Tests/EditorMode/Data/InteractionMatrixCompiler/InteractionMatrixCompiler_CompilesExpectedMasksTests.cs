@@ -1,8 +1,10 @@
 #if UNITY_EDITOR
-using Flock.Runtime;
-using Flock.Runtime.Data;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
+using Flock.Scripts.Build.Agents.Fish.Data;
 using NUnit.Framework;
 using UnityEngine;
+using Flock.Scripts.Build.Utilities.Data;
+
 namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
     public sealed class InteractionMatrixCompiler_CompilesExpectedMasksTests {
         [Test]
@@ -20,16 +22,16 @@ namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
             // 1 <-> 2 Neutral
             // 2 <-> 3 Friendly
             matrix.SetSymmetricInteraction(0, 1, true);
-            matrix.SetSymmetricRelation(0, 1, FishRelationType.Friendly);
+            matrix.SetSymmetricRelation(0, 1, RelationType.Friendly);
 
             matrix.SetSymmetricInteraction(0, 2, true);
-            matrix.SetSymmetricRelation(0, 2, FishRelationType.Avoid);
+            matrix.SetSymmetricRelation(0, 2, RelationType.Avoid);
 
             matrix.SetSymmetricInteraction(1, 2, true);
-            matrix.SetSymmetricRelation(1, 2, FishRelationType.Neutral);
+            matrix.SetSymmetricRelation(1, 2, RelationType.Neutral);
 
             matrix.SetSymmetricInteraction(2, 3, true);
-            matrix.SetSymmetricRelation(2, 3, FishRelationType.Friendly);
+            matrix.SetSymmetricRelation(2, 3, RelationType.Friendly);
 
             uint[] expectedFriendly = {
             InteractionMatrixTestUtils.Mask(1),
@@ -53,7 +55,7 @@ namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
         };
 
             // Act
-            Runtime.Data.FlockInteractionCompiler.BuildInteractionData(
+            FlockInteractionCompiler.BuildInteractionData(
                 fishTypes,
                 matrix,
                 out _,

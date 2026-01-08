@@ -1,7 +1,7 @@
 // File: Assets/Tests/EditMode/Data/Environment/FlockController_BuildEnvironmentData_Sphere_GridMath_Test.cs
 using System.Reflection;
-using Flock.Runtime;
-using Flock.Runtime.Data;
+using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
 using NUnit.Framework;
 using Unity.Mathematics;
 using UnityEngine;
@@ -14,7 +14,7 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
 
             try {
                 go = new GameObject("FlockController_Test");
-                var controller = go.AddComponent<Flock.Runtime.FlockController>();
+                var controller = go.AddComponent<Build.Core.Simulation.Runtime.PartialFlockController.FlockController>();
 
                 SetPrivateField(controller, "boundsType", FlockBoundsType.Sphere);
                 SetPrivateField(controller, "boundsCenter", Vector3.zero);
