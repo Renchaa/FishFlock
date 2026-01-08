@@ -1,67 +1,72 @@
-using Flock.Scripts.Build.Agents.Fish.Profiles;
 using Flock.Scripts.Build.Core.Simulation.Runtime.Spawn;
 using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
 using Flock.Tests.Shared;
-    using NUnit.Framework;
-    using Unity.Collections;
-    using Unity.Mathematics;
-    using UnityEngine;
-    namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockMainSpawner {
-        public sealed class FlockMainSpawner_AssignInitialPositions_BoxShape_ClampsToBoxBounds_Test {
-            [Test]
-            public void FlockMainSpawner_AssignInitialPositions_BoxSpawn_ClampsToBoxBounds_Test_Run() {
-                var spawner = FlockTestUtils.CreateMainSpawner("Spawner", out GameObject spawnerGo);
 
-                var presetA = FlockTestUtils.CreateFishTypePreset("A");
-                FishTypePreset[] fishTypes = { presetA };
+using UnityEngine;
+using NUnit.Framework;
+using Unity.Collections;
+using Unity.Mathematics;
 
-                // Center is far outside +X so clamp must occur; Y/Z remain near center and are used to validate sampling path.
-                var boxPoint = FlockTestUtils.CreateSpawnPoint(
-                    name: "BoxSpawn",
-                    position: new Vector3(10f, 0.25f, -0.25f),
-                    rotation: Quaternion.Euler(0f, 90f, 0f),
-                    shape: FlockSpawnShape.Box,
-                    radius: 0f,
-                    halfExtents: new Vector3(0.5f, 0.5f, 0.5f),
-                    out GameObject boxGo);
+namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockMainSpawner
+{
+    public sealed class FlockMainSpawner_AssignInitialPositions_BoxShape_ClampsToBoxBounds_Test
+    {
+        [Test]
+        public void FlockMainSpawner_AssignInitialPositions_BoxSpawn_ClampsToBoxBounds_Test_Run()
+        {
+            var spawner = FlockTestUtils.CreateMainSpawner("Spawner", out GameObject spawnerGo);
 
-                const uint seed = 123u;
+            var presetA = FlockTestUtils.CreateFishTypePreset("A");
+            FishTypePreset[] fishTypes = { presetA };
 
-                var pointConfig = FlockTestUtils.PointSpawn(
-                    point: boxPoint,
-                    useSeed: true,
-                    seed: seed,
-                    FlockTestUtils.Entry(presetA, 1));
+            // Center is far outside +X so clamp must occur; Y/Z remain near center and are used to validate sampling path.
+            var boxPoint = FlockTestUtils.CreateSpawnPoint(
+                name: "BoxSpawn",
+                position: new Vector3(10f, 0.25f, -0.25f),
+                rotation: Quaternion.Euler(0f, 90f, 0f),
+                shape: FlockSpawnShape.Box,
+                radius: 0f,
+                halfExtents: new Vector3(0.5f, 0.5f, 0.5f),
+                out GameObject boxGo);
 
-                FlockTestUtils.ConfigureSpawner(
-                    spawner,
-                    pointSpawns: new[] { pointConfig },
-                    seedSpawns: null,
-                    globalSeed: 1u);
+            const uint seed = 123u;
 
-                int[] agentBehaviourIds = { 0 };
+            var pointConfig = FlockTestUtils.PointSpawn(
+                point: boxPoint,
+                useSeed: true,
+                seed: seed,
+                FlockTestUtils.Entry(presetA, 1));
 
-                FlockEnvironmentData env = FlockTestUtils.MakeBoxEnvironment(
-                    center: new float3(0f, 0f, 0f),
-                    extents: new float3(1f, 1f, 1f));
+            FlockTestUtils.ConfigureSpawner(
+                spawner,
+                pointSpawns: new[] { pointConfig },
+                seedSpawns: null,
+                globalSeed: 1u);
 
-                float3 raw = FlockTestUtils.SampleSpawnPointDeterministic(boxPoint, seed);
-                float3 expected = FlockTestUtils.ClampToBounds(raw, env);
+            int[] agentBehaviourIds = { 0 };
 
-                var positions = new NativeArray<float3>(1, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+            FlockEnvironmentData env = FlockTestUtils.MakeBoxEnvironment(
+                center: new float3(0f, 0f, 0f),
+                extents: new float3(1f, 1f, 1f));
 
-                spawner.AssignInitialPositions(env, fishTypes, agentBehaviourIds, positions);
+            float3 raw = FlockTestUtils.SampleSpawnPointDeterministic(boxPoint, seed);
+            float3 expected = FlockTestUtils.ClampToBounds(raw, env);
 
-                float3 actual = positions[0];
+            var positions = new NativeArray<float3>(1, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
 
-                Assert.AreEqual(expected.x, actual.x, 1e-6f);
-                Assert.AreEqual(expected.y, actual.y, 1e-6f);
-                Assert.AreEqual(expected.z, actual.z, 1e-6f);
+            spawner.AssignInitialPositions(env, fishTypes, agentBehaviourIds, positions);
 
-                FlockTestUtils.DisposeIfCreated(ref positions);
-                FlockTestUtils.DestroyImmediateSafe(spawnerGo);
-                FlockTestUtils.DestroyImmediateSafe(boxGo);
-                FlockTestUtils.DestroyImmediateSafe(presetA);
-            }
+            float3 actual = positions[0];
+
+            Assert.AreEqual(expected.x, actual.x, 1e-6f);
+            Assert.AreEqual(expected.y, actual.y, 1e-6f);
+            Assert.AreEqual(expected.z, actual.z, 1e-6f);
+
+            FlockTestUtils.DisposeIfCreated(ref positions);
+            FlockTestUtils.DestroyImmediateSafe(spawnerGo);
+            FlockTestUtils.DestroyImmediateSafe(boxGo);
+            FlockTestUtils.DestroyImmediateSafe(presetA);
         }
     }
+}

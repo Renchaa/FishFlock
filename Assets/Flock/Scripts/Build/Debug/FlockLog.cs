@@ -1,13 +1,15 @@
 using UnityEngine;
 
-namespace Flock.Scripts.Build.Debug {
+namespace Flock.Scripts.Build.Debug
+{
     /**
      * <summary>
      * Central logging facade for the flock runtime.
      * Applies global masks (hard clamp) and optional per-logger masks, then dispatches to Unity logging.
      * </summary>
      */
-    public static class FlockLog {
+    public static class FlockLog
+    {
         /**
          * <summary>
          * Global hard clamp for all flock log levels.
@@ -31,7 +33,8 @@ namespace Flock.Scripts.Build.Debug {
          * <param name="levels">Enabled log levels mask.</param>
          * <param name="categories">Enabled log categories mask.</param>
          */
-        public static void SetGlobalMask(FlockLogLevel levels, FlockLogCategory categories) {
+        public static void SetGlobalMask(FlockLogLevel levels, FlockLogCategory categories)
+        {
             GlobalLevelsMask = levels;
             GlobalCategoriesMask = categories;
         }
@@ -42,8 +45,10 @@ namespace Flock.Scripts.Build.Debug {
          * </summary>
          * <param name="logger">Logger providing enabled masks. If null, no changes are applied.</param>
          */
-        public static void ConfigureFrom(IFlockLogger logger) {
-            if (logger == null) {
+        public static void ConfigureFrom(IFlockLogger logger)
+        {
+            if (logger == null)
+            {
                 return;
             }
 
@@ -66,13 +71,16 @@ namespace Flock.Scripts.Build.Debug {
             FlockLogCategory category,
             FlockLogLevel level,
             string message,
-            Object context = null) {
+            Object context = null)
+        {
 
-            if (!PassesGlobalMasks(category, level)) {
+            if (!PassesGlobalMasks(category, level))
+            {
                 return;
             }
 
-            if (!PassesLoggerMasks(logger, category, level)) {
+            if (!PassesLoggerMasks(logger, category, level))
+            {
                 return;
             }
 
@@ -92,7 +100,8 @@ namespace Flock.Scripts.Build.Debug {
             IFlockLogger logger,
             FlockLogCategory category,
             string message,
-            Object context = null) {
+            Object context = null)
+        {
 
             Log(logger, category, FlockLogLevel.Info, message, context);
         }
@@ -110,7 +119,8 @@ namespace Flock.Scripts.Build.Debug {
             IFlockLogger logger,
             FlockLogCategory category,
             string message,
-            Object context = null) {
+            Object context = null)
+        {
 
             Log(logger, category, FlockLogLevel.Warning, message, context);
         }
@@ -128,7 +138,8 @@ namespace Flock.Scripts.Build.Debug {
             IFlockLogger logger,
             FlockLogCategory category,
             string message,
-            Object context = null) {
+            Object context = null)
+        {
 
             Log(logger, category, FlockLogLevel.Error, message, context);
         }
@@ -146,7 +157,8 @@ namespace Flock.Scripts.Build.Debug {
             IFlockLogger logger,
             FlockLogCategory category,
             string format,
-            params object[] arguments) {
+            params object[] arguments)
+        {
 
             string message = BuildFormattedMessage(format, arguments);
             Log(logger, category, FlockLogLevel.Info, message);
@@ -167,7 +179,8 @@ namespace Flock.Scripts.Build.Debug {
             FlockLogCategory category,
             Object context,
             string format,
-            params object[] arguments) {
+            params object[] arguments)
+        {
 
             string message = BuildFormattedMessage(format, arguments);
             Log(logger, category, FlockLogLevel.Info, message, context);
@@ -186,7 +199,8 @@ namespace Flock.Scripts.Build.Debug {
             IFlockLogger logger,
             FlockLogCategory category,
             string format,
-            params object[] arguments) {
+            params object[] arguments)
+        {
 
             string message = BuildFormattedMessage(format, arguments);
             Log(logger, category, FlockLogLevel.Warning, message);
@@ -207,7 +221,8 @@ namespace Flock.Scripts.Build.Debug {
             FlockLogCategory category,
             Object context,
             string format,
-            params object[] arguments) {
+            params object[] arguments)
+        {
 
             string message = BuildFormattedMessage(format, arguments);
             Log(logger, category, FlockLogLevel.Warning, message, context);
@@ -226,7 +241,8 @@ namespace Flock.Scripts.Build.Debug {
             IFlockLogger logger,
             FlockLogCategory category,
             string format,
-            params object[] arguments) {
+            params object[] arguments)
+        {
 
             string message = BuildFormattedMessage(format, arguments);
             Log(logger, category, FlockLogLevel.Error, message);
@@ -247,42 +263,52 @@ namespace Flock.Scripts.Build.Debug {
             FlockLogCategory category,
             Object context,
             string format,
-            params object[] arguments) {
+            params object[] arguments)
+        {
 
             string message = BuildFormattedMessage(format, arguments);
             Log(logger, category, FlockLogLevel.Error, message, context);
         }
 
-        private static bool PassesGlobalMasks(FlockLogCategory category, FlockLogLevel level) {
-            if ((GlobalLevelsMask & level) == 0) {
+        private static bool PassesGlobalMasks(FlockLogCategory category, FlockLogLevel level)
+        {
+            if ((GlobalLevelsMask & level) == 0)
+            {
                 return false;
             }
 
-            if ((GlobalCategoriesMask & category) == 0) {
+            if ((GlobalCategoriesMask & category) == 0)
+            {
                 return false;
             }
 
             return true;
         }
 
-        private static bool PassesLoggerMasks(IFlockLogger logger, FlockLogCategory category, FlockLogLevel level) {
-            if (logger == null) {
+        private static bool PassesLoggerMasks(IFlockLogger logger, FlockLogCategory category, FlockLogLevel level)
+        {
+            if (logger == null)
+            {
                 return true;
             }
 
-            if ((logger.EnabledLevels & level) == 0) {
+            if ((logger.EnabledLevels & level) == 0)
+            {
                 return false;
             }
 
-            if ((logger.EnabledCategories & category) == 0) {
+            if ((logger.EnabledCategories & category) == 0)
+            {
                 return false;
             }
 
             return true;
         }
 
-        private static void DispatchUnityLog(FlockLogLevel level, string message, Object context) {
-            switch (level) {
+        private static void DispatchUnityLog(FlockLogLevel level, string message, Object context)
+        {
+            switch (level)
+            {
                 case FlockLogLevel.Info:
                     UnityEngine.Debug.Log(message, context);
                     return;
@@ -293,7 +319,7 @@ namespace Flock.Scripts.Build.Debug {
 
                 case FlockLogLevel.Error:
                     UnityEngine.Debug.LogError(message, context);
-                    return; 
+                    return;
 
                 default:
                     UnityEngine.Debug.Log(message, context);
@@ -301,12 +327,15 @@ namespace Flock.Scripts.Build.Debug {
             }
         }
 
-        private static string BuildFormattedMessage(string format, object[] arguments) {
-            if (string.IsNullOrEmpty(format)) {
+        private static string BuildFormattedMessage(string format, object[] arguments)
+        {
+            if (string.IsNullOrEmpty(format))
+            {
                 return string.Empty;
             }
 
-            if (arguments == null || arguments.Length == 0) {
+            if (arguments == null || arguments.Length == 0)
+            {
                 return format;
             }
 

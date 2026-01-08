@@ -1,14 +1,17 @@
-using System.Collections.Generic;
-using Flock.Scripts.Build.Agents.Fish.Profiles;
-using Flock.Scripts.Build.Debug;
 using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
 using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Core.Simulation.Data;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
+using Flock.Scripts.Build.Debug;
+
+using UnityEngine;
 using Unity.Collections;
 using Unity.Mathematics;
-using UnityEngine;
+using System.Collections.Generic;
 using Random = Unity.Mathematics.Random;
 
-namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
+namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn
+{
     /**
      * <summary>
      * Central spawn configuration for a <see cref="FlockController"/>.
@@ -17,7 +20,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
      * - Seed spawns: scatter across entire bounds using a seed.
      * </summary>
      */
-    public sealed class FlockMainSpawner : MonoBehaviour, IFlockLogger {
+    public sealed class FlockMainSpawner : MonoBehaviour, IFlockLogger
+    {
         #region Serialized Fields
 
         [Header("Point Spawns (spawn in regions)")]
@@ -65,12 +69,15 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
          * <param name="fishTypes">Ordered fish types used to map presets to behaviour indices.</param>
          * <returns>An array of behaviour indices (length = total agent count), or null if no agents should spawn.</returns>
          */
-        public int[] BuildAgentBehaviourIds(FishTypePreset[] fishTypes) {
-            if (!TryGetBehaviourCount(fishTypes, out int behaviourCount)) {
+        public int[] BuildAgentBehaviourIds(FishTypePreset[] fishTypes)
+        {
+            if (!TryGetBehaviourCount(fishTypes, out int behaviourCount))
+            {
                 return null;
             }
 
-            if (!TryBuildPresetToIndexMap(fishTypes, behaviourCount, out Dictionary<FishTypePreset, int> presetToIndex)) {
+            if (!TryBuildPresetToIndexMap(fishTypes, behaviourCount, out Dictionary<FishTypePreset, int> presetToIndex))
+            {
                 return null;
             }
 
@@ -80,7 +87,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             AccumulateTotalsFromSeedSpawns(presetToIndex, perTypeTotals);
 
             int totalAgentCount = GetTotalAgentCount(perTypeTotals);
-            if (totalAgentCount <= 0) {
+            if (totalAgentCount <= 0)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -108,8 +116,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             FlockEnvironmentData environment,
             FishTypePreset[] fishTypes,
             int[] agentBehaviourIds,
-            NativeArray<float3> positions) {
-            if (!positions.IsCreated) {
+            NativeArray<float3> positions)
+        {
+            if (!positions.IsCreated)
+            {
                 FlockLog.Error(
                     this,
                     FlockLogCategory.Controller,
@@ -118,7 +128,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
                 return;
             }
 
-            if (agentBehaviourIds == null || agentBehaviourIds.Length != positions.Length) {
+            if (agentBehaviourIds == null || agentBehaviourIds.Length != positions.Length)
+            {
                 FlockLog.Error(
                     this,
                     FlockLogCategory.Controller,
@@ -128,7 +139,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             }
 
             int behaviourCount = fishTypes != null ? fishTypes.Length : 0;
-            if (behaviourCount == 0) {
+            if (behaviourCount == 0)
+            {
                 FlockLog.Error(
                     this,
                     FlockLogCategory.Controller,
@@ -149,8 +161,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
 
         #region Utility Methods
 
-        private bool TryGetBehaviourCount(FishTypePreset[] fishTypes, out int behaviourCount) {
-            if (fishTypes == null || fishTypes.Length == 0) {
+        private bool TryGetBehaviourCount(FishTypePreset[] fishTypes, out int behaviourCount)
+        {
+            if (fishTypes == null || fishTypes.Length == 0)
+            {
                 FlockLog.Error(
                     this,
                     FlockLogCategory.Controller,
@@ -167,10 +181,12 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
         private bool TryBuildPresetToIndexMap(
             FishTypePreset[] fishTypes,
             int behaviourCount,
-            out Dictionary<FishTypePreset, int> presetToIndex) {
+            out Dictionary<FishTypePreset, int> presetToIndex)
+        {
             presetToIndex = BuildPresetToIndexMap(fishTypes, behaviourCount);
 
-            if (presetToIndex.Count == 0) {
+            if (presetToIndex.Count == 0)
+            {
                 FlockLog.Error(
                     this,
                     FlockLogCategory.Controller,
@@ -182,16 +198,20 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             return true;
         }
 
-        private static Dictionary<FishTypePreset, int> BuildPresetToIndexMap(FishTypePreset[] fishTypes, int behaviourCount) {
+        private static Dictionary<FishTypePreset, int> BuildPresetToIndexMap(FishTypePreset[] fishTypes, int behaviourCount)
+        {
             Dictionary<FishTypePreset, int> presetToIndex = new Dictionary<FishTypePreset, int>(behaviourCount);
 
-            for (int behaviourIndex = 0; behaviourIndex < behaviourCount; behaviourIndex += 1) {
+            for (int behaviourIndex = 0; behaviourIndex < behaviourCount; behaviourIndex += 1)
+            {
                 FishTypePreset preset = fishTypes[behaviourIndex];
-                if (preset == null) {
+                if (preset == null)
+                {
                     continue;
                 }
 
-                if (!presetToIndex.ContainsKey(preset)) {
+                if (!presetToIndex.ContainsKey(preset))
+                {
                     presetToIndex.Add(preset, behaviourIndex);
                 }
             }
@@ -201,14 +221,18 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
 
         private void AccumulateTotalsFromPointSpawns(
             Dictionary<FishTypePreset, int> presetToIndex,
-            int[] perTypeTotals) {
-            if (pointSpawns == null) {
+            int[] perTypeTotals)
+        {
+            if (pointSpawns == null)
+            {
                 return;
             }
 
-            for (int spawnConfigIndex = 0; spawnConfigIndex < pointSpawns.Length; spawnConfigIndex += 1) {
+            for (int spawnConfigIndex = 0; spawnConfigIndex < pointSpawns.Length; spawnConfigIndex += 1)
+            {
                 PointSpawnConfig config = pointSpawns[spawnConfigIndex];
-                if (config == null) {
+                if (config == null)
+                {
                     continue;
                 }
 
@@ -218,14 +242,18 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
 
         private void AccumulateTotalsFromSeedSpawns(
             Dictionary<FishTypePreset, int> presetToIndex,
-            int[] perTypeTotals) {
-            if (seedSpawns == null) {
+            int[] perTypeTotals)
+        {
+            if (seedSpawns == null)
+            {
                 return;
             }
 
-            for (int spawnConfigIndex = 0; spawnConfigIndex < seedSpawns.Length; spawnConfigIndex += 1) {
+            for (int spawnConfigIndex = 0; spawnConfigIndex < seedSpawns.Length; spawnConfigIndex += 1)
+            {
                 SeedSpawnConfig config = seedSpawns[spawnConfigIndex];
-                if (config == null) {
+                if (config == null)
+                {
                     continue;
                 }
 
@@ -237,18 +265,23 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             TypeCountEntry[] entries,
             string contextLabel,
             Dictionary<FishTypePreset, int> presetToIndex,
-            int[] perTypeTotals) {
-            if (entries == null) {
+            int[] perTypeTotals)
+        {
+            if (entries == null)
+            {
                 return;
             }
 
-            for (int entryIndex = 0; entryIndex < entries.Length; entryIndex += 1) {
+            for (int entryIndex = 0; entryIndex < entries.Length; entryIndex += 1)
+            {
                 TypeCountEntry entry = entries[entryIndex];
-                if (entry.preset == null || entry.count <= 0) {
+                if (entry.preset == null || entry.count <= 0)
+                {
                     continue;
                 }
 
-                if (!presetToIndex.TryGetValue(entry.preset, out int typeIndex)) {
+                if (!presetToIndex.TryGetValue(entry.preset, out int typeIndex))
+                {
                     FlockLog.Warning(
                         this,
                         FlockLogCategory.Controller,
@@ -261,24 +294,29 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             }
         }
 
-        private static int GetTotalAgentCount(int[] perTypeTotals) {
+        private static int GetTotalAgentCount(int[] perTypeTotals)
+        {
             int totalAgentCount = 0;
 
-            for (int typeIndex = 0; typeIndex < perTypeTotals.Length; typeIndex += 1) {
+            for (int typeIndex = 0; typeIndex < perTypeTotals.Length; typeIndex += 1)
+            {
                 totalAgentCount += math.max(0, perTypeTotals[typeIndex]);
             }
 
             return totalAgentCount;
         }
 
-        private static int[] BuildAgentBehaviourIdArray(int[] perTypeTotals, int totalAgentCount) {
+        private static int[] BuildAgentBehaviourIdArray(int[] perTypeTotals, int totalAgentCount)
+        {
             int[] agentBehaviourIds = new int[totalAgentCount];
             int writeIndex = 0;
 
-            for (int typeIndex = 0; typeIndex < perTypeTotals.Length; typeIndex += 1) {
+            for (int typeIndex = 0; typeIndex < perTypeTotals.Length; typeIndex += 1)
+            {
                 int count = math.max(0, perTypeTotals[typeIndex]);
 
-                for (int agentOffsetIndex = 0; agentOffsetIndex < count; agentOffsetIndex += 1) {
+                for (int agentOffsetIndex = 0; agentOffsetIndex < count; agentOffsetIndex += 1)
+                {
                     agentBehaviourIds[writeIndex] = typeIndex;
                     writeIndex += 1;
                 }
@@ -287,16 +325,20 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             return agentBehaviourIds;
         }
 
-        private List<int>[] BuildFreeAgentIndexPoolsByType(int[] agentBehaviourIds, int behaviourCount) {
+        private List<int>[] BuildFreeAgentIndexPoolsByType(int[] agentBehaviourIds, int behaviourCount)
+        {
             List<int>[] freeAgentIndexPoolsByType = new List<int>[behaviourCount];
 
-            for (int typeIndex = 0; typeIndex < behaviourCount; typeIndex += 1) {
+            for (int typeIndex = 0; typeIndex < behaviourCount; typeIndex += 1)
+            {
                 freeAgentIndexPoolsByType[typeIndex] = new List<int>();
             }
 
-            for (int agentIndex = 0; agentIndex < agentBehaviourIds.Length; agentIndex += 1) {
+            for (int agentIndex = 0; agentIndex < agentBehaviourIds.Length; agentIndex += 1)
+            {
                 int typeIndex = agentBehaviourIds[agentIndex];
-                if ((uint)typeIndex >= (uint)behaviourCount) {
+                if ((uint)typeIndex >= (uint)behaviourCount)
+                {
                     FlockLog.Warning(
                         this,
                         FlockLogCategory.Controller,
@@ -315,14 +357,18 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             FlockEnvironmentData environment,
             Dictionary<FishTypePreset, int> presetToIndex,
             List<int>[] freeAgentIndexPoolsByType,
-            NativeArray<float3> positions) {
-            if (pointSpawns == null) {
+            NativeArray<float3> positions)
+        {
+            if (pointSpawns == null)
+            {
                 return;
             }
 
-            for (int spawnConfigIndex = 0; spawnConfigIndex < pointSpawns.Length; spawnConfigIndex += 1) {
+            for (int spawnConfigIndex = 0; spawnConfigIndex < pointSpawns.Length; spawnConfigIndex += 1)
+            {
                 PointSpawnConfig config = pointSpawns[spawnConfigIndex];
-                if (config == null || config.point == null || config.types == null || config.types.Length == 0) {
+                if (config == null || config.point == null || config.types == null || config.types.Length == 0)
+                {
                     continue;
                 }
 
@@ -330,19 +376,23 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
                     ? config.seed
                     : DeriveSeed(globalSeed, (uint)(spawnConfigIndex + 1), 0x9E3779B9u);
 
-                if (seed == 0u) {
-                    seed = 1u; // Random cannot take 0.
+                if (seed == 0u)
+                {
+                    seed = 1u;
                 }
 
                 Random random = new Random(seed);
 
-                for (int typeEntryIndex = 0; typeEntryIndex < config.types.Length; typeEntryIndex += 1) {
+                for (int typeEntryIndex = 0; typeEntryIndex < config.types.Length; typeEntryIndex += 1)
+                {
                     TypeCountEntry entry = config.types[typeEntryIndex];
-                    if (entry.preset == null || entry.count <= 0) {
+                    if (entry.preset == null || entry.count <= 0)
+                    {
                         continue;
                     }
 
-                    if (!presetToIndex.TryGetValue(entry.preset, out int typeIndex)) {
+                    if (!presetToIndex.TryGetValue(entry.preset, out int typeIndex))
+                    {
                         FlockLog.Warning(
                             this,
                             FlockLogCategory.Controller,
@@ -354,7 +404,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
                     List<int> pool = freeAgentIndexPoolsByType[typeIndex];
                     int spawnCount = math.min(entry.count, pool.Count);
 
-                    if (spawnCount < entry.count) {
+                    if (spawnCount < entry.count)
+                    {
                         FlockLog.Warning(
                             this,
                             FlockLogCategory.Controller,
@@ -362,7 +413,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
                             this);
                     }
 
-                    for (int spawnIndex = 0; spawnIndex < spawnCount; spawnIndex += 1) {
+                    for (int spawnIndex = 0; spawnIndex < spawnCount; spawnIndex += 1)
+                    {
                         int agentIndex = PopLastIndex(pool);
                         float3 sampledPosition = config.point.SamplePosition(ref random);
                         sampledPosition = ClampToBounds(sampledPosition, environment);
@@ -376,14 +428,18 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             FlockEnvironmentData environment,
             Dictionary<FishTypePreset, int> presetToIndex,
             List<int>[] freeAgentIndexPoolsByType,
-            NativeArray<float3> positions) {
-            if (seedSpawns == null) {
+            NativeArray<float3> positions)
+        {
+            if (seedSpawns == null)
+            {
                 return;
             }
 
-            for (int spawnConfigIndex = 0; spawnConfigIndex < seedSpawns.Length; spawnConfigIndex += 1) {
+            for (int spawnConfigIndex = 0; spawnConfigIndex < seedSpawns.Length; spawnConfigIndex += 1)
+            {
                 SeedSpawnConfig config = seedSpawns[spawnConfigIndex];
-                if (config == null || config.types == null || config.types.Length == 0) {
+                if (config == null || config.types == null || config.types.Length == 0)
+                {
                     continue;
                 }
 
@@ -391,19 +447,23 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
                     ? config.seed
                     : DeriveSeed(globalSeed, (uint)(spawnConfigIndex + 1), 0xBB67AE85u);
 
-                if (baseSeed == 0u) {
+                if (baseSeed == 0u)
+                {
                     baseSeed = 1u;
                 }
 
                 Random random = new Random(baseSeed);
 
-                for (int typeEntryIndex = 0; typeEntryIndex < config.types.Length; typeEntryIndex += 1) {
+                for (int typeEntryIndex = 0; typeEntryIndex < config.types.Length; typeEntryIndex += 1)
+                {
                     TypeCountEntry entry = config.types[typeEntryIndex];
-                    if (entry.preset == null || entry.count <= 0) {
+                    if (entry.preset == null || entry.count <= 0)
+                    {
                         continue;
                     }
 
-                    if (!presetToIndex.TryGetValue(entry.preset, out int typeIndex)) {
+                    if (!presetToIndex.TryGetValue(entry.preset, out int typeIndex))
+                    {
                         FlockLog.Warning(
                             this,
                             FlockLogCategory.Controller,
@@ -415,7 +475,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
                     List<int> pool = freeAgentIndexPoolsByType[typeIndex];
                     int spawnCount = math.min(entry.count, pool.Count);
 
-                    if (spawnCount < entry.count) {
+                    if (spawnCount < entry.count)
+                    {
                         FlockLog.Warning(
                             this,
                             FlockLogCategory.Controller,
@@ -423,7 +484,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
                             this);
                     }
 
-                    for (int spawnIndex = 0; spawnIndex < spawnCount; spawnIndex += 1) {
+                    for (int spawnIndex = 0; spawnIndex < spawnCount; spawnIndex += 1)
+                    {
                         int agentIndex = PopLastIndex(pool);
                         float3 sampledPosition = SampleInBounds(ref random, environment);
                         positions[agentIndex] = sampledPosition;
@@ -435,17 +497,21 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
         private void ApplyFallbackScatter(
             FlockEnvironmentData environment,
             List<int>[] freeAgentIndexPoolsByType,
-            NativeArray<float3> positions) {
-            for (int typeIndex = 0; typeIndex < freeAgentIndexPoolsByType.Length; typeIndex += 1) {
+            NativeArray<float3> positions)
+        {
+            for (int typeIndex = 0; typeIndex < freeAgentIndexPoolsByType.Length; typeIndex += 1)
+            {
                 List<int> pool = freeAgentIndexPoolsByType[typeIndex];
-                if (pool.Count == 0) {
+                if (pool.Count == 0)
+                {
                     continue;
                 }
 
                 uint seed = DeriveSeed(globalSeed, (uint)(typeIndex + 1), 0x3C6EF372u);
                 Random random = new Random(seed == 0u ? 1u : seed);
 
-                for (int poolIndex = pool.Count - 1; poolIndex >= 0; poolIndex -= 1) {
+                for (int poolIndex = pool.Count - 1; poolIndex >= 0; poolIndex -= 1)
+                {
                     int agentIndex = pool[poolIndex];
                     float3 sampledPosition = SampleInBounds(ref random, environment);
                     positions[agentIndex] = sampledPosition;
@@ -453,52 +519,57 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             }
         }
 
-        private static int PopLastIndex(List<int> list) {
+        private static int PopLastIndex(List<int> list)
+        {
             int lastIndex = list.Count - 1;
             int value = list[lastIndex];
             list.RemoveAt(lastIndex);
             return value;
         }
 
-        private static uint DeriveSeed(uint baseSeed, uint salt, uint prime) {
+        private static uint DeriveSeed(uint baseSeed, uint salt, uint prime)
+        {
             uint seed = baseSeed ^ (salt * prime);
 
-            if (seed == 0u) {
+            if (seed == 0u)
+            {
                 seed = 1u;
             }
 
             return seed;
         }
 
-        private static float3 SampleInBounds(ref Random random, FlockEnvironmentData environment) {
+        private static float3 SampleInBounds(ref Random random, FlockEnvironmentData environment)
+        {
             float3 boundsCenter = environment.BoundsCenter;
 
-            // Spherical bounds: sample inside sphere volume.
-            if (environment.BoundsType == FlockBoundsType.Sphere && environment.BoundsRadius > 0f) {
+            if (environment.BoundsType == FlockBoundsType.Sphere && environment.BoundsRadius > 0f)
+            {
                 float radius = environment.BoundsRadius;
 
-                // Rejection sample direction in unit sphere, then scale radius with cubic root.
-                for (int attemptIndex = 0; attemptIndex < 8; attemptIndex++) {
+                for (int attemptIndex = 0; attemptIndex < 8; attemptIndex++)
+                {
                     float3 randomVector = random.NextFloat3(new float3(-1f), new float3(1f));
                     float lengthSquared = math.lengthsq(randomVector);
 
-                    if (lengthSquared > 1e-4f && lengthSquared <= 1f) {
+                    if (lengthSquared > 1e-4f && lengthSquared <= 1f)
+                    {
                         float length = math.sqrt(lengthSquared);
                         float3 direction = randomVector / length;
 
-                        float unit = random.NextFloat();                    // 0..1
-                        float sampledRadius = radius * math.pow(unit, 1f / 3f); // uniform volume
+                        float unit = random.NextFloat();
+                        float sampledRadius = radius * math.pow(unit, 1f / 3f);
 
                         return boundsCenter + direction * sampledRadius;
                     }
                 }
 
-                // Fallback if rejection failed: random in cube, then clamp to sphere.
                 float3 fallbackPosition = boundsCenter + random.NextFloat3(new float3(-radius), new float3(radius));
                 float3 offset = fallbackPosition - boundsCenter;
                 float distanceSquared = math.lengthsq(offset);
 
-                if (distanceSquared > radius * radius) {
+                if (distanceSquared > radius * radius)
+                {
                     float distance = math.sqrt(distanceSquared);
                     float3 direction = offset / math.max(distance, 1e-4f);
                     fallbackPosition = boundsCenter + direction * radius * 0.999f;
@@ -507,7 +578,6 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
                 return fallbackPosition;
             }
 
-            // Box bounds (default).
             float3 extents = environment.BoundsExtents;
             float3 boundsMinimum = boundsCenter - extents;
             float3 boundsSize = extents * 2f;
@@ -520,15 +590,18 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             return boundsMinimum + randomUnit * boundsSize;
         }
 
-        private static float3 ClampToBounds(float3 position, FlockEnvironmentData environment) {
+        private static float3 ClampToBounds(float3 position, FlockEnvironmentData environment)
+        {
             float3 boundsCenter = environment.BoundsCenter;
 
-            if (environment.BoundsType == FlockBoundsType.Sphere && environment.BoundsRadius > 0f) {
+            if (environment.BoundsType == FlockBoundsType.Sphere && environment.BoundsRadius > 0f)
+            {
                 float radius = environment.BoundsRadius;
                 float3 offset = position - boundsCenter;
                 float distanceSquared = math.lengthsq(offset);
 
-                if (distanceSquared > radius * radius) {
+                if (distanceSquared > radius * radius)
+                {
                     float distance = math.sqrt(distanceSquared);
                     float3 direction = offset / math.max(distance, 1e-4f);
                     return boundsCenter + direction * radius * 0.999f;
@@ -543,47 +616,6 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             float3 boundsMaximum = boundsCenter + extents;
 
             return math.clamp(position, boundsMinimum, boundsMaximum);
-        }
-
-        #endregion
-
-        #region Inner Structs
-
-        [System.Serializable]
-        public struct TypeCountEntry {
-            [Tooltip("Fish type preset to spawn.")]
-            public FishTypePreset preset;
-
-            [Tooltip("Number of agents to spawn for this preset.")]
-            [Min(0)]
-            public int count;
-        }
-
-        [System.Serializable]
-        public sealed class PointSpawnConfig {
-            [Tooltip("Spawn point shape used to sample positions.")]
-            public FlockSpawnPoint point;
-
-            [Tooltip("If enabled, overrides the global seed for this point spawn.")]
-            public bool useSeed;
-
-            [Tooltip("Explicit seed for this point spawn. Ignored when Use Seed is disabled or seed is 0.")]
-            public uint seed;
-
-            [Tooltip("List of (preset + count) entries spawned from this point.")]
-            public TypeCountEntry[] types;
-        }
-
-        [System.Serializable]
-        public sealed class SeedSpawnConfig {
-            [Tooltip("If enabled, overrides the global seed for this scatter batch.")]
-            public bool useSeed;
-
-            [Tooltip("Base seed for this global scatter batch. When Use Seed is disabled or seed is 0, a seed is derived from the Global Seed.")]
-            public uint seed;
-
-            [Tooltip("List of (preset + count) entries spawned in bounds for this batch.")]
-            public TypeCountEntry[] types;
         }
 
         #endregion

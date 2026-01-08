@@ -1,8 +1,12 @@
-using UnityEditor;
-using UnityEngine;
+#if UNITY_EDITOR
+
 using Flock.Scripts.Build.Influence.Environment.Obstacles.Runtime;
 
-namespace Flock.Scripts.Editor.Inspectors {
+using UnityEditor;
+using UnityEngine;
+
+namespace Flock.Scripts.Editor.Inspectors
+{
     /**
      * <summary>
      * Custom inspector for FlockObstacle that displays only the relevant shape settings.
@@ -11,7 +15,8 @@ namespace Flock.Scripts.Editor.Inspectors {
     [CustomEditor(typeof(FlockObstacle))]
 
     [CanEditMultipleObjects]
-    public sealed class FlockObstacleEditor : UnityEditor.Editor {
+    public sealed class FlockObstacleEditor : UnityEditor.Editor
+    {
         private const string ShapePropName = "shape";
         private const string SphereRadiusPropName = "sphereRadius";
         private const string BoxSizePropName = "boxSize";
@@ -22,18 +27,21 @@ namespace Flock.Scripts.Editor.Inspectors {
         private SerializedProperty sphereRadiusProp;
         private SerializedProperty boxSizeProp;
 
-        private void OnEnable() {
+        private void OnEnable()
+        {
             shapeProp = serializedObject.FindProperty(ShapePropName);
             sphereRadiusProp = serializedObject.FindProperty(SphereRadiusPropName);
             boxSizeProp = serializedObject.FindProperty(BoxSizePropName);
         }
 
-        public override void OnInspectorGUI() {
+        public override void OnInspectorGUI()
+        {
             serializedObject.Update();
 
             EditorGUILayout.PropertyField(shapeProp);
 
-            if (shapeProp.hasMultipleDifferentValues) {
+            if (shapeProp.hasMultipleDifferentValues)
+            {
                 EditorGUILayout.HelpBox(
                     "Multiple objects selected with different Shape values. Set Shape to edit the corresponding settings.",
                     MessageType.Info);
@@ -47,10 +55,12 @@ namespace Flock.Scripts.Editor.Inspectors {
             serializedObject.ApplyModifiedProperties();
         }
 
-        private void DrawShapeSpecificSettings() {
+        private void DrawShapeSpecificSettings()
+        {
             int shapeValue = shapeProp.enumValueIndex;
 
-            if (shapeValue == SphereShapeIndex) {
+            if (shapeValue == SphereShapeIndex)
+            {
                 EditorGUILayout.Space(8);
                 EditorGUILayout.LabelField("Sphere Settings", EditorStyles.boldLabel);
                 EditorGUILayout.PropertyField(sphereRadiusProp, new GUIContent("Radius"));
@@ -63,3 +73,4 @@ namespace Flock.Scripts.Editor.Inspectors {
         }
     }
 }
+#endif

@@ -1,13 +1,15 @@
 using System;
 
-namespace Flock.Scripts.Build.Influence.Noise.Data {
+namespace Flock.Scripts.Build.Influence.Noise.Data
+{
     /**
      * <summary>
      * Pattern-specific payload for the VerticalBands group noise implementation.
      * </summary>
      */
     [Serializable]
-    public struct FlockGroupNoiseVerticalBandsPayload {
+    public struct FlockGroupNoiseVerticalBandsPayload
+    {
         // VerticalBands
         public float VerticalBias;
 
@@ -16,7 +18,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Data {
          * Gets the default payload values.
          * </summary>
          */
-        public static FlockGroupNoiseVerticalBandsPayload Default => new FlockGroupNoiseVerticalBandsPayload {
+        public static FlockGroupNoiseVerticalBandsPayload Default => new FlockGroupNoiseVerticalBandsPayload
+        {
             VerticalBias = 0.0f,
         };
     }

@@ -1,15 +1,17 @@
-using Flock.Scripts.Build.Agents.Fish.Profiles;
-using Flock.Scripts.Build.Core.Simulation.Runtime.Spawn;
 using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
+using Flock.Scripts.Build.Core.Simulation.Runtime.Spawn;
 using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
+
 using System;
     using System.Reflection;
     using Unity.Collections;
     using Unity.Mathematics;
     using UnityEngine;
     using Random = Unity.Mathematics.Random;
+using Flock.Scripts.Build.Core.Simulation.Data;
 
-    namespace Flock.Tests.Shared {
+namespace Flock.Tests.Shared {
         internal static class FlockTestUtils {
             private const float SphereClampFactor = 0.999f;
 
@@ -47,8 +49,8 @@ using System;
 
             public static void ConfigureSpawner(
                 FlockMainSpawner spawner,
-                FlockMainSpawner.PointSpawnConfig[] pointSpawns,
-                FlockMainSpawner.SeedSpawnConfig[] seedSpawns,
+                PointSpawnConfig[] pointSpawns,
+                SeedSpawnConfig[] seedSpawns,
                 uint globalSeed) {
 
                 SetPrivateField(spawner, "pointSpawns", pointSpawns);
@@ -56,20 +58,20 @@ using System;
                 SetPrivateField(spawner, "globalSeed", globalSeed);
             }
 
-            public static FlockMainSpawner.TypeCountEntry Entry(FishTypePreset preset, int count) {
-                return new FlockMainSpawner.TypeCountEntry {
+            public static TypeCountEntry Entry(FishTypePreset preset, int count) {
+                return new TypeCountEntry {
                     preset = preset,
                     count = count
                 };
             }
 
-            public static FlockMainSpawner.PointSpawnConfig PointSpawn(
+            public static PointSpawnConfig PointSpawn(
                 FlockSpawnPoint point,
                 bool useSeed,
                 uint seed,
-                params FlockMainSpawner.TypeCountEntry[] types) {
+                params  TypeCountEntry[] types) {
 
-                return new FlockMainSpawner.PointSpawnConfig {
+                return new  PointSpawnConfig {
                     point = point,
                     useSeed = useSeed,
                     seed = seed,
@@ -77,12 +79,12 @@ using System;
                 };
             }
 
-            public static FlockMainSpawner.SeedSpawnConfig SeedSpawn(
+            public static SeedSpawnConfig SeedSpawn(
                 bool useSeed,
                 uint seed,
-                params FlockMainSpawner.TypeCountEntry[] types) {
+                params TypeCountEntry[] types) {
 
-                return new FlockMainSpawner.SeedSpawnConfig {
+                return new SeedSpawnConfig {
                     useSeed = useSeed,
                     seed = seed,
                     types = types

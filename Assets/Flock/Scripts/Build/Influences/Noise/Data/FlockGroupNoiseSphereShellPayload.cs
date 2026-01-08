@@ -1,14 +1,16 @@
 using System;
 using Unity.Mathematics;
 
-namespace Flock.Scripts.Build.Influence.Noise.Data {
+namespace Flock.Scripts.Build.Influence.Noise.Data
+{
     /**
      * <summary>
      * Pattern-specific payload for the SphereShell group noise implementation.
      * </summary>
      */
     [Serializable]
-    public struct FlockGroupNoiseSphereShellPayload {
+    public struct FlockGroupNoiseSphereShellPayload
+    {
         // SphereShell
         public float3 CenterNorm;
         public float Radius;
@@ -20,7 +22,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Data {
          * Gets the default payload values.
          * </summary>
          */
-        public static FlockGroupNoiseSphereShellPayload Default => new FlockGroupNoiseSphereShellPayload {
+        public static FlockGroupNoiseSphereShellPayload Default => new FlockGroupNoiseSphereShellPayload
+        {
             CenterNorm = new float3(0.5f, 0.5f, 0.5f),
             Radius = 8.0f,
             Thickness = 2.0f,

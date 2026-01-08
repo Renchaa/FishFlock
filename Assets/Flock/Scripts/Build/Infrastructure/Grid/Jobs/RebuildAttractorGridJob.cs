@@ -1,10 +1,12 @@
 using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
-using Unity.Burst;
-    using Unity.Collections;
-    using Unity.Jobs;
-    using Unity.Mathematics;
 
-namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
+using Unity.Jobs;
+using Unity.Burst;
+using Unity.Mathematics;
+using Unity.Collections;
+
+namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs
+{
 
     /**
      * <summary>
@@ -13,14 +15,15 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
      * </summary>
      */
     [BurstCompile]
-    public struct RebuildAttractorGridJob : IJob {
+    public struct RebuildAttractorGridJob : IJob
+    {
         private const int InvalidIndex = -1;
         private const float MinimumCellSize = 0.0001f;
 
-        [ReadOnly] 
+        [ReadOnly]
         public NativeArray<FlockAttractorData> Attractors;
 
-        [ReadOnly] 
+        [ReadOnly]
         public int AttractorCount;
 
         public float3 GridOrigin;
@@ -32,17 +35,20 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
         public NativeArray<float> CellIndividualPriority;
         public NativeArray<float> CellGroupPriority;
 
-        public void Execute() {
+        public void Execute()
+        {
             int3 gridResolution = GridResolution;
             int gridCellCount = gridResolution.x * gridResolution.y * gridResolution.z;
 
-            if (gridCellCount <= 0) {
+            if (gridCellCount <= 0)
+            {
                 return;
             }
 
             ResetCellMappings(gridCellCount);
 
-            if (!Attractors.IsCreated || AttractorCount <= 0) {
+            if (!Attractors.IsCreated || AttractorCount <= 0)
+            {
                 return;
             }
 
@@ -53,7 +59,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             int3 minClamp = new int3(0, 0, 0);
             int3 maxClamp = gridResolution - new int3(1, 1, 1);
 
-            for (int attractorIndex = 0; attractorIndex < AttractorCount; attractorIndex += 1) {
+            for (int attractorIndex = 0; attractorIndex < AttractorCount; attractorIndex += 1)
+            {
                 FlockAttractorData attractorData = Attractors[attractorIndex];
 
                 StampAttractorCells(
@@ -68,8 +75,10 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             }
         }
 
-        private void ResetCellMappings(int gridCellCount) {
-            for (int cellIndex = 0; cellIndex < gridCellCount; cellIndex += 1) {
+        private void ResetCellMappings(int gridCellCount)
+        {
+            for (int cellIndex = 0; cellIndex < gridCellCount; cellIndex += 1)
+            {
                 CellToIndividualAttractor[cellIndex] = InvalidIndex;
                 CellToGroupAttractor[cellIndex] = InvalidIndex;
 
@@ -86,7 +95,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             int layerCellCount,
             float cellSize,
             int3 minClamp,
-            int3 maxClamp) {
+            int3 maxClamp)
+        {
 
             float radius = math.max(attractorData.Radius, cellSize);
 
@@ -99,11 +109,14 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             int3 minCell = math.clamp((int3)math.floor(minLocal), minClamp, maxClamp);
             int3 maxCell = math.clamp((int3)math.floor(maxLocal), minClamp, maxClamp);
 
-            for (int cellZ = minCell.z; cellZ <= maxCell.z; cellZ += 1) {
-                for (int cellY = minCell.y; cellY <= maxCell.y; cellY += 1) {
+            for (int cellZ = minCell.z; cellZ <= maxCell.z; cellZ += 1)
+            {
+                for (int cellY = minCell.y; cellY <= maxCell.y; cellY += 1)
+                {
                     int rowBase = cellY * gridResolution.x + cellZ * layerCellCount;
 
-                    for (int cellX = minCell.x; cellX <= maxCell.x; cellX += 1) {
+                    for (int cellX = minCell.x; cellX <= maxCell.x; cellX += 1)
+                    {
                         int cellIndex = cellX + rowBase;
                         TryWriteCellWinner(attractorIndex, attractorData, cellIndex);
                     }
@@ -111,9 +124,12 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             }
         }
 
-        private void TryWriteCellWinner(int attractorIndex, FlockAttractorData attractorData, int cellIndex) {
-            if (attractorData.Usage == AttractorUsage.Individual) {
-                if (attractorData.CellPriority > CellIndividualPriority[cellIndex]) {
+        private void TryWriteCellWinner(int attractorIndex, FlockAttractorData attractorData, int cellIndex)
+        {
+            if (attractorData.Usage == AttractorUsage.Individual)
+            {
+                if (attractorData.CellPriority > CellIndividualPriority[cellIndex])
+                {
                     CellIndividualPriority[cellIndex] = attractorData.CellPriority;
                     CellToIndividualAttractor[cellIndex] = attractorIndex;
                 }
@@ -121,8 +137,10 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
                 return;
             }
 
-            if (attractorData.Usage == AttractorUsage.Group) {
-                if (attractorData.CellPriority > CellGroupPriority[cellIndex]) {
+            if (attractorData.Usage == AttractorUsage.Group)
+            {
+                if (attractorData.CellPriority > CellGroupPriority[cellIndex])
+                {
                     CellGroupPriority[cellIndex] = attractorData.CellPriority;
                     CellToGroupAttractor[cellIndex] = attractorIndex;
                 }

@@ -1,13 +1,17 @@
-#if UNITY_EDITOR
-using Flock.Scripts.Build.Agents.Fish.Data;
 using Flock.Scripts.Build.Agents.Fish.Profiles;
+using Flock.Scripts.Build.Agents.Fish.Data;
 using Flock.Scripts.Build.Utilities.Data;
-using NUnit.Framework;
+
 using UnityEngine;
-namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
-    public sealed class InteractionMatrixCompiler_EnforcesSymmetryTests {
+using NUnit.Framework;
+
+namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler
+{
+    public sealed class InteractionMatrixCompiler_EnforcesSymmetryTests
+    {
         [Test]
-        public void BuildInteractionData_EnforcesSymmetry_WhenMatrixDataIsAsymmetric() {
+        public void BuildInteractionData_EnforcesSymmetry_WhenMatrixDataIsAsymmetric()
+        {
             // Arrange
             const int typeCount = 3;
             var fishTypes = InteractionMatrixTestUtils.CreateFishTypes(typeCount);
@@ -55,4 +59,3 @@ namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
         }
     }
 }
-#endif

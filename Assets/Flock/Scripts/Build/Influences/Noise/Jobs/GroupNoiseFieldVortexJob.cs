@@ -1,38 +1,35 @@
-using Flock.Scripts.Build.Influence.Noise.Data;
 using Flock.Scripts.Build.Influence.Noise.Utilities;
+using Flock.Scripts.Build.Influence.Noise.Data;
+
+using Unity.Jobs;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Jobs;
 using Unity.Mathematics;
 
-namespace Flock.Scripts.Build.Influence.Noise.Jobs {
+namespace Flock.Scripts.Build.Influence.Noise.Jobs
+{
     /**
      * <summary>
      * Generates per-cell noise directions using a vortex pattern centered in the grid.
      * </summary>
      */
     [BurstCompile]
-    public struct GroupNoiseFieldVortexJob : IJobParallelFor {
-        [ReadOnly]
-        public float Time;
+    public struct GroupNoiseFieldVortexJob : IJobParallelFor
+    {
+        [ReadOnly] public float Time;
+        [ReadOnly] public float Frequency;
 
-        [ReadOnly]
-        public float Frequency;
+        [ReadOnly] public int3 GridResolution;
 
-        [ReadOnly]
-        public int3 GridResolution;
+        [ReadOnly] public FlockGroupNoiseCommonSettings Common;
+        [ReadOnly] public GroupNoiseVortexPayload Payload;
 
-        [ReadOnly]
-        public FlockGroupNoiseCommonSettings Common;
+        [NativeDisableParallelForRestriction] public NativeArray<float3> CellNoise;
 
-        [ReadOnly]
-        public GroupNoiseVortexPayload Payload;
-
-        [NativeDisableParallelForRestriction]
-        public NativeArray<float3> CellNoise;
-
-        public void Execute(int index) {
-            if (!CellNoise.IsCreated || (uint)index >= (uint)CellNoise.Length) {
+        public void Execute(int index)
+        {
+            if (!CellNoise.IsCreated || (uint)index >= (uint)CellNoise.Length)
+            {
                 return;
             }
 
@@ -48,7 +45,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Jobs {
             CellNoise[index] = math.normalizesafe(direction, float3.zero);
         }
 
-        private float3 EvaluateDirection(float3 position, float timeScaled, float worldScale) {
+        private float3 EvaluateDirection(float3 position, float timeScaled, float worldScale)
+        {
             float3 centerNorm = new float3(
                 math.saturate(Payload.CenterNorm.x),
                 math.saturate(Payload.CenterNorm.y),
@@ -62,13 +60,15 @@ namespace Flock.Scripts.Build.Influence.Noise.Jobs {
             float distance = math.length(relativeXZ);
             float radius = math.max(0f, Payload.Radius);
 
-            if (distance < 1e-5f || radius <= 0f) {
+            if (distance < 1e-5f || radius <= 0f)
+            {
                 return new float3(0f, math.sin(timeScaled) * Payload.VerticalBias, 0f);
             }
 
             float radiusNormalised = math.saturate(distance / radius);
             float falloff = 1f - radiusNormalised;
-            if (falloff <= 0f) {
+            if (falloff <= 0f)
+            {
                 return float3.zero;
             }
 

@@ -1,9 +1,11 @@
 using Flock.Scripts.Build.Infrastructure.Grid.Data;
+
+using Unity.Jobs;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Jobs;
 
-namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
+namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs
+{
 
     /**
      * <summary>
@@ -12,25 +14,25 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
      * </summary>
      */
     [BurstCompile]
-    public struct BuildCellAgentRangesJob : IJob {
-        [ReadOnly]
-        public NativeArray<CellAgentPair> Pairs;
+    public struct BuildCellAgentRangesJob : IJob
+    {
+        // Inputs
+        [ReadOnly] public NativeArray<CellAgentPair> Pairs;
+        [ReadOnly] public NativeArray<int> Total;
 
-        [ReadOnly]
-        public NativeArray<int> Total;
+        // Outputs
+        [NativeDisableParallelForRestriction] public NativeArray<int> CellStarts;
+        [NativeDisableParallelForRestriction] public NativeArray<int> CellCounts;
 
-        public NativeArray<int> CellStarts;
+        [NativeDisableParallelForRestriction] public NativeArray<int> TouchedCells;
+        [NativeDisableParallelForRestriction] public NativeArray<int> TouchedCount;
 
-        public NativeArray<int> CellCounts;
-
-        public NativeArray<int> TouchedCells;
-
-        public NativeArray<int> TouchedCount;
-
-        public void Execute() {
+        public void Execute()
+        {
             int pairCount = Total[0];
 
-            if (pairCount <= 0) {
+            if (pairCount <= 0)
+            {
                 TouchedCount[0] = 0;
                 return;
             }
@@ -41,10 +43,12 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             int runningStartIndex = 0;
             int runningLength = 1;
 
-            for (int pairIndex = 1; pairIndex < pairCount; pairIndex += 1) {
+            for (int pairIndex = 1; pairIndex < pairCount; pairIndex += 1)
+            {
                 int cellId = Pairs[pairIndex].CellId;
 
-                if (cellId == runningCellId) {
+                if (cellId == runningCellId)
+                {
                     runningLength += 1;
                     continue;
                 }
@@ -60,7 +64,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             TouchedCount[0] = touchedCellCount;
         }
 
-        private void WriteRun(ref int touchedCellCount, int cellId, int startIndex, int length) {
+        private void WriteRun(ref int touchedCellCount, int cellId, int startIndex, int length)
+        {
             CellStarts[cellId] = startIndex;
             CellCounts[cellId] = length;
 

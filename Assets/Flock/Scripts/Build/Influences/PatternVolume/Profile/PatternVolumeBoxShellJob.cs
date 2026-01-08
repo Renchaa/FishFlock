@@ -1,11 +1,13 @@
-using Flock.Scripts.Build.Influence.PatternVolume.Data;
-using Flock.Scripts.Build.Influence.PatternVolume.Profiles;
-using System.Collections.Generic;
-using Unity.Mathematics;
-using UnityEngine;
 using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Influence.PatternVolume.Profiles;
+using Flock.Scripts.Build.Influence.PatternVolume.Data;
 
-namespace Flock.Scripts.Build.Influence.PatternVolume.Profile {
+using UnityEngine;
+using Unity.Mathematics;
+using System.Collections.Generic;
+
+namespace Flock.Scripts.Build.Influence.PatternVolume.Profile
+{
     /**
      * <summary>
      * Layer-3 pattern profile that bakes a box shell pattern payload and command.
@@ -14,7 +16,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profile {
     [CreateAssetMenu(
         menuName = "Flock/Layer-3 Patterns/Box Shell",
         fileName = "Layer3_BoxShell")]
-    public sealed class PatternVolumeBoxShellJob : PatternVolumeFlockProfile {
+    public sealed class PatternVolumeBoxShellJob : PatternVolumeFlockProfile
+    {
         [Header("Box Shell")]
 
         [Tooltip("If true, uses the environment bounds center as the box shell center.")]
@@ -55,8 +58,10 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profile {
             uint behaviourMask,
             List<PatternVolumeCommand> commands,
             List<PatternVolumeSphereShell> sphereShellPayloads,
-            List<PatternVolumeBoxShell> boxShellPayloads) {
-            if (!IsHalfExtentsValid(halfExtents)) {
+            List<PatternVolumeBoxShell> boxShellPayloads)
+        {
+            if (!IsHalfExtentsValid(halfExtents))
+            {
                 return;
             }
 
@@ -66,13 +71,15 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profile {
 
             int payloadIndex = boxShellPayloads.Count;
 
-            boxShellPayloads.Add(new PatternVolumeBoxShell {
+            boxShellPayloads.Add(new PatternVolumeBoxShell
+            {
                 Center = center,
                 HalfExtents = safeHalfExtents,
                 Thickness = safeThickness,
             });
 
-            commands.Add(new PatternVolumeCommand {
+            commands.Add(new PatternVolumeCommand
+            {
                 Kind = Kind,
                 PayloadIndex = payloadIndex,
                 Strength = Strength,
@@ -80,26 +87,30 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profile {
             });
         }
 
-        private static bool IsHalfExtentsValid(Vector3 halfExtents) {
+        private static bool IsHalfExtentsValid(Vector3 halfExtents)
+        {
             return halfExtents.x > 0f
                 && halfExtents.y > 0f
                 && halfExtents.z > 0f;
         }
 
-        private static float3 GetCenter(in FlockEnvironmentData env, bool useBoundsCenter, Vector3 centerNorm) {
+        private static float3 GetCenter(in FlockEnvironmentData env, bool useBoundsCenter, Vector3 centerNorm)
+        {
             return useBoundsCenter
                 ? env.BoundsCenter
                 : BoundsNormToWorld(env, (float3)centerNorm);
         }
 
-        private static float3 GetSafeHalfExtents(Vector3 halfExtents) {
+        private static float3 GetSafeHalfExtents(Vector3 halfExtents)
+        {
             return new float3(
                 math.max(halfExtents.x, 0.001f),
                 math.max(halfExtents.y, 0.001f),
                 math.max(halfExtents.z, 0.001f));
         }
 
-        private static float GetSafeThickness(float thickness, float3 safeHalfExtents) {
+        private static float GetSafeThickness(float thickness, float3 safeHalfExtents)
+        {
             float computedThickness = thickness <= 0f
                 ? math.cmin(safeHalfExtents) * 0.25f
                 : thickness;

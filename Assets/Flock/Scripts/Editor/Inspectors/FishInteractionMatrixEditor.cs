@@ -2,10 +2,12 @@
 using Flock.Scripts.Build.Agents.Fish.Profiles;
 using Flock.Scripts.Build.Agents.Fish.Data;
 using Flock.Scripts.Editor.Window;
+
 using UnityEditor;
 using UnityEngine;
 
-namespace Flock.Scripts.Editor.Inspectors {
+namespace Flock.Scripts.Editor.Inspectors
+{
     /**
      * <summary>
      * Custom inspector for <see cref="FishInteractionMatrix"/> that renders the interaction grid,
@@ -13,7 +15,8 @@ namespace Flock.Scripts.Editor.Inspectors {
      * </summary>
      */
     [CustomEditor(typeof(FishInteractionMatrix))]
-    public sealed class FishInteractionMatrixEditor : UnityEditor.Editor {
+    public sealed class FishInteractionMatrixEditor : UnityEditor.Editor
+    {
         private const float HeaderWidth = 90f;
         private const float CellSize = 22f;
         private const float ColumnHeaderHeight = 40f;
@@ -30,20 +33,25 @@ namespace Flock.Scripts.Editor.Inspectors {
 
         private int selectedFishIndex = -1;
 
-        private GUIStyle CellStyle {
-            get {
+        private GUIStyle CellStyle
+        {
+            get
+            {
                 EnsureInit();
                 return cellToggleStyle;
             }
         }
 
-        private void OnEnable() {
+        private void OnEnable()
+        {
             EnsureInit();
         }
 
-        public override void OnInspectorGUI() {
+        public override void OnInspectorGUI()
+        {
             EnsureInit();
-            if (matrix == null) {
+            if (matrix == null)
+            {
                 return;
             }
 
@@ -80,12 +88,15 @@ namespace Flock.Scripts.Editor.Inspectors {
             DrawNeutralWeights();
         }
 
-        private void DrawFishTypesAndDefaults() {
+        private void DrawFishTypesAndDefaults()
+        {
             EditorGUILayout.LabelField("Fish Types & Defaults", EditorStyles.boldLabel);
 
             SerializedProperty fishTypesProperty = serializedObject.FindProperty("fishTypes");
-            if (fishTypesProperty != null) {
-                using (new EditorGUI.DisabledScope(true)) {
+            if (fishTypesProperty != null)
+            {
+                using (new EditorGUI.DisabledScope(true))
+                {
                     FlockEditorGUI.PropertyFieldClamped(
                         fishTypesProperty,
                         includeChildren: true,
@@ -103,11 +114,13 @@ namespace Flock.Scripts.Editor.Inspectors {
             EditorGUILayout.PropertyField(defaultNeutralProperty, new GUIContent("Default Neutral Weight"));
         }
 
-        private void DrawInteractionMatrix() {
+        private void DrawInteractionMatrix()
+        {
             int fishTypeCount = matrix.Count;
             FishTypePreset[] fishTypes = matrix.FishTypes;
 
-            if (fishTypeCount == 0 || fishTypes == null) {
+            if (fishTypeCount == 0 || fishTypes == null)
+            {
                 EditorGUILayout.HelpBox("Add Fish Types to edit the interaction matrix.", MessageType.Info);
                 return;
             }
@@ -116,11 +129,13 @@ namespace Flock.Scripts.Editor.Inspectors {
             DrawInteractionMatrixRows(fishTypeCount, fishTypes);
         }
 
-        private void DrawInteractionMatrixColumnHeaders(int fishTypeCount, FishTypePreset[] fishTypes) {
+        private void DrawInteractionMatrixColumnHeaders(int fishTypeCount, FishTypePreset[] fishTypes)
+        {
             EditorGUILayout.BeginHorizontal();
             GUILayout.Space(HeaderWidth);
 
-            for (int columnIndex = 0; columnIndex < fishTypeCount; columnIndex += 1) {
+            for (int columnIndex = 0; columnIndex < fishTypeCount; columnIndex += 1)
+            {
                 string label = GetTypeName(fishTypes[columnIndex]);
 
                 Rect rect = GUILayoutUtility.GetRect(
@@ -135,15 +150,19 @@ namespace Flock.Scripts.Editor.Inspectors {
             EditorGUILayout.EndHorizontal();
         }
 
-        private void DrawInteractionMatrixRows(int fishTypeCount, FishTypePreset[] fishTypes) {
-            for (int rowIndex = 0; rowIndex < fishTypeCount; rowIndex += 1) {
+        private void DrawInteractionMatrixRows(int fishTypeCount, FishTypePreset[] fishTypes)
+        {
+            for (int rowIndex = 0; rowIndex < fishTypeCount; rowIndex += 1)
+            {
                 EditorGUILayout.BeginHorizontal();
 
                 string rowLabel = GetTypeName(fishTypes[rowIndex]);
                 GUILayout.Label(rowLabel, headerStyle, GUILayout.Width(HeaderWidth));
 
-                for (int columnIndex = 0; columnIndex < fishTypeCount; columnIndex += 1) {
-                    if (columnIndex < rowIndex) {
+                for (int columnIndex = 0; columnIndex < fishTypeCount; columnIndex += 1)
+                {
+                    if (columnIndex < rowIndex)
+                    {
                         GUILayout.Space(CellSize);
                         continue;
                     }
@@ -157,7 +176,8 @@ namespace Flock.Scripts.Editor.Inspectors {
                         GUILayout.Width(CellSize),
                         GUILayout.Height(CellSize));
 
-                    if (newValue != value) {
+                    if (newValue != value)
+                    {
                         Undo.RecordObject(matrix, "Toggle Fish Interaction");
                         matrix.SetSymmetricInteraction(rowIndex, columnIndex, newValue);
                         EditorUtility.SetDirty(matrix);
@@ -168,17 +188,20 @@ namespace Flock.Scripts.Editor.Inspectors {
             }
         }
 
-        private void DrawRelationsInspector() {
+        private void DrawRelationsInspector()
+        {
             int fishTypeCount = matrix.Count;
             FishTypePreset[] fishTypes = matrix.FishTypes;
 
-            if (fishTypeCount == 0 || fishTypes == null) {
+            if (fishTypeCount == 0 || fishTypes == null)
+            {
                 return;
             }
 
             string[] fishTypeNames = BuildFishTypeNames(fishTypes, fishTypeCount);
 
-            if (selectedFishIndex < 0 || selectedFishIndex >= fishTypeCount) {
+            if (selectedFishIndex < 0 || selectedFishIndex >= fishTypeCount)
+            {
                 selectedFishIndex = 0;
             }
 
@@ -188,8 +211,10 @@ namespace Flock.Scripts.Editor.Inspectors {
 
             bool hasAnyRelation = false;
 
-            for (int otherIndex = 0; otherIndex < fishTypeCount; otherIndex += 1) {
-                if (!matrix.GetInteraction(selectedFishIndex, otherIndex)) {
+            for (int otherIndex = 0; otherIndex < fishTypeCount; otherIndex += 1)
+            {
+                if (!matrix.GetInteraction(selectedFishIndex, otherIndex))
+                {
                     continue;
                 }
 
@@ -206,7 +231,8 @@ namespace Flock.Scripts.Editor.Inspectors {
                     currentIndex,
                     RelationshipOptions);
 
-                if (EditorGUI.EndChangeCheck()) {
+                if (EditorGUI.EndChangeCheck())
+                {
                     RelationType newRelation = IndexToRelation(newIndex);
 
                     Undo.RecordObject(matrix, "Change Fish Relationship");
@@ -215,7 +241,8 @@ namespace Flock.Scripts.Editor.Inspectors {
                 }
             }
 
-            if (!hasAnyRelation) {
+            if (!hasAnyRelation)
+            {
                 EditorGUILayout.HelpBox(
                     "No interactions enabled for this fish. Enable cells in the matrix above first.",
                     MessageType.Info);
@@ -224,23 +251,27 @@ namespace Flock.Scripts.Editor.Inspectors {
             EditorGUI.indentLevel--;
         }
 
-        private void DrawLeadershipWeights() {
+        private void DrawLeadershipWeights()
+        {
             int fishTypeCount = matrix.Count;
             FishTypePreset[] fishTypes = matrix.FishTypes;
 
-            if (fishTypeCount == 0 || fishTypes == null) {
+            if (fishTypeCount == 0 || fishTypes == null)
+            {
                 return;
             }
 
             EditorGUI.indentLevel++;
 
-            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex += 1) {
+            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex += 1)
+            {
                 string label = GetTypeName(fishTypes[fishTypeIndex]);
                 float weight = matrix.GetLeadershipWeight(fishTypeIndex);
 
                 EditorGUI.BeginChangeCheck();
                 float newWeight = EditorGUILayout.FloatField(label, weight);
-                if (EditorGUI.EndChangeCheck()) {
+                if (EditorGUI.EndChangeCheck())
+                {
                     Undo.RecordObject(matrix, "Change Leadership Weight");
                     matrix.SetLeadershipWeight(fishTypeIndex, newWeight);
                     EditorUtility.SetDirty(matrix);
@@ -250,23 +281,27 @@ namespace Flock.Scripts.Editor.Inspectors {
             EditorGUI.indentLevel--;
         }
 
-        private void DrawAvoidanceWeights() {
+        private void DrawAvoidanceWeights()
+        {
             int fishTypeCount = matrix.Count;
             FishTypePreset[] fishTypes = matrix.FishTypes;
 
-            if (fishTypeCount == 0 || fishTypes == null) {
+            if (fishTypeCount == 0 || fishTypes == null)
+            {
                 return;
             }
 
             EditorGUI.indentLevel++;
 
-            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex += 1) {
+            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex += 1)
+            {
                 string label = GetTypeName(fishTypes[fishTypeIndex]);
                 float weight = matrix.GetAvoidanceWeight(fishTypeIndex);
 
                 EditorGUI.BeginChangeCheck();
                 float newWeight = EditorGUILayout.FloatField(label, weight);
-                if (EditorGUI.EndChangeCheck()) {
+                if (EditorGUI.EndChangeCheck())
+                {
                     Undo.RecordObject(matrix, "Change Avoidance Weight");
                     matrix.SetAvoidanceWeight(fishTypeIndex, newWeight);
                     EditorUtility.SetDirty(matrix);
@@ -276,23 +311,27 @@ namespace Flock.Scripts.Editor.Inspectors {
             EditorGUI.indentLevel--;
         }
 
-        private void DrawNeutralWeights() {
+        private void DrawNeutralWeights()
+        {
             int fishTypeCount = matrix.Count;
             FishTypePreset[] fishTypes = matrix.FishTypes;
 
-            if (fishTypeCount == 0 || fishTypes == null) {
+            if (fishTypeCount == 0 || fishTypes == null)
+            {
                 return;
             }
 
             EditorGUI.indentLevel++;
 
-            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex += 1) {
+            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex += 1)
+            {
                 string label = GetTypeName(fishTypes[fishTypeIndex]);
                 float weight = matrix.GetNeutralWeight(fishTypeIndex);
 
                 EditorGUI.BeginChangeCheck();
                 float newWeight = EditorGUILayout.FloatField(label, weight);
-                if (EditorGUI.EndChangeCheck()) {
+                if (EditorGUI.EndChangeCheck())
+                {
                     Undo.RecordObject(matrix, "Change Neutral Weight");
                     matrix.SetNeutralWeight(fishTypeIndex, newWeight);
                     EditorUtility.SetDirty(matrix);
@@ -302,17 +341,20 @@ namespace Flock.Scripts.Editor.Inspectors {
             EditorGUI.indentLevel--;
         }
 
-        private void DrawVerticalHeaderLabel(Rect rect, string label) {
+        private void DrawVerticalHeaderLabel(Rect rect, string label)
+        {
             EnsureInit();
 
             Matrix4x4 oldMatrix = GUI.matrix;
-            try {
+            try
+            {
                 GUIStyle style = headerStyle ?? EditorStyles.miniLabel;
 
                 Vector2 labelSize = style.CalcSize(new GUIContent(label ?? string.Empty));
                 float desiredWidth = Mathf.Max(labelSize.x, ColumnHeaderHeight);
                 float diff = desiredWidth - rect.width;
-                if (diff > 0f) {
+                if (diff > 0f)
+                {
                     rect.x -= diff * 0.5f;
                     rect.width += diff;
                 }
@@ -321,25 +363,33 @@ namespace Flock.Scripts.Editor.Inspectors {
                 GUIUtility.RotateAroundPivot(-90f, pivot);
 
                 GUI.Label(rect, label, style);
-            } finally {
+            }
+            finally
+            {
                 GUI.matrix = oldMatrix;
             }
         }
 
-        private void EnsureInit() {
-            if (matrix == null) {
+        private void EnsureInit()
+        {
+            if (matrix == null)
+            {
                 matrix = (FishInteractionMatrix)target;
             }
 
-            if (headerStyle == null) {
-                headerStyle = new GUIStyle(EditorStyles.miniLabel) {
+            if (headerStyle == null)
+            {
+                headerStyle = new GUIStyle(EditorStyles.miniLabel)
+                {
                     alignment = TextAnchor.MiddleCenter,
                     wordWrap = false
                 };
             }
 
-            if (cellToggleStyle == null) {
-                cellToggleStyle = new GUIStyle(EditorStyles.toggle) {
+            if (cellToggleStyle == null)
+            {
+                cellToggleStyle = new GUIStyle(EditorStyles.toggle)
+                {
                     fixedWidth = CellSize,
                     fixedHeight = CellSize,
                     margin = new RectOffset(0, 0, 0, 0),
@@ -348,8 +398,10 @@ namespace Flock.Scripts.Editor.Inspectors {
             }
         }
 
-        private static int RelationToIndex(RelationType relation) {
-            switch (relation) {
+        private static int RelationToIndex(RelationType relation)
+        {
+            switch (relation)
+            {
                 case RelationType.Friendly:
                     return 0;
                 case RelationType.Avoid:
@@ -359,8 +411,10 @@ namespace Flock.Scripts.Editor.Inspectors {
             }
         }
 
-        private static RelationType IndexToRelation(int index) {
-            switch (index) {
+        private static RelationType IndexToRelation(int index)
+        {
+            switch (index)
+            {
                 case 0:
                     return RelationType.Friendly;
                 case 1:
@@ -370,21 +424,26 @@ namespace Flock.Scripts.Editor.Inspectors {
             }
         }
 
-        private static string[] BuildFishTypeNames(FishTypePreset[] fishTypes, int fishTypeCount) {
+        private static string[] BuildFishTypeNames(FishTypePreset[] fishTypes, int fishTypeCount)
+        {
             string[] names = new string[fishTypeCount];
-            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex += 1) {
+            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex += 1)
+            {
                 names[fishTypeIndex] = GetTypeName(fishTypes[fishTypeIndex]);
             }
 
             return names;
         }
 
-        private static string GetTypeName(FishTypePreset preset) {
-            if (preset == null) {
+        private static string GetTypeName(FishTypePreset preset)
+        {
+            if (preset == null)
+            {
                 return "<null>";
             }
 
-            if (!string.IsNullOrEmpty(preset.DisplayName)) {
+            if (!string.IsNullOrEmpty(preset.DisplayName))
+            {
                 return preset.DisplayName;
             }
 

@@ -1,20 +1,22 @@
+using Flock.Scripts.Build.Influence.PatternVolume.Profiles;
+using Flock.Scripts.Build.Influence.PatternVolume.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
+
 using System;
 using UnityEngine;
 using Unity.Mathematics;
 using System.Collections.Generic;
-using Flock.Scripts.Build.Influence.PatternVolume.Data;
-using Flock.Scripts.Build.Influence.PatternVolume.Profiles;
-using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
 using Flock.Scripts.Build.Debug;
-using Flock.Scripts.Build.Influence.Environment.Data;
 
-namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
+namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController
+{
     /**
      * <summary>
      * Runtime controller that owns flock simulation state, configuration, and per-frame updates.
      * </summary>
      */
-    public sealed partial class FlockController {
+    public sealed partial class FlockController
+    {
         private readonly List<PatternVolumeCommand> runtimePatternVolumeCmdScratch = new List<PatternVolumeCommand>(4);
         private readonly List<PatternVolumeSphereShell> runtimePatternVolumeSphereScratch = new List<PatternVolumeSphereShell>(4);
         private readonly List<PatternVolumeBoxShell> runtimePatternVolumeBoxShellScratch = new List<PatternVolumeBoxShell>(4);
@@ -27,14 +29,17 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
          * <param name="profile">The profile to bake into runtime Layer-3 handles.</param>
          * <returns>A token representing the running runtime handles, or null on failure.</returns>
          */
-        public PatternVolumeToken StartPatternVolume(PatternVolumeFlockProfile profile) {
-            if (!TryValidateStartPatternVolumeInputs(profile)) {
+        public PatternVolumeToken StartPatternVolume(PatternVolumeFlockProfile profile)
+        {
+            if (!TryValidateStartPatternVolumeInputs(profile))
+            {
                 return null;
             }
 
             runtimePatternVolumeScratch.Clear();
 
-            if (!TryBuildRuntimePatternVolumeFromProfile(profile, runtimePatternVolumeScratch)) {
+            if (!TryBuildRuntimePatternVolumeFromProfile(profile, runtimePatternVolumeScratch))
+            {
                 LogStartPatternVolumeProducedNoCommands(profile);
                 return null;
             }
@@ -50,18 +55,22 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
          * <param name="profile">The profile to bake and apply.</param>
          * <returns>True if all handles were updated successfully; false otherwise.</returns>
          */
-        public bool UpdatePatternVolume(PatternVolumeToken token, PatternVolumeFlockProfile profile) {
-            if (!TryValidateUpdatePatternVolumeInputs(token, profile)) {
+        public bool UpdatePatternVolume(PatternVolumeToken token, PatternVolumeFlockProfile profile)
+        {
+            if (!TryValidateUpdatePatternVolumeInputs(token, profile))
+            {
                 return false;
             }
 
             BakePaternVolumeProfileToScratch(profile);
 
-            if (runtimePatternVolumeCmdScratch.Count == 0) {
+            if (runtimePatternVolumeCmdScratch.Count == 0)
+            {
                 return StopPatternVolumeBecauseNoCommands(token, profile);
             }
 
-            if (token.HandleCount != runtimePatternVolumeCmdScratch.Count) {
+            if (token.HandleCount != runtimePatternVolumeCmdScratch.Count)
+            {
                 return RebuildPatternVolumeToken(token, profile);
             }
 
@@ -75,8 +84,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
          * <param name="token">The token to stop.</param>
          * <returns>True if any runtime handles were stopped; false otherwise.</returns>
          */
-        public bool StopPatternVolume(PatternVolumeToken token) {
-            if (simulation == null || !simulation.IsCreated) {
+        public bool StopPatternVolume(PatternVolumeToken token)
+        {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -85,7 +96,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 return false;
             }
 
-            if (token == null || !token.IsValid) {
+            if (token == null || !token.IsValid)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -97,13 +109,15 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             bool anyStopped = false;
 
             int handleCount = token.HandleCount;
-            for (int index = 0; index < handleCount; index += 1) {
+            for (int index = 0; index < handleCount; index += 1)
+            {
                 anyStopped |= simulation.StopPatternVolume(token.GetHandle(index));
             }
 
             token.Invalidate();
 
-            if (anyStopped) {
+            if (anyStopped)
+            {
                 FlockLog.Info(
                     this,
                     FlockLogCategory.Controller,
@@ -124,8 +138,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             float radius,
             float thickness = -1f,
             float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
-            if (simulation == null || !simulation.IsCreated) {
+            uint behaviourMask = uint.MaxValue)
+        {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -148,8 +164,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             float radius,
             float thickness = -1f,
             float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
-            if (simulation == null || !simulation.IsCreated) {
+            uint behaviourMask = uint.MaxValue)
+        {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -171,8 +189,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             float3 halfExtents,
             float thickness = -1f,
             float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
-            if (simulation == null || !simulation.IsCreated) {
+            uint behaviourMask = uint.MaxValue)
+        {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -195,8 +215,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             float3 halfExtents,
             float thickness = -1f,
             float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
-            if (simulation == null || !simulation.IsCreated) {
+            uint behaviourMask = uint.MaxValue)
+        {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -213,8 +235,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
          * Stops a runtime Layer-3 pattern handle directly in the simulation.
          * </summary>
          */
-        public bool StopRuntimePattern(PatternVolumeHandle handle) {
-            if (simulation == null || !simulation.IsCreated) {
+        public bool StopRuntimePattern(PatternVolumeHandle handle)
+        {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -226,8 +250,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             return simulation.StopPatternVolume(handle);
         }
 
-        private bool TryValidateStartPatternVolumeInputs(PatternVolumeFlockProfile profile) {
-            if (simulation == null || !simulation.IsCreated) {
+        private bool TryValidateStartPatternVolumeInputs(PatternVolumeFlockProfile profile)
+        {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -236,7 +262,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 return false;
             }
 
-            if (profile == null) {
+            if (profile == null)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -248,8 +275,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             return true;
         }
 
-        private bool TryValidateUpdatePatternVolumeInputs(PatternVolumeToken token, PatternVolumeFlockProfile profile) {
-            if (simulation == null || !simulation.IsCreated) {
+        private bool TryValidateUpdatePatternVolumeInputs(PatternVolumeToken token, PatternVolumeFlockProfile profile)
+        {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -258,7 +287,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 return false;
             }
 
-            if (token == null) {
+            if (token == null)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -267,7 +297,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 return false;
             }
 
-            if (profile == null) {
+            if (profile == null)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -279,7 +310,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             return true;
         }
 
-        private void BakePaternVolumeProfileToScratch(PatternVolumeFlockProfile profile) {
+        private void BakePaternVolumeProfileToScratch(PatternVolumeFlockProfile profile)
+        {
             FlockEnvironmentData environmentData = BuildEnvironmentData();
 
             runtimePatternVolumeCmdScratch.Clear();
@@ -289,7 +321,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             profile.Bake(environmentData, fishTypes, runtimePatternVolumeCmdScratch, runtimePatternVolumeSphereScratch, runtimePatternVolumeBoxShellScratch);
         }
 
-        private bool StopPatternVolumeBecauseNoCommands(PatternVolumeToken token, PatternVolumeFlockProfile profile) {
+        private bool StopPatternVolumeBecauseNoCommands(PatternVolumeToken token, PatternVolumeFlockProfile profile)
+        {
             StopPatternVolume(token);
 
             FlockLog.Info(
@@ -301,12 +334,14 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             return true;
         }
 
-        private bool RebuildPatternVolumeToken(PatternVolumeToken token, PatternVolumeFlockProfile profile) {
+        private bool RebuildPatternVolumeToken(PatternVolumeToken token, PatternVolumeFlockProfile profile)
+        {
             StopPatternVolume(token);
 
             runtimePatternVolumeScratch.Clear();
 
-            if (!TryBuildRuntimePatternVolumeFromProfile(profile, runtimePatternVolumeScratch)) {
+            if (!TryBuildRuntimePatternVolumeFromProfile(profile, runtimePatternVolumeScratch))
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -326,16 +361,20 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             return true;
         }
 
-        private bool TryUpdatePatternVolumeTokenHandles(PatternVolumeToken token, PatternVolumeFlockProfile profile) {
+        private bool TryUpdatePatternVolumeTokenHandles(PatternVolumeToken token, PatternVolumeFlockProfile profile)
+        {
             bool allOk = true;
 
-            for (int index = 0; index < runtimePatternVolumeCmdScratch.Count; index += 1) {
-                if (!TryUpdatePatternVolumeCommand(token, index, runtimePatternVolumeCmdScratch[index])) {
+            for (int index = 0; index < runtimePatternVolumeCmdScratch.Count; index += 1)
+            {
+                if (!TryUpdatePatternVolumeCommand(token, index, runtimePatternVolumeCmdScratch[index]))
+                {
                     allOk = false;
                 }
             }
 
-            if (!allOk) {
+            if (!allOk)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -346,15 +385,18 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             return allOk;
         }
 
-        private bool TryUpdatePatternVolumeCommand(PatternVolumeToken token, int index, PatternVolumeCommand command) {
+        private bool TryUpdatePatternVolumeCommand(PatternVolumeToken token, int index, PatternVolumeCommand command)
+        {
             PatternVolumeHandle handle = token.GetHandle(index);
 
-            if (command.Strength <= 0f) {
+            if (command.Strength <= 0f)
+            {
                 simulation.StopPatternVolume(handle);
                 return false;
             }
 
-            switch (command.Kind) {
+            switch (command.Kind)
+            {
                 case PatternVolumeKind.SphereShell:
                     return TryUpdateSphereShellCommand(token, index, handle, command);
 
@@ -370,8 +412,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             PatternVolumeToken token,
             int index,
             PatternVolumeHandle handle,
-            PatternVolumeCommand command) {
-            if ((uint)command.PayloadIndex >= (uint)runtimePatternVolumeSphereScratch.Count) {
+            PatternVolumeCommand command)
+        {
+            if ((uint)command.PayloadIndex >= (uint)runtimePatternVolumeSphereScratch.Count)
+            {
                 return false;
             }
 
@@ -385,7 +429,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 command.Strength,
                 command.BehaviourMask);
 
-            if (ok) {
+            if (ok)
+            {
                 return true;
             }
 
@@ -398,7 +443,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 command.Strength,
                 command.BehaviourMask);
 
-            if (!newHandle.IsValid) {
+            if (!newHandle.IsValid)
+            {
                 return false;
             }
 
@@ -410,8 +456,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             PatternVolumeToken token,
             int index,
             PatternVolumeHandle handle,
-            PatternVolumeCommand command) {
-            if ((uint)command.PayloadIndex >= (uint)runtimePatternVolumeBoxShellScratch.Count) {
+            PatternVolumeCommand command)
+        {
+            if ((uint)command.PayloadIndex >= (uint)runtimePatternVolumeBoxShellScratch.Count)
+            {
                 return false;
             }
 
@@ -425,7 +473,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 command.Strength,
                 command.BehaviourMask);
 
-            if (ok) {
+            if (ok)
+            {
                 return true;
             }
 
@@ -438,7 +487,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 command.Strength,
                 command.BehaviourMask);
 
-            if (!newHandle.IsValid) {
+            if (!newHandle.IsValid)
+            {
                 return false;
             }
 
@@ -446,7 +496,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             return true;
         }
 
-        private void LogStartPatternVolumeProducedNoCommands(PatternVolumeFlockProfile profile) {
+        private void LogStartPatternVolumeProducedNoCommands(PatternVolumeFlockProfile profile)
+        {
             FlockLog.Warning(
                 this,
                 FlockLogCategory.Controller,
@@ -454,7 +505,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 this);
         }
 
-        private PatternVolumeToken CreatePatternVolumeToken(PatternVolumeFlockProfile profile) {
+        private PatternVolumeToken CreatePatternVolumeToken(PatternVolumeFlockProfile profile)
+        {
             PatternVolumeToken token = ScriptableObject.CreateInstance<PatternVolumeToken>();
             token.hideFlags = HideFlags.DontSave;
             token.SetHandles(runtimePatternVolumeScratch);
@@ -470,12 +522,14 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
 
         private bool TryBuildRuntimePatternVolumeFromProfile(
             PatternVolumeFlockProfile profile,
-            List<PatternVolumeHandle> outHandles) {
+            List<PatternVolumeHandle> outHandles)
+        {
             outHandles.Clear();
 
             BakePaternVolumeProfileToScratch(profile);
 
-            if (runtimePatternVolumeCmdScratch.Count == 0) {
+            if (runtimePatternVolumeCmdScratch.Count == 0)
+            {
                 return false;
             }
 
@@ -483,27 +537,34 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             return outHandles.Count > 0;
         }
 
-        private void AppendRuntimePatternVolumeHandles(List<PatternVolumeHandle> outHandles) {
-            for (int index = 0; index < runtimePatternVolumeCmdScratch.Count; index += 1) {
+        private void AppendRuntimePatternVolumeHandles(List<PatternVolumeHandle> outHandles)
+        {
+            for (int index = 0; index < runtimePatternVolumeCmdScratch.Count; index += 1)
+            {
                 PatternVolumeCommand command = runtimePatternVolumeCmdScratch[index];
-                if (command.Strength <= 0f) {
+                if (command.Strength <= 0f)
+                {
                     continue;
                 }
 
-                if (!TryStartRuntimeHandleFromCommand(command, out PatternVolumeHandle handle)) {
+                if (!TryStartRuntimeHandleFromCommand(command, out PatternVolumeHandle handle))
+                {
                     continue;
                 }
 
-                if (handle.IsValid) {
+                if (handle.IsValid)
+                {
                     outHandles.Add(handle);
                 }
             }
         }
 
-        private bool TryStartRuntimeHandleFromCommand(PatternVolumeCommand command, out PatternVolumeHandle handle) {
+        private bool TryStartRuntimeHandleFromCommand(PatternVolumeCommand command, out PatternVolumeHandle handle)
+        {
             handle = PatternVolumeHandle.Invalid;
 
-            switch (command.Kind) {
+            switch (command.Kind)
+            {
                 case PatternVolumeKind.SphereShell:
                     return TryStartSphereShellHandle(command, out handle);
 
@@ -520,10 +581,12 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             }
         }
 
-        private bool TryStartSphereShellHandle(PatternVolumeCommand command, out PatternVolumeHandle handle) {
+        private bool TryStartSphereShellHandle(PatternVolumeCommand command, out PatternVolumeHandle handle)
+        {
             handle = PatternVolumeHandle.Invalid;
 
-            if ((uint)command.PayloadIndex >= (uint)runtimePatternVolumeSphereScratch.Count) {
+            if ((uint)command.PayloadIndex >= (uint)runtimePatternVolumeSphereScratch.Count)
+            {
                 return false;
             }
 
@@ -539,10 +602,12 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             return true;
         }
 
-        private bool TryStartBoxShellHandle(PatternVolumeCommand command, out PatternVolumeHandle handle) {
+        private bool TryStartBoxShellHandle(PatternVolumeCommand command, out PatternVolumeHandle handle)
+        {
             handle = PatternVolumeHandle.Invalid;
 
-            if ((uint)command.PayloadIndex >= (uint)runtimePatternVolumeBoxShellScratch.Count) {
+            if ((uint)command.PayloadIndex >= (uint)runtimePatternVolumeBoxShellScratch.Count)
+            {
                 return false;
             }
 
@@ -562,10 +627,12 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             in FlockEnvironmentData environmentData,
             out PatternVolumeCommand[] commands,
             out PatternVolumeSphereShell[] sphereShells,
-            out PatternVolumeBoxShell[] boxShells) {
+            out PatternVolumeBoxShell[] boxShells)
+        {
             if (!TryCreatePatternVolumeRuntimeLists(out List<PatternVolumeCommand> commandList,
                     out List<PatternVolumeSphereShell> sphereShellList,
-                    out List<PatternVolumeBoxShell> boxShellList)) {
+                    out List<PatternVolumeBoxShell> boxShellList))
+            {
                 commands = Array.Empty<PatternVolumeCommand>();
                 sphereShells = Array.Empty<PatternVolumeSphereShell>();
                 boxShells = Array.Empty<PatternVolumeBoxShell>();
@@ -579,12 +646,14 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
         private bool TryCreatePatternVolumeRuntimeLists(
             out List<PatternVolumeCommand> commandList,
             out List<PatternVolumeSphereShell> sphereShellList,
-            out List<PatternVolumeBoxShell> boxShellList) {
+            out List<PatternVolumeBoxShell> boxShellList)
+        {
             commandList = null;
             sphereShellList = null;
             boxShellList = null;
 
-            if (layer3Patterns == null || layer3Patterns.Length == 0) {
+            if (layer3Patterns == null || layer3Patterns.Length == 0)
+            {
                 return false;
             }
 
@@ -600,10 +669,13 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             in FlockEnvironmentData environmentData,
             List<PatternVolumeCommand> commandList,
             List<PatternVolumeSphereShell> sphereShellList,
-            List<PatternVolumeBoxShell> boxShellList) {
-            for (int index = 0; index < layer3Patterns.Length; index += 1) {
+            List<PatternVolumeBoxShell> boxShellList)
+        {
+            for (int index = 0; index < layer3Patterns.Length; index += 1)
+            {
                 PatternVolumeFlockProfile profile = layer3Patterns[index];
-                if (profile == null) {
+                if (profile == null)
+                {
                     continue;
                 }
 
@@ -617,7 +689,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             List<PatternVolumeBoxShell> boxShellList,
             out PatternVolumeCommand[] commands,
             out PatternVolumeSphereShell[] sphereShells,
-            out PatternVolumeBoxShell[] boxShells) {
+            out PatternVolumeBoxShell[] boxShells)
+        {
             commands = commandList.Count > 0 ? commandList.ToArray() : Array.Empty<PatternVolumeCommand>();
             sphereShells = sphereShellList.Count > 0 ? sphereShellList.ToArray() : Array.Empty<PatternVolumeSphereShell>();
             boxShells = boxShellList.Count > 0 ? boxShellList.ToArray() : Array.Empty<PatternVolumeBoxShell>();

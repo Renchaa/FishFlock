@@ -1,11 +1,14 @@
 using Flock.Scripts.Build.Agents.Fish.Data;
-using UnityEngine;
-namespace Flock.Scripts.Build.Agents.Fish.Profiles   {
 
+using UnityEngine;
+
+namespace Flock.Scripts.Build.Agents.Fish.Profiles
+{
     [CreateAssetMenu(
         fileName = "FishTypePreset",
         menuName = "Flock/Fish Type Preset")]
-    public sealed class FishTypePreset : ScriptableObject {
+    public sealed class FishTypePreset : ScriptableObject
+    {
         [Header("Identity")]
         [SerializeField] string displayName;
 
@@ -19,7 +22,8 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles   {
         public FishBehaviourProfile BehaviourProfile => behaviourProfile;
         public GameObject Prefab => prefab;
 
-        public FlockBehaviourSettings ToSettings() {
+        public FlockBehaviourSettings ToSettings()
+        {
             return behaviourProfile != null
                 ? behaviourProfile.ToSettings()
                 : default;

@@ -1,22 +1,25 @@
-// Assets/Flock/Editor/Tests/EditorMode/Simulation/FlockSimulation_ObstacleGridDirtyStateMachine_Test.cs
-#if UNITY_EDITOR
-using System;
-using System.Reflection;
-using Flock.Scripts.Build.Agents.Fish.Data;
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
 using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
 using Flock.Scripts.Build.Influence.Environment.Data;
-using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
+using Flock.Scripts.Build.Agents.Fish.Data;
+
+using System;
+using Unity.Jobs;
+using System.Reflection;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Jobs;
 using Unity.Mathematics;
-namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
 
-    public sealed class FlockSimulation_ObstacleGrid_StateMachine_Test {
+namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation
+{
+
+    public sealed class FlockSimulation_ObstacleGrid_StateMachine_Test
+    {
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
         [Test]
-        public void ObstacleGrid_RebuildOnlyWhenDirty_ThenBecomesClean() {
+        public void ObstacleGrid_RebuildOnlyWhenDirty_ThenBecomesClean()
+        {
             var sim = new Build.Core.Simulation.Runtime.PartialFlockSimulation.FlockSimulation();
 
             var env = CreateEnvironment(
@@ -29,7 +32,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
             var behaviourSettings = new NativeArray<FlockBehaviourSettings>(1, Allocator.Persistent);
             behaviourSettings[0] = CreateBehaviourSettings(1.0f, 1.0f, 1.0f);
 
-            try {
+            try
+            {
                 sim.Initialize(
                     agentCount: 1,
                     environment: env,
@@ -55,13 +59,16 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
                 JobHandle h2 = (JobHandle)InvokePrivate(sim, "ScheduleRebuildObstacleGridIfDirty", new object[] { deps, useObstacleAvoidance });
                 Assert.That(h2, Is.EqualTo(deps));
                 Assert.That(GetPrivateField<bool>(sim, "obstacleGridDirty"), Is.False);
-            } finally {
+            }
+            finally
+            {
                 if (behaviourSettings.IsCreated) behaviourSettings.Dispose();
                 sim.Dispose();
             }
         }
 
-        private static FlockEnvironmentData CreateEnvironment(float3 o, int3 r, float s, float3 c, float3 e) {
+        private static FlockEnvironmentData CreateEnvironment(float3 o, int3 r, float s, float3 c, float3 e)
+        {
             FlockEnvironmentData env = default;
             env = SetStructMember(env, "GridOrigin", o);
             env = SetStructMember(env, "GridResolution", r);
@@ -71,7 +78,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
             return env;
         }
 
-        private static FlockBehaviourSettings CreateBehaviourSettings(float ms, float ma, float nr) {
+        private static FlockBehaviourSettings CreateBehaviourSettings(float ms, float ma, float nr)
+        {
             FlockBehaviourSettings bs = default;
             bs = SetStructMember(bs, "MaxSpeed", ms);
             bs = SetStructMember(bs, "MaxAcceleration", ma);
@@ -79,7 +87,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
             return bs;
         }
 
-        private static T SetStructMember<T>(T value, string name, object memberValue) where T : struct {
+        private static T SetStructMember<T>(T value, string name, object memberValue) where T : struct
+        {
             object boxed = value;
             Type t = typeof(T);
 
@@ -93,23 +102,25 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
             return value;
         }
 
-        private static object InvokePrivate(object target, string method, object[] args) {
+        private static object InvokePrivate(object target, string method, object[] args)
+        {
             var mi = target.GetType().GetMethod(method, BF);
             Assert.That(mi, Is.Not.Null, $"Missing method {target.GetType().Name}.{method}");
             return mi.Invoke(target, args);
         }
 
-        private static T GetPrivateField<T>(object target, string field) {
+        private static T GetPrivateField<T>(object target, string field)
+        {
             var fi = target.GetType().GetField(field, BF);
             Assert.That(fi, Is.Not.Null, $"Missing field {target.GetType().Name}.{field}");
             return (T)fi.GetValue(target);
         }
 
-        private static void SetPrivateField(object target, string field, object value) {
+        private static void SetPrivateField(object target, string field, object value)
+        {
             var fi = target.GetType().GetField(field, BF);
             Assert.That(fi, Is.Not.Null, $"Missing field {target.GetType().Name}.{field}");
             fi.SetValue(target, value);
         }
     }
 }
-#endif

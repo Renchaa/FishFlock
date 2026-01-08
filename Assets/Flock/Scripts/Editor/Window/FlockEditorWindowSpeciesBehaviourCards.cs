@@ -1,24 +1,30 @@
 #if UNITY_EDITOR
 using Flock.Scripts.Build.Agents.Fish.Profiles;
+
 using UnityEditor;
 
-namespace Flock.Scripts.Editor.Window {
+namespace Flock.Scripts.Editor.Window
+{
     /**
     * <summary>
     * Editor window UI for configuring and inspecting flock systems.
     * This partial renders the BehaviourProfile inspector as a set of consistent cards.
     * </summary>
     */
-    public sealed partial class FlockEditorWindow {
-        private void DrawBehaviourProfileInspectorCards(FishBehaviourProfile behaviourProfile) {
-            if (behaviourProfile == null) {
+    public sealed partial class FlockEditorWindow
+    {
+        private void DrawBehaviourProfileInspectorCards(FishBehaviourProfile behaviourProfile)
+        {
+            if (behaviourProfile == null)
+            {
                 return;
             }
 
             SerializedObject serializedObject = new SerializedObject(behaviourProfile);
             serializedObject.Update();
 
-            FlockEditorGUI.WithLabelWidth(EditorUI.DefaultLabelWidth, () => {
+            FlockEditorGUI.WithLabelWidth(EditorUI.DefaultLabelWidth, () =>
+            {
                 DrawBehaviourMovementCard(serializedObject);
                 DrawBehaviourNoiseCard(serializedObject);
                 DrawBehaviourSizeAndSchoolingCard(serializedObject);
@@ -33,12 +39,14 @@ namespace Flock.Scripts.Editor.Window {
                 DrawBehaviourPreferredDepthCard(serializedObject);
             });
 
-            if (serializedObject.ApplyModifiedProperties()) {
+            if (serializedObject.ApplyModifiedProperties())
+            {
                 EditorUtility.SetDirty(behaviourProfile);
             }
         }
 
-        private void DrawBehaviourMovementCard(SerializedObject serializedObject) {
+        private void DrawBehaviourMovementCard(SerializedObject serializedObject)
+        {
             FlockEditorGUI.BeginCard("Movement");
             DrawPropertyNoDecorators(serializedObject.FindProperty("maxSpeed"));
             DrawPropertyNoDecorators(serializedObject.FindProperty("maxAcceleration"));
@@ -46,7 +54,8 @@ namespace Flock.Scripts.Editor.Window {
             FlockEditorGUI.EndCard();
         }
 
-        private void DrawBehaviourNoiseCard(SerializedObject serializedObject) {
+        private void DrawBehaviourNoiseCard(SerializedObject serializedObject)
+        {
             FlockEditorGUI.BeginCard("Noise");
             DrawPropertyNoDecorators(serializedObject.FindProperty("wanderStrength"));
             DrawPropertyNoDecorators(serializedObject.FindProperty("wanderFrequency"));
@@ -57,7 +66,8 @@ namespace Flock.Scripts.Editor.Window {
             FlockEditorGUI.EndCard();
         }
 
-        private void DrawBehaviourSizeAndSchoolingCard(SerializedObject serializedObject) {
+        private void DrawBehaviourSizeAndSchoolingCard(SerializedObject serializedObject)
+        {
             FlockEditorGUI.BeginCard("Size & Schooling");
             DrawPropertyNoDecorators(serializedObject.FindProperty("bodyRadius"));
             DrawPropertyNoDecorators(serializedObject.FindProperty("schoolingSpacingFactor"));
@@ -69,14 +79,16 @@ namespace Flock.Scripts.Editor.Window {
             FlockEditorGUI.EndCard();
         }
 
-        private void DrawBehaviourNeighbourhoodCard(SerializedObject serializedObject) {
+        private void DrawBehaviourNeighbourhoodCard(SerializedObject serializedObject)
+        {
             FlockEditorGUI.BeginCard("Neighbourhood");
             DrawPropertyNoDecorators(serializedObject.FindProperty("neighbourRadius"));
             DrawPropertyNoDecorators(serializedObject.FindProperty("separationRadius"));
             FlockEditorGUI.EndCard();
         }
 
-        private void DrawBehaviourNeighbourSamplingCapsCard(SerializedObject serializedObject) {
+        private void DrawBehaviourNeighbourSamplingCapsCard(SerializedObject serializedObject)
+        {
             FlockEditorGUI.BeginCard("Neighbour Sampling Caps");
             DrawPropertyNoDecorators(serializedObject.FindProperty("maxNeighbourChecks"));
             DrawPropertyNoDecorators(serializedObject.FindProperty("maxFriendlySamples"));
@@ -84,7 +96,8 @@ namespace Flock.Scripts.Editor.Window {
             FlockEditorGUI.EndCard();
         }
 
-        private void DrawBehaviourRuleWeightsCard(SerializedObject serializedObject) {
+        private void DrawBehaviourRuleWeightsCard(SerializedObject serializedObject)
+        {
             FlockEditorGUI.BeginCard("Rule Weights");
             DrawPropertyNoDecorators(serializedObject.FindProperty("alignmentWeight"));
             DrawPropertyNoDecorators(serializedObject.FindProperty("cohesionWeight"));
@@ -93,7 +106,8 @@ namespace Flock.Scripts.Editor.Window {
             FlockEditorGUI.EndCard();
         }
 
-        private void DrawBehaviourRelationshipsCard(SerializedObject serializedObject) {
+        private void DrawBehaviourRelationshipsCard(SerializedObject serializedObject)
+        {
             FlockEditorGUI.BeginCard("Relationships");
             DrawPropertyNoDecorators(serializedObject.FindProperty("avoidanceWeight"));
             DrawPropertyNoDecorators(serializedObject.FindProperty("neutralWeight"));
@@ -102,7 +116,8 @@ namespace Flock.Scripts.Editor.Window {
             FlockEditorGUI.EndCard();
         }
 
-        private void DrawBehaviourSplitBehaviourCard(SerializedObject serializedObject) {
+        private void DrawBehaviourSplitBehaviourCard(SerializedObject serializedObject)
+        {
             FlockEditorGUI.BeginCard("Split Behaviour");
             DrawPropertyNoDecorators(serializedObject.FindProperty("splitPanicThreshold"));
             DrawPropertyNoDecorators(serializedObject.FindProperty("splitLateralWeight"));
@@ -110,13 +125,15 @@ namespace Flock.Scripts.Editor.Window {
             FlockEditorGUI.EndCard();
         }
 
-        private void DrawBehaviourAttractionCard(SerializedObject serializedObject) {
+        private void DrawBehaviourAttractionCard(SerializedObject serializedObject)
+        {
             FlockEditorGUI.BeginCard("Attraction");
             DrawPropertyNoDecorators(serializedObject.FindProperty("attractionWeight"));
             FlockEditorGUI.EndCard();
         }
 
-        private void DrawBehaviourBoundsCard(SerializedObject serializedObject) {
+        private void DrawBehaviourBoundsCard(SerializedObject serializedObject)
+        {
             FlockEditorGUI.BeginCard("Bounds");
             DrawPropertyNoDecorators(serializedObject.FindProperty("boundsWeight"));
             DrawPropertyNoDecorators(serializedObject.FindProperty("boundsTangentialDamping"));
@@ -124,7 +141,8 @@ namespace Flock.Scripts.Editor.Window {
             FlockEditorGUI.EndCard();
         }
 
-        private void DrawBehaviourGroupingCard(SerializedObject serializedObject) {
+        private void DrawBehaviourGroupingCard(SerializedObject serializedObject)
+        {
             FlockEditorGUI.BeginCard("Grouping");
             DrawPropertyNoDecorators(serializedObject.FindProperty("groupFlowWeight"));
 
@@ -139,16 +157,19 @@ namespace Flock.Scripts.Editor.Window {
             FlockEditorGUI.EndCard();
         }
 
-        private void DrawBehaviourPreferredDepthCard(SerializedObject serializedObject) {
+        private void DrawBehaviourPreferredDepthCard(SerializedObject serializedObject)
+        {
             FlockEditorGUI.BeginCard("Preferred Depth");
 
             SerializedProperty useDepthProperty = serializedObject.FindProperty("usePreferredDepth");
-            if (useDepthProperty != null) {
+            if (useDepthProperty != null)
+            {
                 DrawPropertyNoDecorators(useDepthProperty);
 
                 bool isEnabled = useDepthProperty.boolValue;
 
-                using (new EditorGUI.DisabledScope(!isEnabled)) {
+                using (new EditorGUI.DisabledScope(!isEnabled))
+                {
                     DrawPropertyNoDecorators(serializedObject.FindProperty("preferredDepthMin"));
                     DrawPropertyNoDecorators(serializedObject.FindProperty("preferredDepthMax"));
                     DrawPropertyNoDecorators(serializedObject.FindProperty("preferredDepthWeight"));

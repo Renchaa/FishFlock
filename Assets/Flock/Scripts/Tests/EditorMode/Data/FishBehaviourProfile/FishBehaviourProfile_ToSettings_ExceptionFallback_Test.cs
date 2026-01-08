@@ -1,15 +1,18 @@
-#if UNITY_EDITOR
-using System.Reflection;
 using Flock.Scripts.Build.Agents.Fish.Data;
-using Flock.Scripts.Build.Agents.Fish.Profiles;
-using NUnit.Framework;
+
 using UnityEngine;
-namespace Flock.Scripts.Tests.EditorMode.Data.FishBehaviourProfile {
-    public sealed class FishBehaviourProfile_ToSettings_ExceptionFallback_Test {
+using NUnit.Framework;
+using System.Reflection;
+
+namespace Flock.Scripts.Tests.EditorMode.Data.FishBehaviourProfile
+{
+    public sealed class FishBehaviourProfile_ToSettings_ExceptionFallback_Test
+    {
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
         [Test]
-        public void ToSettings_ClampsAndFallsBack_ForInvalidSerializedValues() {
+        public void ToSettings_ClampsAndFallsBack_ForInvalidSerializedValues()
+        {
             // Arrange
             var profile = ScriptableObject.CreateInstance<Build.Agents.Fish.Profiles.FishBehaviourProfile>();
 
@@ -70,7 +73,8 @@ namespace Flock.Scripts.Tests.EditorMode.Data.FishBehaviourProfile {
             // Preferred depth edge clamp
             Set(profile, "preferredDepthEdgeFraction", 2.0f);// -> 0.5
 
-            try {
+            try
+            {
                 // Act
                 FlockBehaviourSettings s = profile.ToSettings();
 
@@ -128,16 +132,18 @@ namespace Flock.Scripts.Tests.EditorMode.Data.FishBehaviourProfile {
 
                 // Assert: preferred depth edge clamp
                 Assert.That(s.PreferredDepthEdgeFraction, Is.EqualTo(0.5f));
-            } finally {
+            }
+            finally
+            {
                 Object.DestroyImmediate(profile);
             }
         }
 
-        private static void Set(object target, string fieldName, object value) {
+        private static void Set(object target, string fieldName, object value)
+        {
             FieldInfo fi = target.GetType().GetField(fieldName, BF);
             Assert.That(fi, Is.Not.Null, $"Missing field {target.GetType().Name}.{fieldName}");
             fi.SetValue(target, value);
         }
     }
 }
-#endif

@@ -1,6 +1,6 @@
-using Unity.Collections;
 using Unity.Burst;
 using Unity.Jobs;
+using Unity.Collections;
 
 namespace Flock.Scripts.Build.Utilities.Jobs {
     /**

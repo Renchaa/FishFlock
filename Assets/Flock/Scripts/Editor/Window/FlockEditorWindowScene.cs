@@ -1,14 +1,16 @@
 #if UNITY_EDITOR
-using Flock.Scripts.Build.Agents.Fish.Profiles;
 using Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController;
+using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
 using Flock.Scripts.Build.Core.Simulation.Runtime.Spawn;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
+using Flock.Scripts.Editor.Inspectors;
+
 using System;
 using UnityEditor;
 using UnityEngine;
-using Flock.Scripts.Editor.Inspectors;
-using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
 
-namespace Flock.Scripts.Editor.Window {
+namespace Flock.Scripts.Editor.Window
+{
     /**
     * <summary>
     * Editor window UI for configuring and inspecting flock systems.
@@ -16,23 +18,28 @@ namespace Flock.Scripts.Editor.Window {
     * inspector rendering, and editor-time synchronization.
     * </summary>
     */
-    public sealed partial class FlockEditorWindow {
-        private static bool IsTopLevelInspectableProperty(SerializedProperty property) {
-            if (property.depth != 0) {
+    public sealed partial class FlockEditorWindow
+    {
+        private static bool IsTopLevelInspectableProperty(SerializedProperty property)
+        {
+            if (property.depth != 0)
+            {
                 return false;
             }
 
             return property.propertyPath != "m_Script";
         }
 
-        private static bool IsBoundsPropertyPath(string propertyPath) {
+        private static bool IsBoundsPropertyPath(string propertyPath)
+        {
             return propertyPath == "boundsType"
                    || propertyPath == "boundsCenter"
                    || propertyPath == "boundsExtents"
                    || propertyPath == "boundsSphereRadius";
         }
 
-        private void DrawSceneSimulationPanel() {
+        private void DrawSceneSimulationPanel()
+        {
             DrawSceneSimulationHeader();
 
             EditorGUILayout.Space();
@@ -43,7 +50,8 @@ namespace Flock.Scripts.Editor.Window {
 
             EditorGUILayout.Space();
 
-            if (TryDrawMissingSceneControllerHelpBox()) {
+            if (TryDrawMissingSceneControllerHelpBox())
+            {
                 return;
             }
 
@@ -52,7 +60,8 @@ namespace Flock.Scripts.Editor.Window {
             DrawSceneControllerInspectorScrollView();
         }
 
-        private void OnEditorUpdate() {
+        private void OnEditorUpdate()
+        {
             bool shouldRepaint = false;
 
             // Global sync tick (NOT tab-gated).
@@ -60,49 +69,60 @@ namespace Flock.Scripts.Editor.Window {
 
             // Active tab update stays as-is.
             IFlockEditorTab activeTab = GetActiveTabOrNull();
-            if (activeTab != null) {
+            if (activeTab != null)
+            {
                 shouldRepaint |= activeTab.OnEditorUpdate(this);
             }
 
-            if (shouldRepaint) {
+            if (shouldRepaint)
+            {
                 Repaint();
             }
         }
 
-        private void TrySyncSpawnerFromController(FlockController controller) {
-            if (controller == null) {
+        private void TrySyncSpawnerFromController(FlockController controller)
+        {
+            if (controller == null)
+            {
                 return;
             }
 
             FlockMainSpawner spawner = controller.MainSpawner;
-            if (spawner == null) {
+            if (spawner == null)
+            {
                 return;
             }
 
             FishTypePreset[] fishTypes = controller.FishTypes;
-            if (fishTypes == null || fishTypes.Length == 0) {
+            if (fishTypes == null || fishTypes.Length == 0)
+            {
                 return;
             }
 
             FlockMainSpawnerEditor.SyncTypesFromController(spawner, fishTypes);
         }
 
-        private void RebuildSceneControllerEditor() {
+        private void RebuildSceneControllerEditor()
+        {
             EnsureEditor(ref sceneControllerEditor, sceneController);
         }
 
-        private void DestroySceneControllerEditor() {
+        private void DestroySceneControllerEditor()
+        {
             DestroyEditor(ref sceneControllerEditor);
         }
 
-        private void DrawSceneSimulationHeader() {
-            using (new EditorGUILayout.HorizontalScope()) {
+        private void DrawSceneSimulationHeader()
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
                 EditorGUILayout.LabelField("Scene / Simulation", EditorStyles.boldLabel);
                 GUILayout.FlexibleSpace();
             }
         }
 
-        private void DrawSceneControllerObjectField() {
+        private void DrawSceneControllerObjectField()
+        {
             EditorGUI.BeginChangeCheck();
             sceneController = (FlockController)EditorGUILayout.ObjectField(
                 "Scene Controller",
@@ -110,31 +130,40 @@ namespace Flock.Scripts.Editor.Window {
                 typeof(FlockController),
                 true);
 
-            if (EditorGUI.EndChangeCheck()) {
+            if (EditorGUI.EndChangeCheck())
+            {
                 DestroySceneControllerEditor();
                 ResetSceneSyncState();
 
-                if (!EditorApplication.isPlayingOrWillChangePlaymode && sceneController != null) {
+                if (!EditorApplication.isPlayingOrWillChangePlaymode && sceneController != null)
+                {
                     TryAutoSyncSetupToController(sceneController);
                 }
             }
         }
 
-        private void DrawFindInSceneButton() {
-            using (new EditorGUILayout.HorizontalScope()) {
-                if (GUILayout.Button("Find In Scene", GUILayout.Width(EditorUI.FindInSceneButtonWidth))) {
-                    FlockController foundController = FindObjectOfType<FlockController>();
+        private void DrawFindInSceneButton()
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Find In Scene", GUILayout.Width(EditorUI.FindInSceneButtonWidth)))
+                {
+                    FlockController foundController = FindAnyObjectByType<FlockController>();
 
-                    if (foundController != null) {
+                    if (foundController != null)
+                    {
                         sceneController = foundController;
 
                         DestroySceneControllerEditor();
                         ResetSceneSyncState();
 
-                        if (!EditorApplication.isPlayingOrWillChangePlaymode) {
+                        if (!EditorApplication.isPlayingOrWillChangePlaymode)
+                        {
                             TryAutoSyncSetupToController(sceneController);
                         }
-                    } else {
+                    }
+                    else
+                    {
                         EditorUtility.DisplayDialog(
                             "Flock Controller",
                             "No FlockController was found in the open scene.",
@@ -144,8 +173,10 @@ namespace Flock.Scripts.Editor.Window {
             }
         }
 
-        private bool TryDrawMissingSceneControllerHelpBox() {
-            if (sceneController != null) {
+        private bool TryDrawMissingSceneControllerHelpBox()
+        {
+            if (sceneController != null)
+            {
                 return false;
             }
 
@@ -157,13 +188,16 @@ namespace Flock.Scripts.Editor.Window {
             return true;
         }
 
-        private void EnsureSceneControllerEditor() {
-            if (sceneControllerEditor == null || sceneControllerEditor.target != sceneController) {
+        private void EnsureSceneControllerEditor()
+        {
+            if (sceneControllerEditor == null || sceneControllerEditor.target != sceneController)
+            {
                 RebuildSceneControllerEditor();
             }
         }
 
-        private void DrawSceneControllerInspectorScrollView() {
+        private void DrawSceneControllerInspectorScrollView()
+        {
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("FlockController Inspector", EditorStyles.miniBoldLabel);
 
@@ -171,9 +205,11 @@ namespace Flock.Scripts.Editor.Window {
 
             EditorGUI.BeginChangeCheck();
             DrawSceneControllerInspectorCards(sceneController);
-            if (EditorGUI.EndChangeCheck()) {
+            if (EditorGUI.EndChangeCheck())
+            {
                 // Two-way sync + centralized cross-tab refresh.
-                if (TryAutoSyncSetupToController(sceneController)) {
+                if (TryAutoSyncSetupToController(sceneController))
+                {
                     Repaint();
                 }
             }
@@ -181,13 +217,16 @@ namespace Flock.Scripts.Editor.Window {
             EditorGUILayout.EndScrollView();
         }
 
-        private bool TryRunSceneAutoSyncTick() {
-            if (_setup == null || sceneController == null || EditorApplication.isPlayingOrWillChangePlaymode) {
+        private bool TryRunSceneAutoSyncTick()
+        {
+            if (_setup == null || sceneController == null || EditorApplication.isPlayingOrWillChangePlaymode)
+            {
                 return false;
             }
 
             double currentTimeSeconds = EditorApplication.timeSinceStartup;
-            if (currentTimeSeconds < _nextSceneAutoSyncTime) {
+            if (currentTimeSeconds < _nextSceneAutoSyncTime)
+            {
                 return false;
             }
 
@@ -196,8 +235,10 @@ namespace Flock.Scripts.Editor.Window {
             return TryAutoSyncSetupToController(sceneController);
         }
 
-        private void DrawSceneControllerInspectorCards(FlockController controller) {
-            if (controller == null) {
+        private void DrawSceneControllerInspectorCards(FlockController controller)
+        {
+            if (controller == null)
+            {
                 return;
             }
 
@@ -215,21 +256,26 @@ namespace Flock.Scripts.Editor.Window {
             string currentSection = null;
             bool sectionOpen = false;
 
-            FlockEditorGUI.WithLabelWidth(EditorUI.DefaultLabelWidth, () => {
+            FlockEditorGUI.WithLabelWidth(EditorUI.DefaultLabelWidth, () =>
+            {
                 SerializedProperty iterator = serializedObject.GetIterator();
                 bool enterChildren = true;
 
-                while (iterator.NextVisible(enterChildren)) {
+                while (iterator.NextVisible(enterChildren))
+                {
                     enterChildren = false;
 
-                    if (!IsTopLevelInspectableProperty(iterator)) {
+                    if (!IsTopLevelInspectableProperty(iterator))
+                    {
                         continue;
                     }
 
                     bool isBoundsProperty = IsBoundsPropertyPath(iterator.propertyPath);
 
-                    if (!boundsCardDrawn && isBoundsProperty) {
-                        if (sectionOpen) {
+                    if (!boundsCardDrawn && isBoundsProperty)
+                    {
+                        if (sectionOpen)
+                        {
                             FlockEditorGUI.EndCard();
                             sectionOpen = false;
                             currentSection = null;
@@ -245,13 +291,17 @@ namespace Flock.Scripts.Editor.Window {
                         continue;
                     }
 
-                    if (boundsCardDrawn && isBoundsProperty) {
+                    if (boundsCardDrawn && isBoundsProperty)
+                    {
                         continue;
                     }
 
-                    if (TryGetHeaderForPropertyPath(rootType, iterator.propertyPath, out string header)) {
-                        if (!sectionOpen || !string.Equals(currentSection, header, StringComparison.Ordinal)) {
-                            if (sectionOpen) {
+                    if (TryGetHeaderForPropertyPath(rootType, iterator.propertyPath, out string header))
+                    {
+                        if (!sectionOpen || !string.Equals(currentSection, header, StringComparison.Ordinal))
+                        {
+                            if (sectionOpen)
+                            {
                                 FlockEditorGUI.EndCard();
                             }
 
@@ -259,7 +309,9 @@ namespace Flock.Scripts.Editor.Window {
                             FlockEditorGUI.BeginCard(currentSection);
                             sectionOpen = true;
                         }
-                    } else if (!sectionOpen) {
+                    }
+                    else if (!sectionOpen)
+                    {
                         currentSection = "Settings";
                         FlockEditorGUI.BeginCard(currentSection);
                         sectionOpen = true;
@@ -276,12 +328,14 @@ namespace Flock.Scripts.Editor.Window {
                     DrawPropertyNoDecorators(property, labelOverride);
                 }
 
-                if (sectionOpen) {
+                if (sectionOpen)
+                {
                     FlockEditorGUI.EndCard();
                 }
             });
 
-            if (serializedObject.ApplyModifiedProperties()) {
+            if (serializedObject.ApplyModifiedProperties())
+            {
                 EditorUtility.SetDirty(controller);
             }
         }
@@ -290,46 +344,59 @@ namespace Flock.Scripts.Editor.Window {
             SerializedProperty boundsType,
             SerializedProperty boundsCenter,
             SerializedProperty boundsExtents,
-            SerializedProperty boundsSphereRadius) {
+            SerializedProperty boundsSphereRadius)
+        {
 
-            if (boundsCenter == null && boundsExtents == null && boundsSphereRadius == null) {
+            if (boundsCenter == null && boundsExtents == null && boundsSphereRadius == null)
+            {
                 return;
             }
 
             FlockEditorGUI.BeginCard("Bounds");
             {
-                if (boundsType != null) {
+                if (boundsType != null)
+                {
                     FlockEditorGUI.PropertyFieldClamped(boundsType, true);
                 }
 
-                if (boundsCenter != null) {
+                if (boundsCenter != null)
+                {
                     FlockEditorGUI.PropertyFieldClamped(boundsCenter, true);
                 }
 
-                if (boundsType != null) {
+                if (boundsType != null)
+                {
                     FlockBoundsType boundsTypeValue = (FlockBoundsType)boundsType.enumValueIndex;
 
-                    using (new EditorGUI.IndentLevelScope()) {
-                        switch (boundsTypeValue) {
+                    using (new EditorGUI.IndentLevelScope())
+                    {
+                        switch (boundsTypeValue)
+                        {
                             case FlockBoundsType.Box:
-                                if (boundsExtents != null) {
+                                if (boundsExtents != null)
+                                {
                                     FlockEditorGUI.PropertyFieldClamped(boundsExtents, true);
                                 }
                                 break;
 
                             case FlockBoundsType.Sphere:
-                                if (boundsSphereRadius != null) {
+                                if (boundsSphereRadius != null)
+                                {
                                     FlockEditorGUI.PropertyFieldClamped(boundsSphereRadius, true);
                                 }
                                 break;
                         }
                     }
-                } else {
-                    if (boundsExtents != null) {
+                }
+                else
+                {
+                    if (boundsExtents != null)
+                    {
                         FlockEditorGUI.PropertyFieldClamped(boundsExtents, true);
                     }
 
-                    if (boundsSphereRadius != null) {
+                    if (boundsSphereRadius != null)
+                    {
                         FlockEditorGUI.PropertyFieldClamped(boundsSphereRadius, true);
                     }
                 }

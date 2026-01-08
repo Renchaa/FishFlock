@@ -2,28 +2,33 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Flock.Scripts.Editor.Window {
+namespace Flock.Scripts.Editor.Window
+{
     /**
      * <summary>
      * Editor window tab routing and active-tab lifecycle management.
      * </summary>
      */
-    public sealed partial class FlockEditorWindow {
+    public sealed partial class FlockEditorWindow
+    {
         private int activeTabIndex = -1;
         private IFlockEditorTab[] tabs;
         private string[] tabLabels;
 
-        private static string[] BuildTabLabels(IFlockEditorTab[] tabs) {
+        private static string[] BuildTabLabels(IFlockEditorTab[] tabs)
+        {
             string[] labels = new string[tabs.Length];
 
-            for (int index = 0; index < tabs.Length; index += 1) {
+            for (int index = 0; index < tabs.Length; index += 1)
+            {
                 labels[index] = tabs[index].Title;
             }
 
             return labels;
         }
 
-        private static IFlockEditorTab[] CreateTabs() {
+        private static IFlockEditorTab[] CreateTabs()
+        {
             return new IFlockEditorTab[] {
                 new SpeciesTab(),
                 new InteractionsTab(),
@@ -32,8 +37,10 @@ namespace Flock.Scripts.Editor.Window {
             };
         }
 
-        private void EnsureTabs() {
-            if (tabs != null) {
+        private void EnsureTabs()
+        {
+            if (tabs != null)
+            {
                 return;
             }
 
@@ -41,7 +48,8 @@ namespace Flock.Scripts.Editor.Window {
             tabLabels = BuildTabLabels(tabs);
         }
 
-        private void SetActiveTab(int newIndex, bool fireCallbacks) {
+        private void SetActiveTab(int newIndex, bool fireCallbacks)
+        {
             EnsureTabs();
 
             newIndex = Mathf.Clamp(newIndex, 0, tabs.Length - 1);
@@ -49,43 +57,52 @@ namespace Flock.Scripts.Editor.Window {
             if (fireCallbacks
                 && activeTabIndex >= 0
                 && activeTabIndex < tabs.Length
-                && activeTabIndex != newIndex) {
+                && activeTabIndex != newIndex)
+            {
                 tabs[activeTabIndex].OnDeactivated(this);
             }
 
             _selectedTab = (FlockEditorTabKind)newIndex;
             activeTabIndex = newIndex;
 
-            if (fireCallbacks) {
+            if (fireCallbacks)
+            {
                 tabs[activeTabIndex].OnActivated(this);
             }
         }
 
-        private IFlockEditorTab GetActiveTabOrNull() {
+        private IFlockEditorTab GetActiveTabOrNull()
+        {
             EnsureTabs();
 
-            if (activeTabIndex < 0 || activeTabIndex >= tabs.Length) {
+            if (activeTabIndex < 0 || activeTabIndex >= tabs.Length)
+            {
                 return null;
             }
 
             return tabs[activeTabIndex];
         }
 
-        private void DrawSpeciesTab() {
-            using (new EditorGUILayout.HorizontalScope()) {
+        private void DrawSpeciesTab()
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
                 DrawSpeciesListPanel();
                 DrawSpeciesDetailPanel();
             }
         }
 
-        private void DrawInteractionsTab() {
+        private void DrawInteractionsTab()
+        {
             DrawInteractionsPanel();
         }
 
-        private void DrawNoisePatternsTab() {
+        private void DrawNoisePatternsTab()
+        {
             DrawNoiseModeToolbar();
 
-            using (new EditorGUILayout.HorizontalScope()) {
+            using (new EditorGUILayout.HorizontalScope())
+            {
                 DrawNoiseListPanel();
                 DrawNoiseDetailPanel();
             }
@@ -93,18 +110,21 @@ namespace Flock.Scripts.Editor.Window {
             HandleGroupNoiseObjectPicker();
         }
 
-        private void DrawSceneSimulationTab() {
+        private void DrawSceneSimulationTab()
+        {
             DrawSceneSimulationPanel();
         }
 
-        private enum FlockEditorTabKind {
+        private enum FlockEditorTabKind
+        {
             Species = 0,
             Interactions = 1,
             NoisePatterns = 2,
             SceneSimulation = 3
         }
 
-        private interface IFlockEditorTab {
+        private interface IFlockEditorTab
+        {
             string Title { get; }
 
             void OnActivated(FlockEditorWindow window);
@@ -116,76 +136,93 @@ namespace Flock.Scripts.Editor.Window {
             void Draw(FlockEditorWindow window);
         }
 
-        private abstract class FlockEditorTabBase : IFlockEditorTab {
+        private abstract class FlockEditorTabBase : IFlockEditorTab
+        {
             public abstract string Title { get; }
 
             public virtual void OnActivated(FlockEditorWindow window) { }
 
             public virtual void OnDeactivated(FlockEditorWindow window) { }
 
-            public virtual bool OnEditorUpdate(FlockEditorWindow window) {
+            public virtual bool OnEditorUpdate(FlockEditorWindow window)
+            {
                 return false;
             }
 
             public abstract void Draw(FlockEditorWindow window);
         }
 
-        private sealed class SpeciesTab : FlockEditorTabBase {
+        private sealed class SpeciesTab : FlockEditorTabBase
+        {
             public override string Title => "Species";
 
-            public override void Draw(FlockEditorWindow window) {
+            public override void Draw(FlockEditorWindow window)
+            {
                 window.DrawSpeciesTab();
             }
         }
 
-        private sealed class InteractionsTab : FlockEditorTabBase {
+        private sealed class InteractionsTab : FlockEditorTabBase
+        {
             public override string Title => "Interactions";
 
-            public override void Draw(FlockEditorWindow window) {
+            public override void Draw(FlockEditorWindow window)
+            {
                 window.DrawInteractionsTab();
             }
         }
 
-        private sealed class NoisePatternsTab : FlockEditorTabBase {
+        private sealed class NoisePatternsTab : FlockEditorTabBase
+        {
             public override string Title => "Noise / Patterns";
 
-            public override void Draw(FlockEditorWindow window) {
+            public override void Draw(FlockEditorWindow window)
+            {
                 window.DrawNoisePatternsTab();
             }
         }
 
-        private sealed class SceneSimulationTab : FlockEditorTabBase {
+        private sealed class SceneSimulationTab : FlockEditorTabBase
+        {
             public override string Title => "Scene / Simulation";
 
             private double _nextAutoSyncTime = 0.0;
 
-            public override void OnActivated(FlockEditorWindow window) {
+            public override void OnActivated(FlockEditorWindow window)
+            {
                 _nextAutoSyncTime = 0.0;
 
-                if (window._setup == null || window.sceneController == null) {
+                if (window._setup == null || window.sceneController == null)
+                {
                     return;
                 }
 
-                if (EditorApplication.isPlayingOrWillChangePlaymode) {
+                if (EditorApplication.isPlayingOrWillChangePlaymode)
+                {
                     return;
                 }
 
-                if (window.TryAutoSyncSetupToController(window.sceneController)) {
+                if (window.TryAutoSyncSetupToController(window.sceneController))
+                {
                     window.Repaint();
                 }
             }
 
-            public override bool OnEditorUpdate(FlockEditorWindow window) {
-                if (window._setup == null || window.sceneController == null) {
+            public override bool OnEditorUpdate(FlockEditorWindow window)
+            {
+                if (window._setup == null || window.sceneController == null)
+                {
                     return false;
                 }
 
-                if (EditorApplication.isPlayingOrWillChangePlaymode) {
+                if (EditorApplication.isPlayingOrWillChangePlaymode)
+                {
                     return false;
                 }
 
                 double now = EditorApplication.timeSinceStartup;
-                if (now < _nextAutoSyncTime) {
+                if (now < _nextAutoSyncTime)
+                {
                     return false;
                 }
 
@@ -193,7 +230,8 @@ namespace Flock.Scripts.Editor.Window {
                 return window.TryAutoSyncSetupToController(window.sceneController);
             }
 
-            public override void Draw(FlockEditorWindow window) {
+            public override void Draw(FlockEditorWindow window)
+            {
                 window.DrawSceneSimulationTab();
             }
         }

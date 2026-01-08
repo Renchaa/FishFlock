@@ -1,10 +1,12 @@
-﻿using Unity.Burst;
-using Unity.Collections;
-using Unity.Jobs;
-using Unity.Mathematics;
-using Flock.Scripts.Build.Influence.PatternVolume.Data;
+﻿using Flock.Scripts.Build.Influence.PatternVolume.Data;
 
-namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
+using Unity.Jobs;
+using Unity.Burst;
+using Unity.Mathematics;
+using Unity.Collections;
+
+namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs
+{
     /**
      * <summary>
      * Layer-3 pattern: soft constraint towards an axis-aligned box shell.
@@ -13,32 +15,22 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
      * </summary>
      */
     [BurstCompile]
-    public struct PatternVolumeBoxShellJob : IJobParallelFor, IPatternVolumeJob {
+    public struct PatternVolumeBoxShellJob : IJobParallelFor, IPatternVolumeJob
+    {
         private const float MinimumVectorLengthSquared = 1e-8f;
         private const float MinimumComponentEpsilon = 1e-5f;
         private const float MinimumThicknessEpsilon = 0.0001f;
         private const float ComfortBandCorrectionStrength = 0.25f;
 
-        [ReadOnly]
-        public NativeArray<float3> Positions;
+        [ReadOnly] public NativeArray<int> BehaviourIds;
+        [ReadOnly] public NativeArray<float3> Positions;
+        [ReadOnly] public float3 Center;
+        [ReadOnly] public float3 HalfExtents;
+        [ReadOnly] public uint BehaviourMask;
 
-        [ReadOnly]
-        public NativeArray<int> BehaviourIds;
+        [ReadOnly] public float Thickness;
+        [ReadOnly] public float Strength;
 
-        [ReadOnly]
-        public float3 Center;
-
-        [ReadOnly]
-        public float3 HalfExtents;
-
-        [ReadOnly]
-        public float Thickness;
-
-        [ReadOnly]
-        public float Strength;
-
-        [ReadOnly]
-        public uint BehaviourMask;
 
         public NativeArray<float3> PatternSteering;
 
@@ -52,7 +44,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
             NativeArray<int> behaviourIds,
             NativeArray<float3> patternSteering,
             uint behaviourMask,
-            float strength) {
+            float strength)
+        {
 
             Positions = positions;
             BehaviourIds = behaviourIds;
@@ -61,16 +54,20 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
             Strength = strength;
         }
 
-        public void Execute(int index) {
-            if (!IsIndexValid(index)) {
+        public void Execute(int index)
+        {
+            if (!IsIndexValid(index))
+            {
                 return;
             }
 
-            if (!IsBoxShellEnabled()) {
+            if (!IsBoxShellEnabled())
+            {
                 return;
             }
 
-            if (!PassesBehaviourMask(index)) {
+            if (!PassesBehaviourMask(index))
+            {
                 return;
             }
 
@@ -85,7 +82,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
 
             float axisDistance = math.abs(signedAxisDistance);
 
-            if (axisDistance < MinimumComponentEpsilon && dominantAxisNormalizedDistance < 1f) {
+            if (axisDistance < MinimumComponentEpsilon && dominantAxisNormalizedDistance < 1f)
+            {
                 return;
             }
 
@@ -95,7 +93,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
             PatternSteering[index] += radialDirection * radialScalar * Strength;
         }
 
-        private bool IsIndexValid(int index) {
+        private bool IsIndexValid(int index)
+        {
             return PatternSteering.IsCreated
                    && Positions.IsCreated
                    && index >= 0
@@ -103,7 +102,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
                    && index < PatternSteering.Length;
         }
 
-        private bool IsBoxShellEnabled() {
+        private bool IsBoxShellEnabled()
+        {
             return Strength > 0f
                    && Thickness > 0f
                    && HalfExtents.x > 0f
@@ -111,21 +111,26 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
                    && HalfExtents.z > 0f;
         }
 
-        private bool PassesBehaviourMask(int index) {
-            if (!BehaviourIds.IsCreated) {
+        private bool PassesBehaviourMask(int index)
+        {
+            if (!BehaviourIds.IsCreated)
+            {
                 return true;
             }
 
             int behaviourIndex = 0;
-            if (index >= 0 && index < BehaviourIds.Length) {
+            if (index >= 0 && index < BehaviourIds.Length)
+            {
                 behaviourIndex = BehaviourIds[index];
             }
 
-            if (BehaviourMask == uint.MaxValue) {
+            if (BehaviourMask == uint.MaxValue)
+            {
                 return true;
             }
 
-            if (behaviourIndex < 0 || behaviourIndex >= 32) {
+            if (behaviourIndex < 0 || behaviourIndex >= 32)
+            {
                 return false;
             }
 
@@ -136,7 +141,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
         private static int GetDominantAxis(
             float3 absoluteRelative,
             float3 halfExtents,
-            out float dominantAxisNormalizedDistance) {
+            out float dominantAxisNormalizedDistance)
+        {
 
             float3 normalized = new float3(
                 absoluteRelative.x / math.max(halfExtents.x, MinimumComponentEpsilon),
@@ -146,12 +152,14 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
             int axis = 0;
             float axisValue = normalized.x;
 
-            if (normalized.y > axisValue) {
+            if (normalized.y > axisValue)
+            {
                 axis = 1;
                 axisValue = normalized.y;
             }
 
-            if (normalized.z > axisValue) {
+            if (normalized.z > axisValue)
+            {
                 axis = 2;
                 axisValue = normalized.z;
             }
@@ -165,9 +173,11 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
             float3 halfExtents,
             int axis,
             out float signedAxisDistance,
-            out float axisHalfExtent) {
+            out float axisHalfExtent)
+        {
 
-            switch (axis) {
+            switch (axis)
+            {
                 case 0:
                     signedAxisDistance = relative.x;
                     axisHalfExtent = halfExtents.x;
@@ -185,18 +195,21 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
             }
         }
 
-        private static float ComputeRadialScalar(float axisDistance, float axisHalfExtent, float thickness) {
+        private static float ComputeRadialScalar(float axisDistance, float axisHalfExtent, float thickness)
+        {
             float bandWidth = math.max(thickness, MinimumThicknessEpsilon);
 
             float inner = math.max(axisHalfExtent - thickness, 0f);
             float outer = axisHalfExtent + thickness;
 
-            if (axisDistance < inner) {
+            if (axisDistance < inner)
+            {
                 float tInner = math.saturate((inner - axisDistance) / bandWidth);
                 return +tInner;
             }
 
-            if (axisDistance > outer) {
+            if (axisDistance > outer)
+            {
                 float tOuter = math.saturate((axisDistance - outer) / bandWidth);
                 return -tOuter;
             }
@@ -209,10 +222,12 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
             return sign * soften * ComfortBandCorrectionStrength;
         }
 
-        private static float3 GetAxisDirection(int axis, float signedAxisDistance) {
+        private static float3 GetAxisDirection(int axis, float signedAxisDistance)
+        {
             float signAxis = signedAxisDistance >= 0f ? 1f : -1f;
 
-            switch (axis) {
+            switch (axis)
+            {
                 case 0:
                     return new float3(signAxis, 0f, 0f);
 

@@ -1,15 +1,18 @@
-#if UNITY_EDITOR
-using Flock.Scripts.Build.Agents.Fish.Data;
-using Flock.Scripts.Build.Infrastructure.Grid.Data;
 using Flock.Scripts.Build.Infrastructure.Grid.Jobs;
+using Flock.Scripts.Build.Infrastructure.Grid.Data;
+using Flock.Scripts.Build.Agents.Fish.Data;
+
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
 
-namespace Flock.Scripts.Tests.EditorMode.Jobs.NeighbourAggregate {
-    public sealed class NeighbourAggregateJob_LeadershipTests {
+namespace Flock.Scripts.Tests.EditorMode.Jobs.NeighbourAggregate
+{
+    public sealed class NeighbourAggregateJob_LeadershipTests
+    {
         [Test]
-        public void Execute_LeadershipUpgrade_ThenTieSampling_AccumulatesAlignmentFromTopLeadersOnly() {
+        public void Execute_LeadershipUpgrade_ThenTieSampling_AccumulatesAlignmentFromTopLeadersOnly()
+        {
             // agent0 observes 3 friendly neighbours:
             // agent1 leadership 5 (upgrade)
             // agent2 leadership 5 (tie -> included)
@@ -33,7 +36,8 @@ namespace Flock.Scripts.Tests.EditorMode.Jobs.NeighbourAggregate {
 
             var outAgg = new NativeArray<Build.Agents.Fish.Data.NeighbourAggregate>(agentCount, Allocator.Temp);
 
-            try {
+            try
+            {
                 positions[0] = new float3(0f, 0f, 0f);
                 positions[1] = new float3(distance, 0f, 0f);
                 positions[2] = new float3(distance, 0f, 0f);
@@ -50,7 +54,8 @@ namespace Flock.Scripts.Tests.EditorMode.Jobs.NeighbourAggregate {
                 behaviourIds[3] = 3;
 
                 // Observer: all three neighbour behaviours are friendly
-                behaviourSettings[0] = new FlockBehaviourSettings {
+                behaviourSettings[0] = new FlockBehaviourSettings
+                {
                     NeighbourRadius = neighbourRadius,
                     SeparationRadius = 0.1f,
                     BodyRadius = 0f,
@@ -80,7 +85,8 @@ namespace Flock.Scripts.Tests.EditorMode.Jobs.NeighbourAggregate {
                 for (int i = 0; i < agentCount; i++)
                     cellPairs[i] = new CellAgentPair { AgentIndex = i };
 
-                var job = new NeighbourAggregateJob {
+                var job = new NeighbourAggregateJob
+                {
                     Positions = positions,
                     PrevVelocities = prevVel,
 
@@ -114,7 +120,9 @@ namespace Flock.Scripts.Tests.EditorMode.Jobs.NeighbourAggregate {
                 Assert.That(a0.AlignmentSum.z, Is.EqualTo(expectedAlignmentSum.z).Within(1e-4f));
 
                 Assert.That(a0.AlignmentWeightSum, Is.EqualTo(expectedWeightSum).Within(1e-4f));
-            } finally {
+            }
+            finally
+            {
                 positions.Dispose();
                 prevVel.Dispose();
                 behaviourIds.Dispose();
@@ -128,4 +136,3 @@ namespace Flock.Scripts.Tests.EditorMode.Jobs.NeighbourAggregate {
         }
     }
 }
-#endif

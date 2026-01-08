@@ -1,21 +1,26 @@
-#if UNITY_EDITOR
-using System;
-using System.Reflection;
-using Flock.Scripts.Build.Agents.Fish.Data;
 using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
-using Flock.Scripts.Build.Influence.Environment.Data;
 using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Agents.Fish.Data;
+
+using System;
 using NUnit.Framework;
 using Unity.Collections;
+using System.Reflection;
 using Unity.Mathematics;
-namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
-    public sealed class FlockSimulation_AllocateAttractors_SphereDepthNormalization_Test {
+
+namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation
+{
+    public sealed class FlockSimulation_AllocateAttractors_SphereDepthNormalization_Test
+    {
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
         [Test]
-        public void AllocateAttractors_ComputesSphereDepthMinMaxNorm_WithSwapAndSaturate() {
+        public void AllocateAttractors_ComputesSphereDepthMinMaxNorm_WithSwapAndSaturate()
+        {
             // Environment Y range: [-5..+5] => height=10
-            FlockEnvironmentData env = new FlockEnvironmentData {
+            FlockEnvironmentData env = new FlockEnvironmentData
+            {
                 GridOrigin = new float3(0f, 0f, 0f),
                 GridResolution = new int3(1, 1, 1),
                 CellSize = 1.0f,
@@ -24,7 +29,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
             };
 
             var settings = new NativeArray<FlockBehaviourSettings>(1, Allocator.Persistent);
-            settings[0] = new FlockBehaviourSettings {
+            settings[0] = new FlockBehaviourSettings
+            {
                 MaxSpeed = 1f,
                 MaxAcceleration = 1f,
                 NeighbourRadius = 1f,
@@ -37,19 +43,22 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
             // A2: y=10, radius=2 => world [8..12] => norm [>1 .. >1] => saturate => [1..1]
             FlockAttractorData[] src = new FlockAttractorData[3];
 
-            src[0] = new FlockAttractorData {
+            src[0] = new FlockAttractorData
+            {
                 Shape = FlockAttractorShape.Sphere,
                 Position = new float3(0f, 0f, 0f),
                 Radius = 2f
             };
 
-            src[1] = new FlockAttractorData {
+            src[1] = new FlockAttractorData
+            {
                 Shape = FlockAttractorShape.Sphere,
                 Position = new float3(0f, 0f, 0f),
                 Radius = -2f
             };
 
-            src[2] = new FlockAttractorData {
+            src[2] = new FlockAttractorData
+            {
                 Shape = FlockAttractorShape.Sphere,
                 Position = new float3(0f, 10f, 0f),
                 Radius = 2f
@@ -57,7 +66,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
 
             var sim = new Build.Core.Simulation.Runtime.PartialFlockSimulation.FlockSimulation();
 
-            try {
+            try
+            {
                 sim.Initialize(
                     agentCount: 1,
                     environment: env,
@@ -82,17 +92,19 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
                 // A2 saturate to [1..1]
                 Assert.That(attractors[2].DepthMinNorm, Is.EqualTo(1.0f).Within(1e-6f));
                 Assert.That(attractors[2].DepthMaxNorm, Is.EqualTo(1.0f).Within(1e-6f));
-            } finally {
+            }
+            finally
+            {
                 if (settings.IsCreated) settings.Dispose();
                 sim.Dispose();
             }
         }
 
-        private static T GetPrivateField<T>(object target, string fieldName) {
+        private static T GetPrivateField<T>(object target, string fieldName)
+        {
             FieldInfo fi = target.GetType().GetField(fieldName, BF);
             Assert.That(fi, Is.Not.Null, $"Missing field {target.GetType().Name}.{fieldName}");
             return (T)fi.GetValue(target);
         }
     }
 }
-#endif

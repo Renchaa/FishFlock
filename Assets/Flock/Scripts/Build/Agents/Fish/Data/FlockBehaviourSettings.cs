@@ -1,11 +1,12 @@
-namespace Flock.Scripts.Build.Agents.Fish.Data {
-
+namespace Flock.Scripts.Build.Agents.Fish.Data
+{
     /**
      * <summary>
      * Runtime behaviour settings snapshot for a single fish type.
      * </summary>
      */
-    public struct FlockBehaviourSettings {
+    public struct FlockBehaviourSettings
+    {
         // Movement / Flow
         public float MaxSpeed;
         public float MaxAcceleration;

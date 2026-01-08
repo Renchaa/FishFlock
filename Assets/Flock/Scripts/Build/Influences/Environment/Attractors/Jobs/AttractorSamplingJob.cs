@@ -1,48 +1,39 @@
 ﻿using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Jobs;
-using Unity.Mathematics;
 using Flock.Scripts.Build.Agents.Fish.Data;
 
-namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
+using Unity.Jobs;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Mathematics;
+
+namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs
+{
     /**
      * <summary>
      * Samples the winning per-cell individual attractor and writes a per-agent attraction steering vector.
      * </summary>
      */
     [BurstCompile]
-    public struct AttractorSamplingJob : IJobParallelFor {
-        [ReadOnly]
-        public NativeArray<float3> Positions;
+    public struct AttractorSamplingJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<float3> Positions;
+        [ReadOnly] public NativeArray<int> BehaviourIds;
+        [ReadOnly] public NativeArray<FlockAttractorData> Attractors;
 
-        [ReadOnly]
-        public NativeArray<int> BehaviourIds;
+        [ReadOnly] public NativeArray<int> CellToIndividualAttractor;
 
-        [ReadOnly]
-        public NativeArray<FlockAttractorData> Attractors;
+        [ReadOnly] public float3 GridOrigin;
+        [ReadOnly] public int3 GridResolution;
+        [ReadOnly] public float CellSize;
 
+        [ReadOnly] public NativeArray<FlockBehaviourSettings> BehaviourSettings;
 
-        [ReadOnly]
-        public NativeArray<int> CellToIndividualAttractor;
+        [NativeDisableParallelForRestriction] public NativeArray<float3> AttractionSteering;
 
-        [ReadOnly]
-        public float3 GridOrigin;
-
-        [ReadOnly]
-        public int3 GridResolution;
-
-        [ReadOnly]
-        public float CellSize;
-
-        [ReadOnly]
-        public NativeArray<FlockBehaviourSettings> BehaviourSettings;
-
-        [NativeDisableParallelForRestriction]
-        public NativeArray<float3> AttractionSteering;
-
-        public void Execute(int index) {
-            if (TryComputeAttractionSteering(index, out float3 steering)) {
+        public void Execute(int index)
+        {
+            if (TryComputeAttractionSteering(index, out float3 steering))
+            {
                 AttractionSteering[index] = steering;
                 return;
             }
@@ -50,30 +41,36 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
             AttractionSteering[index] = float3.zero;
         }
 
-        private bool TryComputeAttractionSteering(int index, out float3 steering) {
+        private bool TryComputeAttractionSteering(int index, out float3 steering)
+        {
             float3 position = Positions[index];
 
-            if (!TryGetTypeResponse(index, out int behaviourIndex, out float typeResponse)) {
+            if (!TryGetTypeResponse(index, out int behaviourIndex, out float typeResponse))
+            {
                 steering = float3.zero;
                 return false;
             }
 
-            if (!TryGetAttractorForPosition(position, out FlockAttractorData attractorData)) {
+            if (!TryGetAttractorForPosition(position, out FlockAttractorData attractorData))
+            {
                 steering = float3.zero;
                 return false;
             }
 
-            if (!PassesAffectedTypesMask(behaviourIndex, attractorData)) {
+            if (!PassesAffectedTypesMask(behaviourIndex, attractorData))
+            {
                 steering = float3.zero;
                 return false;
             }
 
-            if (ShouldIgnoreAttractorDueToDepthConflict(behaviourIndex, attractorData)) {
+            if (ShouldIgnoreAttractorDueToDepthConflict(behaviourIndex, attractorData))
+            {
                 steering = float3.zero;
                 return false;
             }
 
-            if (!TryGetNormalisedDistanceToBoundary(position, attractorData, out float3 offset, out float distance, out float normalisedDistance)) {
+            if (!TryGetNormalisedDistanceToBoundary(position, attractorData, out float3 offset, out float distance, out float normalisedDistance))
+            {
                 steering = float3.zero;
                 return false;
             }
@@ -81,10 +78,12 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
             return TryComputeBoundaryAttractionSteering(attractorData, typeResponse, offset, distance, normalisedDistance, out steering);
         }
 
-        private bool TryGetTypeResponse(int agentIndex, out int behaviourIndex, out float typeResponse) {
+        private bool TryGetTypeResponse(int agentIndex, out int behaviourIndex, out float typeResponse)
+        {
             behaviourIndex = BehaviourIds[agentIndex];
 
-            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
+            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length)
+            {
                 typeResponse = 0f;
                 return false;
             }
@@ -96,17 +95,20 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
                    && CellToIndividualAttractor.Length != 0;
         }
 
-        private bool TryGetAttractorForPosition(float3 position, out FlockAttractorData attractorData) {
+        private bool TryGetAttractorForPosition(float3 position, out FlockAttractorData attractorData)
+        {
             int cellIndex = GetCellIndex(position);
 
-            if ((uint)cellIndex >= (uint)CellToIndividualAttractor.Length) {
+            if ((uint)cellIndex >= (uint)CellToIndividualAttractor.Length)
+            {
                 attractorData = default;
                 return false;
             }
 
             int attractorIndex = CellToIndividualAttractor[cellIndex];
 
-            if ((uint)attractorIndex >= (uint)Attractors.Length) {
+            if ((uint)attractorIndex >= (uint)Attractors.Length)
+            {
                 attractorData = default;
                 return false;
             }
@@ -115,8 +117,10 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
             return true;
         }
 
-        private static bool PassesAffectedTypesMask(int behaviourIndex, in FlockAttractorData data) {
-            if (behaviourIndex < 32 && data.AffectedTypesMask != uint.MaxValue) {
+        private static bool PassesAffectedTypesMask(int behaviourIndex, in FlockAttractorData data)
+        {
+            if (behaviourIndex < 32 && data.AffectedTypesMask != uint.MaxValue)
+            {
                 uint bit = 1u << behaviourIndex;
                 return (data.AffectedTypesMask & bit) != 0u;
             }
@@ -124,14 +128,17 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
             return true;
         }
 
-        private bool ShouldIgnoreAttractorDueToDepthConflict(int behaviourIndex, in FlockAttractorData data) {
-            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
+        private bool ShouldIgnoreAttractorDueToDepthConflict(int behaviourIndex, in FlockAttractorData data)
+        {
+            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length)
+            {
                 return false;
             }
 
             FlockBehaviourSettings b = BehaviourSettings[behaviourIndex];
 
-            if (b.UsePreferredDepth == 0) {
+            if (b.UsePreferredDepth == 0)
+            {
                 return false;
             }
 
@@ -154,8 +161,10 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
             return (overlapMaximum - overlapMinimum) <= MinimumOverlap && depthWins;
         }
 
-        private static void NormaliseBand(ref float minimum, ref float maximum) {
-            if (maximum >= minimum) {
+        private static void NormaliseBand(ref float minimum, ref float maximum)
+        {
+            if (maximum >= minimum)
+            {
                 return;
             }
 
@@ -169,14 +178,17 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
             in FlockAttractorData data,
             out float3 offset,
             out float distance,
-            out float normalisedDistanceToBoundary) {
-            if (data.Shape == FlockAttractorShape.Sphere) {
+            out float normalisedDistanceToBoundary)
+        {
+            if (data.Shape == FlockAttractorShape.Sphere)
+            {
                 offset = data.Position - position;
                 distance = math.length(offset);
 
                 float radius = math.max(data.Radius, 0.0001f);
 
-                if (distance > radius) {
+                if (distance > radius)
+                {
                     normalisedDistanceToBoundary = 0f;
                     return false;
                 }
@@ -196,7 +208,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
 
             float maxComponent = math.max(normalised.x, math.max(normalised.y, normalised.z));
 
-            if (maxComponent > 1.0f) {
+            if (maxComponent > 1.0f)
+            {
                 offset = float3.zero;
                 distance = 0f;
                 normalisedDistanceToBoundary = 0f;
@@ -216,10 +229,12 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
             float3 offset,
             float distance,
             float normalisedDistanceToBoundary,
-            out float3 steering) {
+            out float3 steering)
+        {
             const float InnerRegionFraction = 0.6f;
 
-            if (normalisedDistanceToBoundary <= InnerRegionFraction) {
+            if (normalisedDistanceToBoundary <= InnerRegionFraction)
+            {
                 steering = float3.zero;
                 return false;
             }
@@ -232,7 +247,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
 
             float strength = data.BaseStrength * typeResponse * falloff;
 
-            if (strength <= 0.0f || distance < 1e-4f) {
+            if (strength <= 0.0f || distance < 1e-4f)
+            {
                 steering = float3.zero;
                 return false;
             }
@@ -242,7 +258,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
             return true;
         }
 
-        private int GetCellIndex(float3 position) {
+        private int GetCellIndex(float3 position)
+        {
             float safeCellSize = math.max(CellSize, 0.0001f);
             float3 local = (position - GridOrigin) / safeCellSize;
 
@@ -252,7 +269,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
             if (cellCoordinates.x < 0 || cellCoordinates.y < 0 || cellCoordinates.z < 0
                 || cellCoordinates.x >= gridResolution.x
                 || cellCoordinates.y >= gridResolution.y
-                || cellCoordinates.z >= gridResolution.z) {
+                || cellCoordinates.z >= gridResolution.z)
+            {
                 return -1;
             }
 

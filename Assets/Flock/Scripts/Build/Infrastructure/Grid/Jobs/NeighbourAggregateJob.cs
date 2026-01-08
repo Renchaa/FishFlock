@@ -1,11 +1,13 @@
-﻿using Flock.Scripts.Build.Agents.Fish.Data;
-using Flock.Scripts.Build.Infrastructure.Grid.Data;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Jobs;
-using Unity.Mathematics;
+﻿using Flock.Scripts.Build.Infrastructure.Grid.Data;
+using Flock.Scripts.Build.Agents.Fish.Data;
 
-namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
+using Unity.Jobs;
+using Unity.Burst;
+using Unity.Mathematics;
+using Unity.Collections;
+
+namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs
+{
     /**
     * <summary>
     * Produces stable per-agent aggregate buffers.
@@ -13,43 +15,26 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
     * </summary>
     */
     [BurstCompile]
-    public struct NeighbourAggregateJob : IJobParallelFor {
-        [ReadOnly]
-        public NativeArray<float3> Positions;
+    public struct NeighbourAggregateJob : IJobParallelFor
+    {
+        // Inputs (agent state)
+        [ReadOnly] public NativeArray<float3> Positions;
+        [ReadOnly] public NativeArray<float3> PrevVelocities;
 
-        [ReadOnly]
-        public NativeArray<float3> PrevVelocities;
+        [ReadOnly] public NativeArray<int> BehaviourIds;
+        [ReadOnly] public NativeArray<FlockBehaviourSettings> BehaviourSettings;
+        [ReadOnly] public NativeArray<int> BehaviourCellSearchRadius;
 
-        [ReadOnly]
-        public NativeArray<int> BehaviourIds;
+        // Inputs (packed grid)
+        [ReadOnly] public NativeArray<int> CellAgentStarts;
+        [ReadOnly] public NativeArray<int> CellAgentCounts;
+        [ReadOnly] public NativeArray<CellAgentPair> CellAgentPairs;
 
-        [ReadOnly]
-        public NativeArray<FlockBehaviourSettings> BehaviourSettings;
+        [ReadOnly] public float3 GridOrigin;
+        [ReadOnly] public int3 GridResolution;
+        [ReadOnly] public float CellSize;
 
-        [ReadOnly]
-        public NativeArray<int> BehaviourCellSearchRadius;
-
-        [ReadOnly]
-        public NativeArray<int> CellAgentStarts;
-
-        [ReadOnly]
-        public NativeArray<int> CellAgentCounts;
-
-        [ReadOnly]
-        public NativeArray<CellAgentPair> CellAgentPairs;
-
-        [ReadOnly]
-        public float3 GridOrigin;
-
-        [ReadOnly]
-        public int3 GridResolution;
-
-        [ReadOnly]
-        public float CellSize;
-
-        [NativeDisableParallelForRestriction]
-        public NativeArray<NeighbourAggregate> OutAggregates;
-
+        [NativeDisableParallelForRestriction] public NativeArray<NeighbourAggregate> OutAggregates;
 
         /**
         * <summary>
@@ -57,8 +42,10 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
         * </summary>
         * <param name="agentIndex">The agent index to process.</param>
         */
-        public void Execute(int agentIndex) {
-            if (!TryGetBehaviourSettings(agentIndex, out int behaviourIndex, out FlockBehaviourSettings behaviourSettings)) {
+        public void Execute(int agentIndex)
+        {
+            if (!TryGetBehaviourSettings(agentIndex, out int behaviourIndex, out FlockBehaviourSettings behaviourSettings))
+            {
                 OutAggregates[agentIndex] = default;
                 return;
             }
@@ -71,7 +58,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             OutAggregates[agentIndex] = accumulator.ToAggregate();
         }
 
-        private static uint ComputeHash32(uint value) {
+        private static uint ComputeHash32(uint value)
+        {
             value ^= value >> 16;
             value *= 0x7FEB352Du;
             value ^= value >> 15;
@@ -80,10 +68,12 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             return value;
         }
 
-        private bool TryGetBehaviourSettings(int agentIndex, out int behaviourIndex, out FlockBehaviourSettings behaviourSettings) {
+        private bool TryGetBehaviourSettings(int agentIndex, out int behaviourIndex, out FlockBehaviourSettings behaviourSettings)
+        {
             behaviourIndex = BehaviourIds[agentIndex];
 
-            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
+            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length)
+            {
                 behaviourSettings = default;
                 return false;
             }
@@ -97,12 +87,14 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             int agentBehaviourIndex,
             FlockBehaviourSettings agentBehaviourSettings,
             ref NeighbourAggregateAccumulator accumulator,
-            ref NeighbourDeduplication deduplication) {
+            ref NeighbourDeduplication deduplication)
+        {
             NeighbourScanState scanState = CreateScanState(agentIndex, agentBehaviourIndex, agentBehaviourSettings);
             ScanNeighbourCells(ref scanState, ref accumulator, ref deduplication);
         }
 
-        private NeighbourScanState CreateScanState(int agentIndex, int agentBehaviourIndex, FlockBehaviourSettings agentBehaviourSettings) {
+        private NeighbourScanState CreateScanState(int agentIndex, int agentBehaviourIndex, FlockBehaviourSettings agentBehaviourSettings)
+        {
             float neighbourRadius = agentBehaviourSettings.NeighbourRadius;
             float separationRadius = agentBehaviourSettings.SeparationRadius;
 
@@ -144,8 +136,10 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             return scanState;
         }
 
-        private int GetCellRange(int agentBehaviourIndex) {
-            if (BehaviourCellSearchRadius.IsCreated && (uint)agentBehaviourIndex < (uint)BehaviourCellSearchRadius.Length) {
+        private int GetCellRange(int agentBehaviourIndex)
+        {
+            if (BehaviourCellSearchRadius.IsCreated && (uint)agentBehaviourIndex < (uint)BehaviourCellSearchRadius.Length)
+            {
                 return math.max(BehaviourCellSearchRadius[agentBehaviourIndex], 1);
             }
 
@@ -155,7 +149,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
         private void ScanNeighbourCells(
             ref NeighbourScanState scanState,
             ref NeighbourAggregateAccumulator accumulator,
-            ref NeighbourDeduplication deduplication) {
+            ref NeighbourDeduplication deduplication)
+        {
             for (int xIndex = -scanState.CellRange; xIndex <= scanState.CellRange && !scanState.ShouldStopAll; xIndex++)
                 for (int yIndex = -scanState.CellRange; yIndex <= scanState.CellRange && !scanState.ShouldStopAll; yIndex++)
                     for (int zIndex = -scanState.CellRange; zIndex <= scanState.CellRange && !scanState.ShouldStopAll; zIndex++)
@@ -166,22 +161,26 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             int3 cellOffset,
             ref NeighbourScanState scanState,
             ref NeighbourAggregateAccumulator accumulator,
-            ref NeighbourDeduplication deduplication) {
+            ref NeighbourDeduplication deduplication)
+        {
             int3 neighbourCell = scanState.BaseCell + cellOffset;
-            if (!IsCellInsideGrid(neighbourCell)) {
+            if (!IsCellInsideGrid(neighbourCell))
+            {
                 return;
             }
 
             int cellId = GetCellId(neighbourCell);
             int countInCell = CellAgentCounts[cellId];
 
-            if (countInCell <= 0) {
+            if (countInCell <= 0)
+            {
                 return;
             }
 
             int startInCell = CellAgentStarts[cellId];
 
-            for (int pairIndex = 0; pairIndex < countInCell && !scanState.ShouldStopAll; pairIndex++) {
+            for (int pairIndex = 0; pairIndex < countInCell && !scanState.ShouldStopAll; pairIndex++)
+            {
                 int neighbourIndex = CellAgentPairs[startInCell + pairIndex].AgentIndex;
                 TryAccumulateNeighbour(neighbourIndex, ref scanState, ref accumulator, ref deduplication);
             }
@@ -191,16 +190,20 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             int neighbourIndex,
             ref NeighbourScanState scanState,
             ref NeighbourAggregateAccumulator accumulator,
-            ref NeighbourDeduplication deduplication) {
-            if (neighbourIndex == scanState.AgentIndex) {
+            ref NeighbourDeduplication deduplication)
+        {
+            if (neighbourIndex == scanState.AgentIndex)
+            {
                 return;
             }
 
-            if (deduplication.IsVisitedOrMark(neighbourIndex)) {
+            if (deduplication.IsVisitedOrMark(neighbourIndex))
+            {
                 return;
             }
 
-            if (scanState.MaximumNeighbourChecks > 0 && scanState.NeighbourChecks >= scanState.MaximumNeighbourChecks) {
+            if (scanState.MaximumNeighbourChecks > 0 && scanState.NeighbourChecks >= scanState.MaximumNeighbourChecks)
+            {
                 scanState.ShouldStopAll = true;
                 return;
             }
@@ -211,12 +214,14 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             float3 offset = neighbourPosition - scanState.AgentPosition;
 
             float distanceSquared = math.lengthsq(offset);
-            if (distanceSquared < 1e-6f) {
+            if (distanceSquared < 1e-6f)
+            {
                 return;
             }
 
             int neighbourBehaviourIndex = BehaviourIds[neighbourIndex];
-            if ((uint)neighbourBehaviourIndex >= (uint)BehaviourSettings.Length) {
+            if ((uint)neighbourBehaviourIndex >= (uint)BehaviourSettings.Length)
+            {
                 return;
             }
 
@@ -226,7 +231,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             bool withinHardRadius = hardRadiusSquared > 0f && distanceSquared < hardRadiusSquared;
             bool withinNeighbourRadius = distanceSquared <= scanState.NeighbourRadiusSquared;
 
-            if (!withinHardRadius && !withinNeighbourRadius) {
+            if (!withinHardRadius && !withinNeighbourRadius)
+            {
                 return;
             }
 
@@ -234,11 +240,13 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             float distance = distanceSquared * inverseDistance;
             float3 directionUnit = offset * inverseDistance;
 
-            if (withinHardRadius) {
+            if (withinHardRadius)
+            {
                 ApplyHardSeparation(ref accumulator, scanState.MaximumSeparationSamples, hardRadiusSquared, distance, directionUnit);
             }
 
-            if (!withinNeighbourRadius || scanState.NeighbourRadius <= 1e-6f) {
+            if (!withinNeighbourRadius || scanState.NeighbourRadius <= 1e-6f)
+            {
                 return;
             }
 
@@ -248,14 +256,16 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             bool isAvoid = behaviourBit != 0u && (scanState.AvoidMask & behaviourBit) != 0u;
             bool isNeutral = behaviourBit != 0u && (scanState.NeutralMask & behaviourBit) != 0u;
 
-            if (!isFriendly && !isAvoid && !isNeutral) {
+            if (!isFriendly && !isAvoid && !isNeutral)
+            {
                 return;
             }
 
             float inverseNeighbourRadius = 1f / scanState.NeighbourRadius;
             float proximityWeight = 1f - math.saturate(distance * inverseNeighbourRadius);
 
-            if (isFriendly) {
+            if (isFriendly)
+            {
                 AccumulateFriendlyNeighbour(
                     neighbourIndex,
                     neighbourBehaviourIndex,
@@ -268,22 +278,27 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
                     ref accumulator);
             }
 
-            if (isAvoid) {
+            if (isAvoid)
+            {
                 AccumulateAvoidNeighbour(neighbourBehaviourSettings, directionUnit, proximityWeight, ref scanState, ref accumulator);
             }
 
-            if (isNeutral) {
+            if (isNeutral)
+            {
                 AccumulateNeutralNeighbour(neighbourBehaviourSettings, directionUnit, proximityWeight, ref scanState, ref accumulator);
             }
         }
 
-        private static float ComputeHardRadiusSquared(NeighbourScanState scanState, FlockBehaviourSettings neighbourBehaviourSettings) {
+        private static float ComputeHardRadiusSquared(NeighbourScanState scanState, FlockBehaviourSettings neighbourBehaviourSettings)
+        {
             float hardRadiusSquared = scanState.SeparationRadiusSquared;
 
             float collisionDistanceBody = scanState.AgentBehaviourSettings.BodyRadius + neighbourBehaviourSettings.BodyRadius;
-            if (collisionDistanceBody > 0f) {
+            if (collisionDistanceBody > 0f)
+            {
                 float collisionDistanceSquared = collisionDistanceBody * collisionDistanceBody;
-                if (collisionDistanceSquared > hardRadiusSquared) {
+                if (collisionDistanceSquared > hardRadiusSquared)
+                {
                     hardRadiusSquared = collisionDistanceSquared;
                 }
             }
@@ -296,9 +311,11 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             int maximumSeparationSamples,
             float hardRadiusSquared,
             float distance,
-            float3 directionUnit) {
+            float3 directionUnit)
+        {
             bool canAddSeparation = maximumSeparationSamples == 0 || accumulator.SeparationCount < maximumSeparationSamples;
-            if (!canAddSeparation) {
+            if (!canAddSeparation)
+            {
                 return;
             }
 
@@ -321,7 +338,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             float3 directionUnit,
             float proximityWeight,
             ref NeighbourScanState scanState,
-            ref NeighbourAggregateAccumulator accumulator) {
+            ref NeighbourAggregateAccumulator accumulator)
+        {
             accumulator.FriendlyNeighbourCount += 1;
 
             bool considerLeadership = ShouldConsiderLeadership(neighbourBehaviourSettings.LeadershipWeight, ref scanState);
@@ -334,7 +352,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
                 ? ComputeSchoolingBandForce(scanState.AgentBehaviourIndex, neighbourBehaviourIndex, distance, directionUnit, out bandDistances)
                 : float3.zero;
 
-            if (math.lengthsq(bandForce) > 0f && canAddSeparation) {
+            if (math.lengthsq(bandForce) > 0f && canAddSeparation)
+            {
                 accumulator.SeparationSum += bandForce;
                 accumulator.SeparationCount += 1;
             }
@@ -342,12 +361,14 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             bool isFarForCohesion = IsFarForCohesion(distance, bandDistances);
             AccumulateRadialDamping(neighbourIndex, distance, directionUnit, bandDistances, ref scanState, ref accumulator);
 
-            if (considerLeadership) {
+            if (considerLeadership)
+            {
                 ApplyLeadershipContribution(neighbourIndex, neighbourPosition, neighbourBehaviourSettings.LeadershipWeight, proximityWeight, isFarForCohesion, ref scanState, ref accumulator);
             }
         }
 
-        private static bool ShouldConsiderLeadership(float neighbourLeaderWeight, ref NeighbourScanState scanState) {
+        private static bool ShouldConsiderLeadership(float neighbourLeaderWeight, ref NeighbourScanState scanState)
+        {
             const float leadershipEpsilon = 1e-4f;
 
             bool isLeaderUpgrade = neighbourLeaderWeight > scanState.MaximumLeaderWeight + leadershipEpsilon;
@@ -364,13 +385,15 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             return isLeaderUpgrade || canTakeTieSample;
         }
 
-        private static bool IsFarForCohesion(float distance, SchoolingBandDistances bandDistances) {
+        private static bool IsFarForCohesion(float distance, SchoolingBandDistances bandDistances)
+        {
             bool haveBand =
                 bandDistances.FarDistance > 0f &&
                 bandDistances.CollisionDistance > 0f &&
                 bandDistances.TargetDistance > bandDistances.CollisionDistance;
 
-            if (!haveBand || distance >= bandDistances.FarDistance) {
+            if (!haveBand || distance >= bandDistances.FarDistance)
+            {
                 return false;
             }
 
@@ -384,19 +407,23 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             float3 directionUnit,
             SchoolingBandDistances bandDistances,
             ref NeighbourScanState scanState,
-            ref NeighbourAggregateAccumulator accumulator) {
-            if (scanState.SchoolingRadialDamping <= 0f) {
+            ref NeighbourAggregateAccumulator accumulator)
+        {
+            if (scanState.SchoolingRadialDamping <= 0f)
+            {
                 return;
             }
 
-            if (bandDistances.TargetDistance <= bandDistances.CollisionDistance || distance >= bandDistances.TargetDistance) {
+            if (bandDistances.TargetDistance <= bandDistances.CollisionDistance || distance >= bandDistances.TargetDistance)
+            {
                 return;
             }
 
             float3 neighbourPreviousVelocity = PrevVelocities[neighbourIndex];
             float relativeSpeed = math.dot(scanState.SelfPreviousVelocity - neighbourPreviousVelocity, directionUnit);
 
-            if (relativeSpeed <= 0f) {
+            if (relativeSpeed <= 0f)
+            {
                 return;
             }
 
@@ -416,20 +443,25 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             float proximityWeight,
             bool isFarForCohesion,
             ref NeighbourScanState scanState,
-            ref NeighbourAggregateAccumulator accumulator) {
+            ref NeighbourAggregateAccumulator accumulator)
+        {
             float3 neighbourVelocity = PrevVelocities[neighbourIndex];
 
-            if (scanState.IsLeaderUpgrade) {
+            if (scanState.IsLeaderUpgrade)
+            {
                 scanState.MaximumLeaderWeight = neighbourLeaderWeight;
                 accumulator.LeaderNeighbourCount = 1;
 
                 accumulator.AlignmentSum = neighbourVelocity * proximityWeight;
                 accumulator.AlignmentWeightSum = proximityWeight;
 
-                if (isFarForCohesion) {
+                if (isFarForCohesion)
+                {
                     accumulator.CohesionSum = neighbourPosition * proximityWeight;
                     accumulator.CohesionWeightSum = proximityWeight;
-                } else {
+                }
+                else
+                {
                     accumulator.CohesionSum = float3.zero;
                     accumulator.CohesionWeightSum = 0f;
                 }
@@ -438,7 +470,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
                 return;
             }
 
-            if (!scanState.CanTakeTieSample) {
+            if (!scanState.CanTakeTieSample)
+            {
                 return;
             }
 
@@ -447,7 +480,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             accumulator.AlignmentSum += neighbourVelocity * proximityWeight;
             accumulator.AlignmentWeightSum += proximityWeight;
 
-            if (isFarForCohesion) {
+            if (isFarForCohesion)
+            {
                 accumulator.CohesionSum += neighbourPosition * proximityWeight;
                 accumulator.CohesionWeightSum += proximityWeight;
             }
@@ -460,13 +494,16 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             float3 directionUnit,
             float proximityWeight,
             ref NeighbourScanState scanState,
-            ref NeighbourAggregateAccumulator accumulator) {
-            if (scanState.AvoidResponse <= 0f) {
+            ref NeighbourAggregateAccumulator accumulator)
+        {
+            if (scanState.AvoidResponse <= 0f)
+            {
                 return;
             }
 
             float neighbourAvoidWeight = neighbourBehaviourSettings.AvoidanceWeight;
-            if (scanState.AvoidanceWeight >= neighbourAvoidWeight) {
+            if (scanState.AvoidanceWeight >= neighbourAvoidWeight)
+            {
                 return;
             }
 
@@ -475,12 +512,14 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
 
             float localIntensity = proximityWeight * normalised * scanState.AvoidResponse;
 
-            if (localIntensity > accumulator.AvoidDanger) {
+            if (localIntensity > accumulator.AvoidDanger)
+            {
                 accumulator.AvoidDanger = localIntensity;
             }
 
             bool canAddSeparation = scanState.MaximumSeparationSamples == 0 || accumulator.SeparationCount < scanState.MaximumSeparationSamples;
-            if (!canAddSeparation) {
+            if (!canAddSeparation)
+            {
                 return;
             }
 
@@ -496,9 +535,11 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             float3 directionUnit,
             float proximityWeight,
             ref NeighbourScanState scanState,
-            ref NeighbourAggregateAccumulator accumulator) {
+            ref NeighbourAggregateAccumulator accumulator)
+        {
             float neighbourNeutralWeight = neighbourBehaviourSettings.NeutralWeight;
-            if (scanState.NeutralWeight >= neighbourNeutralWeight) {
+            if (scanState.NeutralWeight >= neighbourNeutralWeight)
+            {
                 return;
             }
 
@@ -506,7 +547,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             float normalised = weightDelta / math.max(neighbourNeutralWeight, 1e-3f);
 
             bool canAddSeparation = scanState.MaximumSeparationSamples == 0 || accumulator.SeparationCount < scanState.MaximumSeparationSamples;
-            if (!canAddSeparation) {
+            if (!canAddSeparation)
+            {
                 return;
             }
 
@@ -521,10 +563,12 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             int neighbourBehaviourIndex,
             float distance,
             float3 directionUnit,
-            out SchoolingBandDistances bandDistances) {
+            out SchoolingBandDistances bandDistances)
+        {
             bandDistances = default;
 
-            if ((uint)agentBehaviourIndex >= (uint)BehaviourSettings.Length || (uint)neighbourBehaviourIndex >= (uint)BehaviourSettings.Length) {
+            if ((uint)agentBehaviourIndex >= (uint)BehaviourSettings.Length || (uint)neighbourBehaviourIndex >= (uint)BehaviourSettings.Length)
+            {
                 return float3.zero;
             }
 
@@ -532,20 +576,24 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             FlockBehaviourSettings neighbourSettings = BehaviourSettings[neighbourBehaviourIndex];
 
             float collisionDistance = agentSettings.BodyRadius + neighbourSettings.BodyRadius;
-            if (agentSettings.BodyRadius <= 0f && neighbourSettings.BodyRadius <= 0f) {
+            if (agentSettings.BodyRadius <= 0f && neighbourSettings.BodyRadius <= 0f)
+            {
                 return float3.zero;
             }
 
-            if (!TryComputeSchoolingBandParameters(agentSettings, neighbourSettings, collisionDistance, out SchoolingBandParameters bandParameters, out bandDistances)) {
+            if (!TryComputeSchoolingBandParameters(agentSettings, neighbourSettings, collisionDistance, out SchoolingBandParameters bandParameters, out bandDistances))
+            {
                 return float3.zero;
             }
 
-            if (distance <= 0f || distance >= bandDistances.FarDistance) {
+            if (distance <= 0f || distance >= bandDistances.FarDistance)
+            {
                 return float3.zero;
             }
 
             float force = ComputeSchoolingBandForceScalar(distance, bandParameters, ref bandDistances);
-            if (math.abs(force) <= 1e-5f) {
+            if (math.abs(force) <= 1e-5f)
+            {
                 return float3.zero;
             }
 
@@ -557,7 +605,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             FlockBehaviourSettings neighbourSettings,
             float collisionDistance,
             out SchoolingBandParameters bandParameters,
-            out SchoolingBandDistances bandDistances) {
+            out SchoolingBandDistances bandDistances)
+        {
             bandParameters = default;
             bandDistances = default;
 
@@ -565,7 +614,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             float outer = math.max(1f, 0.5f * (agentSettings.SchoolingOuterFactor + neighbourSettings.SchoolingOuterFactor));
             float strength = math.max(0f, 0.5f * (agentSettings.SchoolingStrength + neighbourSettings.SchoolingStrength));
 
-            if (strength <= 0f || collisionDistance <= 0f) {
+            if (strength <= 0f || collisionDistance <= 0f)
+            {
                 return false;
             }
 
@@ -581,20 +631,24 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             return true;
         }
 
-        private static float ComputeSchoolingBandForceScalar(float distance, SchoolingBandParameters bandParameters, ref SchoolingBandDistances bandDistances) {
+        private static float ComputeSchoolingBandForceScalar(float distance, SchoolingBandParameters bandParameters, ref SchoolingBandDistances bandDistances)
+        {
             float collisionDistance = bandDistances.CollisionDistance;
             float targetDistance = bandDistances.TargetDistance;
 
-            if (distance < collisionDistance) {
+            if (distance < collisionDistance)
+            {
                 float t = (collisionDistance - distance) / math.max(collisionDistance, 1e-3f);
                 return t;
             }
 
-            if (distance < targetDistance) {
+            if (distance < targetDistance)
+            {
                 return ComputeInnerRepulsion(distance, collisionDistance, targetDistance, bandParameters.Softness);
             }
 
-            if (distance >= targetDistance && distance <= bandDistances.DeadZoneUpper) {
+            if (distance >= targetDistance && distance <= bandDistances.DeadZoneUpper)
+            {
                 return 0f;
             }
 
@@ -607,19 +661,22 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             return -falloff;
         }
 
-        private static float ComputeInnerRepulsion(float distance, float collisionDistance, float targetDistance, float softness) {
+        private static float ComputeInnerRepulsion(float distance, float collisionDistance, float targetDistance, float softness)
+        {
             float innerSpan = math.max(targetDistance - collisionDistance, 1e-3f);
             float t = (targetDistance - distance) / innerSpan;
 
             float t2 = t * t;
 
-            if (softness <= 0f) {
+            if (softness <= 0f)
+            {
                 return t;
             }
 
             float t3 = t2 * t;
 
-            if (softness <= 0.5f) {
+            if (softness <= 0.5f)
+            {
                 float u = softness * 2f;
                 return math.lerp(t, t2, u);
             }
@@ -628,7 +685,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             return math.lerp(t2, t3, v);
         }
 
-        private int3 GetCell(float3 position) {
+        private int3 GetCell(float3 position)
+        {
             float safeCellSize = math.max(CellSize, 0.0001f);
             float3 localPosition = position - GridOrigin;
             float3 scaledPosition = localPosition / safeCellSize;
@@ -641,23 +699,28 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
                 GridResolution - new int3(1, 1, 1));
         }
 
-        private bool IsCellInsideGrid(int3 cell) {
-            if (cell.x < 0 || cell.y < 0 || cell.z < 0) {
+        private bool IsCellInsideGrid(int3 cell)
+        {
+            if (cell.x < 0 || cell.y < 0 || cell.z < 0)
+            {
                 return false;
             }
 
-            if (cell.x >= GridResolution.x || cell.y >= GridResolution.y || cell.z >= GridResolution.z) {
+            if (cell.x >= GridResolution.x || cell.y >= GridResolution.y || cell.z >= GridResolution.z)
+            {
                 return false;
             }
 
             return true;
         }
 
-        private int GetCellId(int3 cell) {
+        private int GetCellId(int3 cell)
+        {
             return cell.x + cell.y * GridResolution.x + cell.z * GridResolution.x * GridResolution.y;
         }
 
-        private struct NeighbourAggregateAccumulator {
+        private struct NeighbourAggregateAccumulator
+        {
             public float3 AlignmentSum;
             public float3 CohesionSum;
             public float3 SeparationSum;
@@ -672,7 +735,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             public float CohesionWeightSum;
             public float AvoidDanger;
 
-            public NeighbourAggregate ToAggregate() {
+            public NeighbourAggregate ToAggregate()
+            {
                 NeighbourAggregate neighbourAggregate = default;
 
                 neighbourAggregate.AlignmentSum = AlignmentSum;
@@ -693,26 +757,30 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             }
         }
 
-        private struct NeighbourDeduplication {
+        private struct NeighbourDeduplication
+        {
             private FixedList512Bytes<int> visitedIndices;
             private ulong seenBits0;
             private ulong seenBits1;
             private ulong seenBits2;
             private ulong seenBits3;
 
-            public bool IsVisitedOrMark(int neighbourIndex) {
+            public bool IsVisitedOrMark(int neighbourIndex)
+            {
                 uint hashValue = ComputeHash32((uint)neighbourIndex);
                 int bitIndex = (int)(hashValue & 255u);
                 int wordIndex = bitIndex >> 6;
                 ulong mask = 1ul << (bitIndex & 63);
 
-                if (!IsMaybeSeen(wordIndex, mask)) {
+                if (!IsMaybeSeen(wordIndex, mask))
+                {
                     MarkSeen(wordIndex, mask);
                     TryAddVisited(neighbourIndex);
                     return false;
                 }
 
-                if (ContainsVisited(neighbourIndex)) {
+                if (ContainsVisited(neighbourIndex))
+                {
                     return true;
                 }
 
@@ -720,23 +788,28 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
                 return false;
             }
 
-            private bool IsMaybeSeen(int wordIndex, ulong mask) {
+            private bool IsMaybeSeen(int wordIndex, ulong mask)
+            {
                 if (wordIndex == 0) return (seenBits0 & mask) != 0;
                 if (wordIndex == 1) return (seenBits1 & mask) != 0;
                 if (wordIndex == 2) return (seenBits2 & mask) != 0;
                 return (seenBits3 & mask) != 0;
             }
 
-            private void MarkSeen(int wordIndex, ulong mask) {
+            private void MarkSeen(int wordIndex, ulong mask)
+            {
                 if (wordIndex == 0) seenBits0 |= mask;
                 else if (wordIndex == 1) seenBits1 |= mask;
                 else if (wordIndex == 2) seenBits2 |= mask;
                 else seenBits3 |= mask;
             }
 
-            private bool ContainsVisited(int neighbourIndex) {
-                for (int visitedIndex = 0; visitedIndex < visitedIndices.Length; visitedIndex++) {
-                    if (visitedIndices[visitedIndex] == neighbourIndex) {
+            private bool ContainsVisited(int neighbourIndex)
+            {
+                for (int visitedIndex = 0; visitedIndex < visitedIndices.Length; visitedIndex++)
+                {
+                    if (visitedIndices[visitedIndex] == neighbourIndex)
+                    {
                         return true;
                     }
                 }
@@ -744,14 +817,17 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
                 return false;
             }
 
-            private void TryAddVisited(int neighbourIndex) {
-                if (visitedIndices.Length < visitedIndices.Capacity) {
+            private void TryAddVisited(int neighbourIndex)
+            {
+                if (visitedIndices.Length < visitedIndices.Capacity)
+                {
                     visitedIndices.Add(neighbourIndex);
                 }
             }
         }
 
-        private struct NeighbourScanState {
+        private struct NeighbourScanState
+        {
             public int AgentIndex;
             public int AgentBehaviourIndex;
 
@@ -790,25 +866,29 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             public bool CanTakeTieSample;
         }
 
-        private readonly struct SchoolingBandParameters {
+        private readonly struct SchoolingBandParameters
+        {
             public readonly float Strength;
             public readonly float Softness;
             public readonly float DeadZoneFraction;
 
-            public SchoolingBandParameters(float strength, float softness, float deadZoneFraction) {
+            public SchoolingBandParameters(float strength, float softness, float deadZoneFraction)
+            {
                 Strength = strength;
                 Softness = softness;
                 DeadZoneFraction = deadZoneFraction;
             }
         }
 
-        private struct SchoolingBandDistances {
+        private struct SchoolingBandDistances
+        {
             public float CollisionDistance;
             public float TargetDistance;
             public float DeadZoneUpper;
             public float FarDistance;
 
-            public SchoolingBandDistances(float collisionDistance, float targetDistance, float deadZoneUpper, float farDistance) {
+            public SchoolingBandDistances(float collisionDistance, float targetDistance, float deadZoneUpper, float farDistance)
+            {
                 CollisionDistance = collisionDistance;
                 TargetDistance = targetDistance;
                 DeadZoneUpper = deadZoneUpper;

@@ -1,12 +1,12 @@
 #if UNITY_EDITOR
-using UnityEditor;
-using UnityEngine;
-
-using Flock.Scripts.Editor.Window;
 using Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController;
 using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
+using Flock.Scripts.Editor.Window;
 
-namespace Flock.Scripts.Editor.Inspectors {
+using UnityEditor;
+
+namespace Flock.Scripts.Editor.Inspectors
+{
     /**
      * <summary>
      * Custom inspector for <see cref="FlockController"/> that draws editable Fish Types and a consolidated
@@ -14,7 +14,8 @@ namespace Flock.Scripts.Editor.Inspectors {
      * </summary>
      */
     [CustomEditor(typeof(FlockController))]
-    public sealed class FlockControllerEditor : UnityEditor.Editor {
+    public sealed class FlockControllerEditor : UnityEditor.Editor
+    {
         private SerializedProperty fishTypesProperty;
 
         private SerializedProperty boundsTypeProperty;
@@ -22,7 +23,8 @@ namespace Flock.Scripts.Editor.Inspectors {
         private SerializedProperty boundsExtentsProperty;
         private SerializedProperty boundsSphereRadiusProperty;
 
-        private void OnEnable() {
+        private void OnEnable()
+        {
             fishTypesProperty = serializedObject.FindProperty("fishTypes");
 
             boundsTypeProperty = serializedObject.FindProperty("boundsType");
@@ -31,7 +33,8 @@ namespace Flock.Scripts.Editor.Inspectors {
             boundsSphereRadiusProperty = serializedObject.FindProperty("boundsSphereRadius");
         }
 
-        public override void OnInspectorGUI() {
+        public override void OnInspectorGUI()
+        {
             serializedObject.Update();
 
             DrawFishTypesCard();
@@ -40,17 +43,20 @@ namespace Flock.Scripts.Editor.Inspectors {
             SerializedProperty propertyIterator = serializedObject.GetIterator();
             bool enterChildren = true;
 
-            while (propertyIterator.NextVisible(enterChildren)) {
+            while (propertyIterator.NextVisible(enterChildren))
+            {
                 enterChildren = false;
 
-                if (propertyIterator.name == "m_Script" || propertyIterator.name == "fishTypes") {
+                if (propertyIterator.name == "m_Script" || propertyIterator.name == "fishTypes")
+                {
                     continue;
                 }
 
                 if (propertyIterator.name == "boundsType"
                     || propertyIterator.name == "boundsCenter"
                     || propertyIterator.name == "boundsExtents"
-                    || propertyIterator.name == "boundsSphereRadius") {
+                    || propertyIterator.name == "boundsSphereRadius")
+                {
                     continue;
                 }
 
@@ -60,8 +66,10 @@ namespace Flock.Scripts.Editor.Inspectors {
             serializedObject.ApplyModifiedProperties();
         }
 
-        private void DrawFishTypesCard() {
-            if (fishTypesProperty != null) {
+        private void DrawFishTypesCard()
+        {
+            if (fishTypesProperty != null)
+            {
                 FlockEditorGUI.PropertyFieldClamped(fishTypesProperty, true);
                 return;
             }
@@ -71,36 +79,44 @@ namespace Flock.Scripts.Editor.Inspectors {
                 MessageType.Warning);
         }
 
-        private void DrawBoundsCard() {
-            if (boundsTypeProperty == null || boundsCenterProperty == null) {
+        private void DrawBoundsCard()
+        {
+            if (boundsTypeProperty == null || boundsCenterProperty == null)
+            {
                 return;
             }
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Bounds", EditorStyles.boldLabel);
 
-            using (new EditorGUI.IndentLevelScope()) {
+            using (new EditorGUI.IndentLevelScope())
+            {
                 FlockEditorGUI.PropertyFieldClamped(boundsTypeProperty, true);
                 FlockEditorGUI.PropertyFieldClamped(boundsCenterProperty, true);
 
                 FlockBoundsType boundsType = (FlockBoundsType)boundsTypeProperty.enumValueIndex;
 
-                if (boundsType == FlockBoundsType.Box) {
-                    if (boundsExtentsProperty != null) {
+                if (boundsType == FlockBoundsType.Box)
+                {
+                    if (boundsExtentsProperty != null)
+                    {
                         FlockEditorGUI.PropertyFieldClamped(boundsExtentsProperty, true);
                     }
                     return;
                 }
 
-                if (boundsType == FlockBoundsType.Sphere) {
-                    if (boundsSphereRadiusProperty != null) {
+                if (boundsType == FlockBoundsType.Sphere)
+                {
+                    if (boundsSphereRadiusProperty != null)
+                    {
                         FlockEditorGUI.PropertyFieldClamped(boundsSphereRadiusProperty, true);
                     }
                 }
             }
         }
 
-        private enum Section {
+        private enum Section
+        {
             FishTypes,
             Spawning,
             GroupNoise,

@@ -1,15 +1,17 @@
 #if UNITY_EDITOR
 using UnityEngine;
 
-namespace Flock.Scripts.Editor.Window {
+namespace Flock.Scripts.Editor.Window
+{
     /**
      * <summary>
      * Single source of truth for IMGUI sizing/spacing/metrics across all Flock editor tooling.
      * Keep only UI-related numbers here (no business logic).
      * </summary>
      */
-    public static class 
-        EditorUI {
+    public static class
+        EditorUI
+    {
         // Labeling
         public const float DefaultLabelWidth = 170f;
 

@@ -1,11 +1,12 @@
 using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
-using Unity.Burst;
-using Unity.Collections;
+
 using Unity.Jobs;
+using Unity.Burst;
 using Unity.Mathematics;
+using Unity.Collections;
 
-namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
-
+namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs
+{
     /**
      * <summary>
      * Applies indexed attractor changes to the authoritative runtime attractor array and refreshes
@@ -13,24 +14,26 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
      * </summary>
      */
     [BurstCompile]
-    public struct ApplyIndexedAttractorChangesJob : IJobParallelFor {
+    public struct ApplyIndexedAttractorChangesJob : IJobParallelFor
+    {
         private const float MinimumEnvironmentHeight = 0.0001f;
 
-        [ReadOnly]
-        public NativeArray<IndexedAttractorChange> Changes;
+        [ReadOnly] public NativeArray<IndexedAttractorChange> Changes;
 
-        // This is the authoritative runtime array being edited.
+        // Authoritative runtime array being edited.
         public NativeArray<FlockAttractorData> Attractors;
 
         // Environment vertical normalisation inputs (world -> [0..1]).
         public float EnvMinY;
         public float EnvHeight;
 
-        public void Execute(int index) {
+        public void Execute(int index)
+        {
             IndexedAttractorChange change = Changes[index];
 
             int attractorIndex = change.Index;
-            if ((uint)attractorIndex >= (uint)Attractors.Length) {
+            if ((uint)attractorIndex >= (uint)Attractors.Length)
+            {
                 return;
             }
 
@@ -43,7 +46,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
             float depthMinNormalised = math.saturate((worldMinY - EnvMinY) * inverseEnvironmentHeight);
             float depthMaxNormalised = math.saturate((worldMaxY - EnvMinY) * inverseEnvironmentHeight);
 
-            if (depthMaxNormalised < depthMinNormalised) {
+            if (depthMaxNormalised < depthMinNormalised)
+            {
                 float temporary = depthMinNormalised;
                 depthMinNormalised = depthMaxNormalised;
                 depthMaxNormalised = temporary;
@@ -58,8 +62,10 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
         private static void GetWorldVerticalSpan(
             FlockAttractorData data,
             out float worldMinY,
-            out float worldMaxY) {
-            if (data.Shape == FlockAttractorShape.Sphere) {
+            out float worldMaxY)
+        {
+            if (data.Shape == FlockAttractorShape.Sphere)
+            {
                 float radius = math.max(0f, data.Radius);
                 worldMinY = data.Position.y - radius;
                 worldMaxY = data.Position.y + radius;
@@ -71,7 +77,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Jobs {
             worldMaxY = data.Position.y + extentY;
         }
 
-        private static float GetBoxProjectedExtentY(quaternion rotation, float3 halfExtents) {
+        private static float GetBoxProjectedExtentY(quaternion rotation, float3 halfExtents)
+        {
             float3 right = math.mul(rotation, new float3(1f, 0f, 0f));
             float3 up = math.mul(rotation, new float3(0f, 1f, 0f));
             float3 forward = math.mul(rotation, new float3(0f, 0f, 1f));

@@ -1,14 +1,19 @@
-using Flock.Scripts.Build.Agents.Fish.Profiles;
 using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
 using Flock.Tests.Shared;
+
+using UnityEngine;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
-using UnityEngine;
-namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockMainSpawner {
-    public sealed class FlockMainSpawner_AssignInitialPositions_IsDeterministicForExplicitSeed_Test {
+
+namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockMainSpawner
+{
+    public sealed class FlockMainSpawner_AssignInitialPositions_IsDeterministicForExplicitSeed_Test
+    {
         [Test]
-        public void FlockMainSpawner_AssignInitialPositions_IsDeterministicForExplicitSeed_Test_Run() {
+        public void FlockMainSpawner_AssignInitialPositions_IsDeterministicForExplicitSeed_Test_Run()
+        {
             var spawner = FlockTestUtils.CreateMainSpawner("Spawner", out GameObject spawnerGo);
 
             var presetA = FlockTestUtils.CreateFishTypePreset("A");
@@ -16,7 +21,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockMainSpawner {
 
             const int agentCount = 8;
             int[] agentBehaviourIds = new int[agentCount];
-            for (int i = 0; i < agentCount; i += 1) {
+            for (int i = 0; i < agentCount; i += 1)
+            {
                 agentBehaviourIds[i] = 0;
             }
 
@@ -41,7 +47,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockMainSpawner {
             spawner.AssignInitialPositions(env, fishTypes, agentBehaviourIds, positionsA);
             spawner.AssignInitialPositions(env, fishTypes, agentBehaviourIds, positionsB);
 
-            for (int i = 0; i < agentCount; i += 1) {
+            for (int i = 0; i < agentCount; i += 1)
+            {
                 float3 a = positionsA[i];
                 float3 b = positionsB[i];
 

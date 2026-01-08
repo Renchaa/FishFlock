@@ -1,12 +1,13 @@
-namespace Flock.Scripts.Build.Influence.Environment.Attractors.Data {
+namespace Flock.Scripts.Build.Influence.Environment.Attractors.Data
+{
     /**
      * <summary>
      * Supported attractor volume shapes.
      * </summary>
      */
-    public enum FlockAttractorShape {
+    public enum FlockAttractorShape
+    {
         Sphere = 0,
         Box = 1,
     }
 }
-    

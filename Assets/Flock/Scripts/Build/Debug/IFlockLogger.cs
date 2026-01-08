@@ -1,5 +1,5 @@
-// REPLACE FILE: Assets/Flock/Runtime/Logging/IFlockLogger.cs
 namespace Flock.Scripts.Build.Debug {
+
     /**
      * <summary>
      * Provides per-instance logging masks for flock subsystems.

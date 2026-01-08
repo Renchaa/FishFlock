@@ -1,8 +1,10 @@
 #if UNITY_EDITOR
-using UnityEditor;
 using Flock.Scripts.Build.Agents.Fish.Profiles;
 
-namespace Flock.Scripts.Editor.Inspectors {
+using UnityEditor;
+
+namespace Flock.Scripts.Editor.Inspectors
+{
     /**
      * <summary>
      * Custom inspector for <see cref="FishBehaviourProfile"/> that renders selected serialized fields
@@ -10,10 +12,12 @@ namespace Flock.Scripts.Editor.Inspectors {
      * </summary>
      */
     [CustomEditor(typeof(FishBehaviourProfile))]
-    public sealed class FishBehaviourProfileEditor : UnityEditor.Editor {
+    public sealed class FishBehaviourProfileEditor : UnityEditor.Editor
+    {
 
         /** <inheritdoc /> */
-        public override void OnInspectorGUI() {
+        public override void OnInspectorGUI()
+        {
             serializedObject.Update();
 
             // Movement
@@ -56,22 +60,26 @@ namespace Flock.Scripts.Editor.Inspectors {
         private static void DrawPropertyIfExists(
             SerializedObject targetSerializedObject,
             string propertyName,
-            bool includeChildren = false) {
+            bool includeChildren = false)
+        {
             SerializedProperty serializedProperty = targetSerializedObject.FindProperty(propertyName);
-            if (serializedProperty == null) {
+            if (serializedProperty == null)
+            {
                 return;
             }
 
             EditorGUILayout.PropertyField(serializedProperty, includeChildren);
         }
 
-        private static void DrawMovementProperties(SerializedObject targetSerializedObject) {
+        private static void DrawMovementProperties(SerializedObject targetSerializedObject)
+        {
             DrawPropertyIfExists(targetSerializedObject, "maxSpeed");
             DrawPropertyIfExists(targetSerializedObject, "maxAcceleration");
             DrawPropertyIfExists(targetSerializedObject, "desiredSpeed");
         }
 
-        private static void DrawNoiseProperties(SerializedObject targetSerializedObject) {
+        private static void DrawNoiseProperties(SerializedObject targetSerializedObject)
+        {
             // Noise (same as window)
             DrawPropertyIfExists(targetSerializedObject, "wanderStrength");
             DrawPropertyIfExists(targetSerializedObject, "wanderFrequency");
@@ -81,7 +89,8 @@ namespace Flock.Scripts.Editor.Inspectors {
             DrawPropertyIfExists(targetSerializedObject, "patternWeight");
         }
 
-        private static void DrawSizeAndSchoolingProperties(SerializedObject targetSerializedObject) {
+        private static void DrawSizeAndSchoolingProperties(SerializedObject targetSerializedObject)
+        {
             DrawPropertyIfExists(targetSerializedObject, "bodyRadius");
             DrawPropertyIfExists(targetSerializedObject, "schoolingSpacingFactor");
             DrawPropertyIfExists(targetSerializedObject, "schoolingOuterFactor");
@@ -91,7 +100,8 @@ namespace Flock.Scripts.Editor.Inspectors {
             DrawPropertyIfExists(targetSerializedObject, "schoolingDeadzoneFraction");
         }
 
-        private static void DrawNeighbourhoodProperties(SerializedObject targetSerializedObject) {
+        private static void DrawNeighbourhoodProperties(SerializedObject targetSerializedObject)
+        {
             DrawPropertyIfExists(targetSerializedObject, "neighbourRadius");
             DrawPropertyIfExists(targetSerializedObject, "separationRadius");
 
@@ -100,7 +110,8 @@ namespace Flock.Scripts.Editor.Inspectors {
             DrawPropertyIfExists(targetSerializedObject, "maxSeparationSamples");
         }
 
-        private static void DrawRuleWeightProperties(SerializedObject targetSerializedObject) {
+        private static void DrawRuleWeightProperties(SerializedObject targetSerializedObject)
+        {
             // Rule Weights (includes Influence)
             DrawPropertyIfExists(targetSerializedObject, "alignmentWeight");
             DrawPropertyIfExists(targetSerializedObject, "cohesionWeight");
@@ -108,30 +119,35 @@ namespace Flock.Scripts.Editor.Inspectors {
             DrawPropertyIfExists(targetSerializedObject, "influenceWeight");
         }
 
-        private static void DrawRelationshipProperties(SerializedObject targetSerializedObject) {
+        private static void DrawRelationshipProperties(SerializedObject targetSerializedObject)
+        {
             DrawPropertyIfExists(targetSerializedObject, "avoidanceWeight");
             DrawPropertyIfExists(targetSerializedObject, "neutralWeight");
             DrawPropertyIfExists(targetSerializedObject, "attractionResponse");
             DrawPropertyIfExists(targetSerializedObject, "avoidResponse");
         }
 
-        private static void DrawSplitBehaviourProperties(SerializedObject targetSerializedObject) {
+        private static void DrawSplitBehaviourProperties(SerializedObject targetSerializedObject)
+        {
             DrawPropertyIfExists(targetSerializedObject, "splitPanicThreshold");
             DrawPropertyIfExists(targetSerializedObject, "splitLateralWeight");
             DrawPropertyIfExists(targetSerializedObject, "splitAccelBoost");
         }
 
-        private static void DrawAttractionProperties(SerializedObject targetSerializedObject) {
+        private static void DrawAttractionProperties(SerializedObject targetSerializedObject)
+        {
             DrawPropertyIfExists(targetSerializedObject, "attractionWeight");
         }
 
-        private static void DrawBoundsProperties(SerializedObject targetSerializedObject) {
+        private static void DrawBoundsProperties(SerializedObject targetSerializedObject)
+        {
             DrawPropertyIfExists(targetSerializedObject, "boundsWeight");
             DrawPropertyIfExists(targetSerializedObject, "boundsTangentialDamping");
             DrawPropertyIfExists(targetSerializedObject, "boundsInfluenceSuppression");
         }
 
-        private static void DrawGroupingProperties(SerializedObject targetSerializedObject) {
+        private static void DrawGroupingProperties(SerializedObject targetSerializedObject)
+        {
             // Grouping (group flow + loner settings first, same as window)
             DrawPropertyIfExists(targetSerializedObject, "groupFlowWeight");
             DrawPropertyIfExists(targetSerializedObject, "minGroupSize");
@@ -143,16 +159,19 @@ namespace Flock.Scripts.Editor.Inspectors {
             DrawPropertyIfExists(targetSerializedObject, "lonerCohesionBoost");
         }
 
-        private static void DrawPreferredDepthProperties(SerializedObject targetSerializedObject) {
+        private static void DrawPreferredDepthProperties(SerializedObject targetSerializedObject)
+        {
             // Preferred Depth – same gating + order as window
             SerializedProperty usePreferredDepthProperty = targetSerializedObject.FindProperty("usePreferredDepth");
-            if (usePreferredDepthProperty == null) {
+            if (usePreferredDepthProperty == null)
+            {
                 return;
             }
 
             EditorGUILayout.PropertyField(usePreferredDepthProperty);
 
-            using (new EditorGUI.DisabledScope(!usePreferredDepthProperty.boolValue)) {
+            using (new EditorGUI.DisabledScope(!usePreferredDepthProperty.boolValue))
+            {
                 DrawPropertyIfExists(targetSerializedObject, "preferredDepthMin");
                 DrawPropertyIfExists(targetSerializedObject, "preferredDepthMax");
                 DrawPropertyIfExists(targetSerializedObject, "preferredDepthWeight");

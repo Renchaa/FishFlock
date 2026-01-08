@@ -1,12 +1,14 @@
 using Unity.Mathematics;
 
-namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Data {
+namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Data
+{
     /**
      * <summary>
      * Runtime representation of an obstacle used by the simulation.
      * </summary>
      */
-    public struct FlockObstacleData {
+    public struct FlockObstacleData
+    {
         // Shape
         public FlockObstacleShape Shape;
 

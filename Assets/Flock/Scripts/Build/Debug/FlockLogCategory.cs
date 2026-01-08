@@ -1,13 +1,15 @@
-namespace Flock.Scripts.Build.Debug {
-    using System;
+using System;
 
+namespace Flock.Scripts.Build.Debug
+{
     /**
      * <summary>
      * Bitmask categories used to filter flock logging output.
      * </summary>
      */
     [Flags]
-    public enum FlockLogCategory {
+    public enum FlockLogCategory
+    {
         None = 0,
         General = 1 << 0,
         Controller = 1 << 1,

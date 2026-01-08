@@ -1,11 +1,12 @@
-using Flock.Scripts.Build.Agents.Fish.Profiles;
-using Flock.Scripts.Build.Influence.Noise.Profiles;
 using Flock.Scripts.Build.Influence.PatternVolume.Profiles;
+using Flock.Scripts.Build.Influence.Noise.Profiles;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
 
-using System.Collections.Generic;
 using UnityEngine;
+using System.Collections.Generic;
 
-namespace Flock.Scripts.Build.Core.Simulation.Profiles {
+namespace Flock.Scripts.Build.Core.Simulation.Profiles
+{
 
     /**
      * <summary>
@@ -17,7 +18,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Profiles {
         fileName = "FlockSetup",
         menuName = "Flock/Flock Setup",
         order = 0)]
-    public sealed class FlockSetup : ScriptableObject {
+    public sealed class FlockSetup : ScriptableObject
+    {
         [Header("Fish Types / Presets")]
 
         [Tooltip("Canonical list of FishTypePreset assets used by this setup. Index here defines behaviour ids for controller, matrix, spawner, etc.")]

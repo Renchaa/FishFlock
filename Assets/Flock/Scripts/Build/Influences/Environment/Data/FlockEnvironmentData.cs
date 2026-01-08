@@ -1,14 +1,17 @@
-using Unity.Mathematics;
-using Flock.Scripts.Build.Influence.Noise.Data;
 using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
+using Flock.Scripts.Build.Influence.Noise.Data;
 
-namespace Flock.Scripts.Build.Influence.Environment.Data {
+using Unity.Mathematics;
+
+namespace Flock.Scripts.Build.Influence.Environment.Data
+{
     /**
      * <summary>
      * Runtime environment snapshot used by the simulation and jobs.
      * </summary>
      */
-    public struct FlockEnvironmentData {
+    public struct FlockEnvironmentData
+    {
         // Bounds
         public FlockBoundsType BoundsType;
         public float3 BoundsCenter;

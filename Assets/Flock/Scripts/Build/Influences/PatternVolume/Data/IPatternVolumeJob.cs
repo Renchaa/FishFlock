@@ -1,13 +1,15 @@
 ﻿using Unity.Collections;
 using Unity.Mathematics;
 
-namespace Flock.Scripts.Build.Influence.PatternVolume.Data {
+namespace Flock.Scripts.Build.Influence.PatternVolume.Data
+{
     /**
      * <summary>
      * Common interface for Layer-3 pattern jobs to receive shared input data.
      * </summary>
      */
-    public interface IPatternVolumeJob {
+    public interface IPatternVolumeJob
+    {
         /**
          * <summary>
          * Sets the common pattern job input arrays and per-pattern parameters.

@@ -1,10 +1,11 @@
 #if UNITY_EDITOR
+using Flock.Scripts.Build.Influence.Noise.Profiles;
+
 using UnityEditor;
 using UnityEngine;
 
-using Flock.Scripts.Build.Influence.Noise.Profiles;
-
-namespace Flock.Scripts.Editor.Inspectors {
+namespace Flock.Scripts.Editor.Inspectors
+{
     /**
      * <summary>
      * Custom inspector for <see cref="GroupNoisePatternProfile"/>. Renders common noise settings first, then displays
@@ -12,7 +13,8 @@ namespace Flock.Scripts.Editor.Inspectors {
      * </summary>
      */
     [CustomEditor(typeof(GroupNoisePatternProfile))]
-    public sealed class GroupNoisePatternProfileEditor : UnityEditor.Editor {
+    public sealed class GroupNoisePatternProfileEditor : UnityEditor.Editor
+    {
         private const string BaseFrequencyPropertyName = "baseFrequency";
         private const string TimeScalePropertyName = "timeScale";
         private const string PhaseOffsetPropertyName = "phaseOffset";
@@ -32,7 +34,8 @@ namespace Flock.Scripts.Editor.Inspectors {
         private const string SphereSwirlStrengthPropertyName = "sphereSwirlStrength";
         private const string SphereCenterNormPropertyName = "sphereCenterNorm";
 
-        public override void OnInspectorGUI() {
+        public override void OnInspectorGUI()
+        {
             serializedObject.Update();
 
             DrawCommonProperties();
@@ -42,11 +45,13 @@ namespace Flock.Scripts.Editor.Inspectors {
             serializedObject.ApplyModifiedProperties();
         }
 
-        private SerializedProperty GetProperty(string propertyName) {
+        private SerializedProperty GetProperty(string propertyName)
+        {
             return serializedObject.FindProperty(propertyName);
         }
 
-        private void DrawCommonProperties() {
+        private void DrawCommonProperties()
+        {
             EditorGUILayout.PropertyField(GetProperty(BaseFrequencyPropertyName), new GUIContent("Base Frequency"));
             EditorGUILayout.PropertyField(GetProperty(TimeScalePropertyName));
             EditorGUILayout.PropertyField(GetProperty(PhaseOffsetPropertyName));
@@ -56,7 +61,8 @@ namespace Flock.Scripts.Editor.Inspectors {
             EditorGUILayout.Space(6f);
         }
 
-        private FlockGroupNoisePatternType DrawPatternSelection() {
+        private FlockGroupNoisePatternType DrawPatternSelection()
+        {
             SerializedProperty patternTypeProperty = GetProperty(PatternTypePropertyName);
             EditorGUILayout.PropertyField(patternTypeProperty, new GUIContent("Pattern Type"));
 
@@ -65,8 +71,10 @@ namespace Flock.Scripts.Editor.Inspectors {
             return (FlockGroupNoisePatternType)patternTypeProperty.enumValueIndex;
         }
 
-        private void DrawPatternSpecificProperties(FlockGroupNoisePatternType patternType) {
-            switch (patternType) {
+        private void DrawPatternSpecificProperties(FlockGroupNoisePatternType patternType)
+        {
+            switch (patternType)
+            {
                 case FlockGroupNoisePatternType.SimpleSine:
                 case FlockGroupNoisePatternType.VerticalBands:
                     EditorGUILayout.PropertyField(GetProperty(SwirlStrengthPropertyName));

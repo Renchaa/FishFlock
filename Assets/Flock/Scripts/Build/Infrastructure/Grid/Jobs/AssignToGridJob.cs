@@ -1,59 +1,51 @@
 using Flock.Scripts.Build.Agents.Fish.Data;
+
+using Unity.Jobs;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Jobs;
 using Unity.Mathematics;
 
-namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
+namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs
+{
     /**
      * <summary>
      * Assigns each agent to one or more grid cells based on its position and body radius.
      * </summary>
      */
     [BurstCompile]
-    public struct AssignToGridJob : IJobParallelFor {
+    public struct AssignToGridJob : IJobParallelFor
+    {
         // Inputs
-        [ReadOnly]
-        public NativeArray<float3> Positions;
+        [ReadOnly] public NativeArray<float3> Positions;
+        [ReadOnly] public NativeArray<int> BehaviourIds;
+        [ReadOnly] public NativeArray<FlockBehaviourSettings> BehaviourSettings;
 
-        [ReadOnly]
-        public NativeArray<int> BehaviourIds;
+        [ReadOnly] public float3 GridOrigin;
+        [ReadOnly] public int3 GridResolution;
+        [ReadOnly] public float CellSize;
 
-        [ReadOnly]
-        public NativeArray<FlockBehaviourSettings> BehaviourSettings;
-
-        [ReadOnly]
-        public float CellSize;
-
-        [ReadOnly]
-        public float3 GridOrigin;
-
-        [ReadOnly]
-        public int3 GridResolution;
-
-        [ReadOnly]
-        public int MaxCellsPerAgent;
+        [ReadOnly] public int MaxCellsPerAgent;
 
         // Outputs
-        [NativeDisableParallelForRestriction]
-        public NativeArray<int> AgentCellCounts;
+        [NativeDisableParallelForRestriction] public NativeArray<int> AgentCellCounts;
+        [NativeDisableParallelForRestriction] public NativeArray<int> AgentCellIds;
 
-        [NativeDisableParallelForRestriction]
-        public NativeArray<int> AgentCellIds;
-
-        public void Execute(int index) {
+        public void Execute(int index)
+        {
             float3 position = Positions[index];
 
             int behaviourIndex = BehaviourIds[index];
             float bodyRadius = 0f;
 
-            if ((uint)behaviourIndex < (uint)BehaviourSettings.Length) {
+            if ((uint)behaviourIndex < (uint)BehaviourSettings.Length)
+            {
                 bodyRadius = math.max(0f, BehaviourSettings[behaviourIndex].BodyRadius);
             }
 
             int baseOffset = index * MaxCellsPerAgent;
 
-            if (bodyRadius <= 0f) {
+            if (bodyRadius <= 0f)
+            {
                 AgentCellIds[baseOffset] = GetCellIdFromPosition(position);
                 AgentCellCounts[index] = 1;
                 return;
@@ -67,14 +59,18 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
 
             int writeIndex = 0;
 
-            for (int zIndex = minimumCell.z; zIndex <= maximumCell.z; zIndex += 1) {
+            for (int zIndex = minimumCell.z; zIndex <= maximumCell.z; zIndex += 1)
+            {
                 int zOffset = zIndex * GridResolution.x * GridResolution.y;
 
-                for (int yIndex = minimumCell.y; yIndex <= maximumCell.y; yIndex += 1) {
+                for (int yIndex = minimumCell.y; yIndex <= maximumCell.y; yIndex += 1)
+                {
                     int rowOffset = zOffset + yIndex * GridResolution.x;
 
-                    for (int xIndex = minimumCell.x; xIndex <= maximumCell.x; xIndex += 1) {
-                        if (writeIndex >= MaxCellsPerAgent) {
+                    for (int xIndex = minimumCell.x; xIndex <= maximumCell.x; xIndex += 1)
+                    {
+                        if (writeIndex >= MaxCellsPerAgent)
+                        {
                             AgentCellCounts[index] = writeIndex;
                             return;
                         }
@@ -88,7 +84,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             AgentCellCounts[index] = writeIndex;
         }
 
-        private int3 GetCellCoords(float3 position) {
+        private int3 GetCellCoords(float3 position)
+        {
             float safeCellSize = math.max(CellSize, 0.0001f);
             float3 local = position - GridOrigin;
             float3 scaled = local / safeCellSize;
@@ -103,7 +100,8 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
             return cell;
         }
 
-        private int GetCellIdFromPosition(float3 position) {
+        private int GetCellIdFromPosition(float3 position)
+        {
             int3 cell = GetCellCoords(position);
 
             return cell.x

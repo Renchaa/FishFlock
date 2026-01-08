@@ -1,8 +1,9 @@
-using Unity.Collections;
 using Unity.Jobs;
 using Unity.Burst;
+using Unity.Collections;
 
-namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
+namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs
+{
 
     /**
      * <summary>
@@ -11,18 +12,19 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs {
      * </summary>
      */
     [BurstCompile]
-    public struct ExclusivePrefixSumIntJob : IJob {
-        [ReadOnly]
-        public NativeArray<int> Counts;
+    public struct ExclusivePrefixSumIntJob : IJob
+    {
+        [ReadOnly] public NativeArray<int> Counts;
 
         public NativeArray<int> Starts;
-
         public NativeArray<int> Total;
 
-        public void Execute() {
+        public void Execute()
+        {
             int runningTotal = 0;
 
-            for (int index = 0; index < Counts.Length; index += 1) {
+            for (int index = 0; index < Counts.Length; index += 1)
+            {
                 Starts[index] = runningTotal;
                 runningTotal += Counts[index];
             }

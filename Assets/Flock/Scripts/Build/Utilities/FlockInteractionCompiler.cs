@@ -2,13 +2,15 @@
 using Flock.Scripts.Build.Agents.Fish.Data;
 using Flock.Scripts.Build.Debug;
 
-namespace Flock.Scripts.Build.Utilities.Data {
+namespace Flock.Scripts.Build.Utilities.Data
+{
     /**
      * <summary>
      * Compiles a <see cref="FishInteractionMatrix"/> into per-type scalar weights and 32-bit relationship masks.
      * </summary>
      */
-    public static class FlockInteractionCompiler {
+    public static class FlockInteractionCompiler
+    {
         private const int RelationMaskBitCount = 32;
 
         /**
@@ -32,7 +34,8 @@ namespace Flock.Scripts.Build.Utilities.Data {
             out float[] neutralWeights,
             out uint[] friendlyMasks,
             out uint[] avoidMasks,
-            out uint[] neutralMasks) {
+            out uint[] neutralMasks)
+        {
             int fishTypeCount = fishTypes != null ? fishTypes.Length : 0;
 
             AllocateOutputs(
@@ -46,7 +49,8 @@ namespace Flock.Scripts.Build.Utilities.Data {
 
             LogWarnings(fishTypeCount, matrix);
 
-            if (fishTypeCount == 0 || matrix == null) {
+            if (fishTypeCount == 0 || matrix == null)
+            {
                 return;
             }
 
@@ -64,7 +68,8 @@ namespace Flock.Scripts.Build.Utilities.Data {
             out float[] neutralWeights,
             out uint[] friendlyMasks,
             out uint[] avoidMasks,
-            out uint[] neutralMasks) {
+            out uint[] neutralMasks)
+        {
             leadershipWeights = new float[fishTypeCount];
             avoidanceWeights = new float[fishTypeCount];
             neutralWeights = new float[fishTypeCount];
@@ -74,8 +79,10 @@ namespace Flock.Scripts.Build.Utilities.Data {
             neutralMasks = new uint[fishTypeCount];
         }
 
-        private static void LogWarnings(int fishTypeCount, FishInteractionMatrix matrix) {
-            if (fishTypeCount > RelationMaskBitCount) {
+        private static void LogWarnings(int fishTypeCount, FishInteractionMatrix matrix)
+        {
+            if (fishTypeCount > RelationMaskBitCount)
+            {
                 FlockLog.WarningFormat(
                     null,
                     FlockLogCategory.Simulation,
@@ -84,7 +91,8 @@ namespace Flock.Scripts.Build.Utilities.Data {
                     fishTypeCount);
             }
 
-            if (fishTypeCount > 0 && matrix == null) {
+            if (fishTypeCount > 0 && matrix == null)
+            {
                 FlockLog.Warning(
                     null,
                     FlockLogCategory.Simulation,
@@ -98,8 +106,10 @@ namespace Flock.Scripts.Build.Utilities.Data {
             FishInteractionMatrix matrix,
             float[] leadershipWeights,
             float[] avoidanceWeights,
-            float[] neutralWeights) {
-            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex++) {
+            float[] neutralWeights)
+        {
+            for (int fishTypeIndex = 0; fishTypeIndex < fishTypeCount; fishTypeIndex++)
+            {
                 leadershipWeights[fishTypeIndex] = matrix.GetLeadershipWeight(fishTypeIndex);
                 avoidanceWeights[fishTypeIndex] = matrix.GetAvoidanceWeight(fishTypeIndex);
                 neutralWeights[fishTypeIndex] = matrix.GetNeutralWeight(fishTypeIndex);
@@ -111,14 +121,19 @@ namespace Flock.Scripts.Build.Utilities.Data {
             FishInteractionMatrix matrix,
             uint[] friendlyMasks,
             uint[] avoidMasks,
-            uint[] neutralMasks) {
-            for (int sourceTypeIndex = 0; sourceTypeIndex < fishTypeCount; sourceTypeIndex++) {
-                for (int targetTypeIndex = 0; targetTypeIndex < fishTypeCount; targetTypeIndex++) {
-                    if (!matrix.GetInteraction(sourceTypeIndex, targetTypeIndex)) {
+            uint[] neutralMasks)
+        {
+            for (int sourceTypeIndex = 0; sourceTypeIndex < fishTypeCount; sourceTypeIndex++)
+            {
+                for (int targetTypeIndex = 0; targetTypeIndex < fishTypeCount; targetTypeIndex++)
+                {
+                    if (!matrix.GetInteraction(sourceTypeIndex, targetTypeIndex))
+                    {
                         continue;
                     }
 
-                    if (targetTypeIndex >= RelationMaskBitCount) {
+                    if (targetTypeIndex >= RelationMaskBitCount)
+                    {
                         continue; // Mask is 32-bit.
                     }
 
@@ -142,8 +157,10 @@ namespace Flock.Scripts.Build.Utilities.Data {
             uint targetTypeBit,
             uint[] friendlyMasks,
             uint[] avoidMasks,
-            uint[] neutralMasks) {
-            switch (relation) {
+            uint[] neutralMasks)
+        {
+            switch (relation)
+            {
                 case RelationType.Friendly:
                     friendlyMasks[sourceTypeIndex] |= targetTypeBit;
                     return;
@@ -162,12 +179,15 @@ namespace Flock.Scripts.Build.Utilities.Data {
             int fishTypeCount,
             uint[] friendlyMasks,
             uint[] avoidMasks,
-            uint[] neutralMasks) {
+            uint[] neutralMasks)
+        {
             // Just enforce symmetry to be safe (editor already does it, but whatever).
-            for (int firstTypeIndex = 0; firstTypeIndex < fishTypeCount; firstTypeIndex++) {
+            for (int firstTypeIndex = 0; firstTypeIndex < fishTypeCount; firstTypeIndex++)
+            {
                 for (int secondTypeIndex = firstTypeIndex + 1;
                      secondTypeIndex < fishTypeCount && secondTypeIndex < RelationMaskBitCount;
-                     secondTypeIndex++) {
+                     secondTypeIndex++)
+                {
                     uint firstTypeBit = 1u << firstTypeIndex;
                     uint secondTypeBit = 1u << secondTypeIndex;
 
@@ -183,8 +203,10 @@ namespace Flock.Scripts.Build.Utilities.Data {
             int firstTypeIndex,
             int secondTypeIndex,
             uint firstTypeBit,
-            uint secondTypeBit) {
-            if (((masks[firstTypeIndex] & secondTypeBit) != 0u) || ((masks[secondTypeIndex] & firstTypeBit) != 0u)) {
+            uint secondTypeBit)
+        {
+            if (((masks[firstTypeIndex] & secondTypeBit) != 0u) || ((masks[secondTypeIndex] & firstTypeBit) != 0u))
+            {
                 masks[firstTypeIndex] |= secondTypeBit;
                 masks[secondTypeIndex] |= firstTypeBit;
             }

@@ -1,12 +1,14 @@
-﻿using Unity.Burst;
-using Unity.Collections;
-using Unity.Jobs;
-using Unity.Mathematics;
+﻿using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
 using Flock.Scripts.Build.Agents.Fish.Data;
 
-using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
+using Unity.Burst;
+using Unity.Jobs;
+using Unity.Collections;
+using Unity.Mathematics;
 
-namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
+
+namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs
+{
 
     /**
      * <summary>
@@ -14,45 +16,40 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
      * </summary>
      */
     [BurstCompile]
-    public struct ObstacleAvoidanceJob : IJobParallelFor {
+    public struct ObstacleAvoidanceJob : IJobParallelFor
+    {
 
-        [ReadOnly]
-        public NativeArray<float3> Positions;
+        [ReadOnly] public NativeArray<float3> Positions;
+        [ReadOnly] public NativeArray<float3> Velocities;
 
-        [ReadOnly]
-        public NativeArray<float3> Velocities;
+        [ReadOnly] public NativeArray<FlockObstacleData> Obstacles;
+        [ReadOnly] public NativeParallelMultiHashMap<int, int> CellToObstacles;
 
-        [ReadOnly]
-        public NativeArray<int> BehaviourIds;
+        [ReadOnly] public NativeArray<int> BehaviourIds;
+        [ReadOnly] public NativeArray<FlockBehaviourSettings> BehaviourSettings;
 
-        [ReadOnly]
-        public NativeArray<FlockBehaviourSettings> BehaviourSettings;
-
-        [ReadOnly]
-        public NativeArray<FlockObstacleData> Obstacles;
-
-        [ReadOnly]
-        public NativeParallelMultiHashMap<int, int> CellToObstacles;
+        [WriteOnly] public NativeArray<float3> ObstacleSteering;
 
         public float3 GridOrigin;
         public int3 GridResolution;
         public float CellSize;
+
         public float AvoidStrength;
 
-        [WriteOnly]
-        public NativeArray<float3> ObstacleSteering;
-
-        public void Execute(int agentIndex) {
+        public void Execute(int agentIndex)
+        {
             float3 agentPosition = Positions[agentIndex];
             float3 agentVelocity = Velocities[agentIndex];
 
-            if (!TryGetForwardAndSpeed(agentVelocity, out float3 forwardDirection, out float speed)) {
+            if (!TryGetForwardAndSpeed(agentVelocity, out float3 forwardDirection, out float speed))
+            {
                 ObstacleSteering[agentIndex] = float3.zero;
                 return;
             }
 
             int behaviourIndex = BehaviourIds[agentIndex];
-            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
+            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length)
+            {
                 ObstacleSteering[agentIndex] = float3.zero;
                 return;
             }
@@ -89,11 +86,14 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
 
             int layerSize = gridResolution.x * gridResolution.y;
 
-            for (int cellZ = minimumCellZ; cellZ <= maximumCellZ; cellZ += 1) {
-                for (int cellY = minimumCellY; cellY <= maximumCellY; cellY += 1) {
+            for (int cellZ = minimumCellZ; cellZ <= maximumCellZ; cellZ += 1)
+            {
+                for (int cellY = minimumCellY; cellY <= maximumCellY; cellY += 1)
+                {
                     int rowBase = cellY * gridResolution.x + cellZ * layerSize;
 
-                    for (int cellX = minimumCellX; cellX <= maximumCellX; cellX += 1) {
+                    for (int cellX = minimumCellX; cellX <= maximumCellX; cellX += 1)
+                    {
                         int neighbourCellId = cellX + rowBase;
 
                         ProcessCell(
@@ -109,7 +109,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
                 }
             }
 
-            if (bestDanger <= 0.0f || math.lengthsq(bestDirection) < 1e-8f) {
+            if (bestDanger <= 0.0f || math.lengthsq(bestDirection) < 1e-8f)
+            {
                 ObstacleSteering[agentIndex] = float3.zero;
                 return;
             }
@@ -118,9 +119,11 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             ObstacleSteering[agentIndex] = math.normalizesafe(bestDirection, float3.zero) * avoidAcceleration;
         }
 
-        private static bool TryGetForwardAndSpeed(float3 velocity, out float3 forwardDirection, out float speed) {
+        private static bool TryGetForwardAndSpeed(float3 velocity, out float3 forwardDirection, out float speed)
+        {
             float speedSquared = math.lengthsq(velocity);
-            if (speedSquared < 1e-8f) {
+            if (speedSquared < 1e-8f)
+            {
                 forwardDirection = float3.zero;
                 speed = 0f;
                 return false;
@@ -132,7 +135,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             return true;
         }
 
-        private static float ComputeLookAhead(float separationRadius, float speed, float maxSpeed) {
+        private static float ComputeLookAhead(float separationRadius, float speed, float maxSpeed)
+        {
             float baseLookAhead = math.max(separationRadius * 2.0f, 0.5f);
             float speedFactor = (maxSpeed > 1e-6f) ? math.saturate(speed / maxSpeed) : 1.0f;
             return baseLookAhead + separationRadius * 3.0f * speedFactor;
@@ -148,7 +152,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             out int minimumCellY,
             out int maximumCellY,
             out int minimumCellZ,
-            out int maximumCellZ) {
+            out int maximumCellZ)
+        {
 
             int cellRange = (int)math.ceil(lookAhead / cellSize) + 1;
             cellRange = math.max(cellRange, 1);
@@ -171,31 +176,38 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             float separationRadius,
             ref FixedList512Bytes<int> seenObstacleIndices,
             ref float bestDanger,
-            ref float3 bestDirection) {
+            ref float3 bestDirection)
+        {
 
             if (!CellToObstacles.TryGetFirstValue(
                     cellId,
                     out int obstacleIndex,
-                    out NativeParallelMultiHashMapIterator<int> iterator)) {
+                    out NativeParallelMultiHashMapIterator<int> iterator))
+            {
                 return;
             }
 
-            do {
-                if (Contains(seenObstacleIndices, obstacleIndex)) {
+            do
+            {
+                if (Contains(seenObstacleIndices, obstacleIndex))
+                {
                     continue;
                 }
 
-                if (seenObstacleIndices.Length < seenObstacleIndices.Capacity) {
+                if (seenObstacleIndices.Length < seenObstacleIndices.Capacity)
+                {
                     seenObstacleIndices.Add(obstacleIndex);
                 }
 
                 FlockObstacleData obstacle = Obstacles[obstacleIndex];
 
-                if (!IsWithinBroadRange(agentPosition, lookAhead, separationRadius, obstacle.Position, obstacle.Radius)) {
+                if (!IsWithinBroadRange(agentPosition, lookAhead, separationRadius, obstacle.Position, obstacle.Radius))
+                {
                     continue;
                 }
 
-                if (obstacle.Shape == FlockObstacleShape.Sphere) {
+                if (obstacle.Shape == FlockObstacleShape.Sphere)
+                {
                     EvaluateSphere(
                         agentPosition,
                         forwardDirection,
@@ -205,7 +217,9 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
                         math.max(0.0f, obstacle.Radius),
                         ref bestDanger,
                         ref bestDirection);
-                } else {
+                }
+                else
+                {
                     EvaluateBox(
                         agentPosition,
                         forwardDirection,
@@ -226,7 +240,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             float lookAhead,
             float separationRadius,
             float3 obstaclePosition,
-            float obstacleRadius) {
+            float obstacleRadius)
+        {
 
             float broadRadius = math.max(0.0f, obstacleRadius) + separationRadius;
             float maxRange = lookAhead + broadRadius;
@@ -237,9 +252,12 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             return distanceToCenterSquared <= (maxRange * maxRange);
         }
 
-        private static bool Contains(in FixedList512Bytes<int> list, int value) {
-            for (int listIndex = 0; listIndex < list.Length; listIndex += 1) {
-                if (list[listIndex] == value) {
+        private static bool Contains(in FixedList512Bytes<int> list, int value)
+        {
+            for (int listIndex = 0; listIndex < list.Length; listIndex += 1)
+            {
+                if (list[listIndex] == value)
+                {
                     return true;
                 }
             }
@@ -255,7 +273,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             float3 sphereCenter,
             float sphereRadius,
             ref float bestDanger,
-            ref float3 bestDirection) {
+            ref float3 bestDirection)
+        {
 
             float expandedRadius = sphereRadius + separationRadius;
             float expandedRadiusSquared = expandedRadius * expandedRadius;
@@ -263,11 +282,13 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             float3 toCenter = sphereCenter - agentPosition;
             float distanceCenterSquared = math.lengthsq(toCenter);
 
-            if (distanceCenterSquared < expandedRadiusSquared) {
+            if (distanceCenterSquared < expandedRadiusSquared)
+            {
                 float distanceCenter = math.sqrt(math.max(distanceCenterSquared, 1e-6f));
                 float penetration = expandedRadius - distanceCenter;
 
-                if (penetration > 0.0f) {
+                if (penetration > 0.0f)
+                {
                     float penetrationFactor = math.saturate(penetration / math.max(expandedRadius, 1e-3f));
                     float dangerInside = 0.5f + 0.5f * penetrationFactor;
 
@@ -275,7 +296,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
                         agentPosition - sphereCenter,
                         -forwardDirection);
 
-                    if (dangerInside > bestDanger) {
+                    if (dangerInside > bestDanger)
+                    {
                         bestDanger = dangerInside;
                         bestDirection = exitDirection;
                     }
@@ -285,7 +307,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             }
 
             float forwardDistance = math.dot(toCenter, forwardDirection);
-            if (forwardDistance < 0.0f || forwardDistance > lookAhead) {
+            if (forwardDistance < 0.0f || forwardDistance > lookAhead)
+            {
                 return;
             }
 
@@ -293,13 +316,15 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             float3 lateral = toCenter - projected;
             float lateralSquared = math.lengthsq(lateral);
 
-            if (lateralSquared > expandedRadiusSquared) {
+            if (lateralSquared > expandedRadiusSquared)
+            {
                 return;
             }
 
             float lateralDistance = math.sqrt(math.max(lateralSquared, 1e-6f));
             float penetrationLateral = expandedRadius - lateralDistance;
-            if (penetrationLateral <= 0.0f) {
+            if (penetrationLateral <= 0.0f)
+            {
                 return;
             }
 
@@ -312,7 +337,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
                 -lateral,
                 -forwardDirection);
 
-            if (danger > bestDanger) {
+            if (danger > bestDanger)
+            {
                 bestDanger = danger;
                 bestDirection = lateralDirection;
             }
@@ -327,14 +353,16 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             float3 boxHalfExtents,
             quaternion boxRotation,
             ref float bestDanger,
-            ref float3 bestDirection) {
+            ref float3 bestDirection)
+        {
 
             float3 expandedHalfExtents = new float3(
                 math.max(0.0f, boxHalfExtents.x) + separationRadius,
                 math.max(0.0f, boxHalfExtents.y) + separationRadius,
                 math.max(0.0f, boxHalfExtents.z) + separationRadius);
 
-            if (expandedHalfExtents.x <= 0f || expandedHalfExtents.y <= 0f || expandedHalfExtents.z <= 0f) {
+            if (expandedHalfExtents.x <= 0f || expandedHalfExtents.y <= 0f || expandedHalfExtents.z <= 0f)
+            {
                 return;
             }
 
@@ -350,12 +378,14 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
                     lookAhead,
                     out float hitTime,
                     out float3 normalLocal,
-                    out bool startsInside)) {
+                    out bool startsInside))
+            {
                 return;
             }
 
             float danger;
-            if (startsInside) {
+            if (startsInside)
+            {
                 float3 absOrigin = math.abs(originLocal);
 
                 float distToFaceX = expandedHalfExtents.x - absOrigin.x;
@@ -367,17 +397,21 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
 
                 float penetrationFactor = 1.0f - math.saturate(minFaceDist / minHalfExtent);
                 danger = 0.5f + 0.5f * penetrationFactor;
-            } else {
+            }
+            else
+            {
                 float timeFactor = 1.0f - (hitTime / math.max(lookAhead, 1e-3f));
                 danger = math.saturate(timeFactor);
             }
 
-            if (danger <= bestDanger) {
+            if (danger <= bestDanger)
+            {
                 return;
             }
 
             float3 normalWorld = math.mul(boxRotation, normalLocal);
-            if (math.lengthsq(normalWorld) < 1e-8f) {
+            if (math.lengthsq(normalWorld) < 1e-8f)
+            {
                 return;
             }
 
@@ -392,7 +426,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             float maxTime,
             out float hitTime,
             out float3 normalLocal,
-            out bool startsInside) {
+            out bool startsInside)
+        {
 
             hitTime = 0f;
             normalLocal = float3.zero;
@@ -402,7 +437,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
                 math.abs(originLocal.y) <= halfExtents.y &&
                 math.abs(originLocal.z) <= halfExtents.z;
 
-            if (startsInside) {
+            if (startsInside)
+            {
                 normalLocal = ComputeInsideExitNormal(originLocal, directionLocal, halfExtents);
                 hitTime = 0f;
                 return true;
@@ -423,7 +459,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
                     parallelEpsilon,
                     ref timeEnter,
                     ref timeExit,
-                    ref enterNormal)) {
+                    ref enterNormal))
+            {
                 return false;
             }
 
@@ -436,7 +473,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
                     parallelEpsilon,
                     ref timeEnter,
                     ref timeExit,
-                    ref enterNormal)) {
+                    ref enterNormal))
+            {
                 return false;
             }
 
@@ -449,15 +487,18 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
                     parallelEpsilon,
                     ref timeEnter,
                     ref timeExit,
-                    ref enterNormal)) {
+                    ref enterNormal))
+            {
                 return false;
             }
 
-            if (timeExit < 0f) {
+            if (timeExit < 0f)
+            {
                 return false;
             }
 
-            if (timeEnter > maxTime) {
+            if (timeEnter > maxTime)
+            {
                 return false;
             }
 
@@ -476,9 +517,11 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             float parallelEpsilon,
             ref float timeEnter,
             ref float timeExit,
-            ref float3 enterNormal) {
+            ref float3 enterNormal)
+        {
 
-            if (math.abs(directionComponent) < parallelEpsilon) {
+            if (math.abs(directionComponent) < parallelEpsilon)
+            {
                 return !(originComponent < -halfExtent || originComponent > halfExtent);
             }
 
@@ -492,7 +535,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
 
             float3 nearNormal = (timeToMinPlane < timeToMaxPlane) ? normalWhenMinIsNear : normalWhenMaxIsNear;
 
-            if (nearTime > timeEnter) {
+            if (nearTime > timeEnter)
+            {
                 timeEnter = nearTime;
                 enterNormal = nearNormal;
             }
@@ -501,7 +545,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             return timeEnter <= timeExit;
         }
 
-        private static float3 ComputeInsideExitNormal(float3 originLocal, float3 directionLocal, float3 halfExtents) {
+        private static float3 ComputeInsideExitNormal(float3 originLocal, float3 directionLocal, float3 halfExtents)
+        {
             float3 absOrigin = math.abs(originLocal);
 
             float distToFaceX = halfExtents.x - absOrigin.x;
@@ -515,18 +560,21 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             if (distToFaceZ < minDist) { minDist = distToFaceZ; axisIndex = 2; }
 
             float3 absDir = math.abs(directionLocal);
-            if (minDist > math.cmin(halfExtents) * 0.999f) {
+            if (minDist > math.cmin(halfExtents) * 0.999f)
+            {
                 axisIndex = absDir.x >= absDir.y
                     ? (absDir.x >= absDir.z ? 0 : 2)
                     : (absDir.y >= absDir.z ? 1 : 2);
             }
 
-            if (axisIndex == 0) {
+            if (axisIndex == 0)
+            {
                 float signValue = (originLocal.x != 0f) ? math.sign(originLocal.x) : (directionLocal.x >= 0f ? 1f : -1f);
                 return new float3(signValue, 0f, 0f);
             }
 
-            if (axisIndex == 1) {
+            if (axisIndex == 1)
+            {
                 float signValue = (originLocal.y != 0f) ? math.sign(originLocal.y) : (directionLocal.y >= 0f ? 1f : -1f);
                 return new float3(0f, signValue, 0f);
             }
@@ -535,7 +583,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs {
             return new float3(0f, 0f, signValueZ);
         }
 
-        private static int3 GetCell(float3 position, float3 origin, int3 gridResolution, float cellSize) {
+        private static int3 GetCell(float3 position, float3 origin, int3 gridResolution, float cellSize)
+        {
             float3 scaled = (position - origin) / cellSize;
             int3 cell = (int3)math.floor(scaled);
 

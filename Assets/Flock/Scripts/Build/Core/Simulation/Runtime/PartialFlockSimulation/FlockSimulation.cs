@@ -1,36 +1,37 @@
-﻿// File: Assets/Flock/Runtime/FlockSimulation.cs
-namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
-    using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
-    using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
-    using Flock.Scripts.Build.Influence.Environment.Attractors.Jobs;
-    using Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs;
-    using Flock.Scripts.Build.Influence.Environment.Bounds.Jobs;
-    using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
-    using Flock.Scripts.Build.Influence.PatternVolume.Data;
-    using Flock.Scripts.Build.Influence.PatternVolume.Jobs;
-    using Flock.Scripts.Build.Infrastructure.Grid.Data;
-    using Flock.Scripts.Build.Influence.Noise.Profiles;
-    using Flock.Scripts.Build.Infrastructure.Grid.Jobs;
-    using Flock.Scripts.Build.Influence.Noise.Data;
-    using Flock.Scripts.Build.Influence.Noise.Jobs;
-    using Flock.Scripts.Build.Agents.Fish.Data;
-    using Flock.Scripts.Build.Agents.Fish.Jobs;
-    using Flock.Scripts.Build.Utilities.Jobs;
+﻿using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
+using Flock.Scripts.Build.Influence.Environment.Attractors.Jobs;
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Jobs;
+using Flock.Scripts.Build.Influence.Environment.Bounds.Jobs;
+using Flock.Scripts.Build.Influence.PatternVolume.Data;
+using Flock.Scripts.Build.Influence.PatternVolume.Jobs;
+using Flock.Scripts.Build.Infrastructure.Grid.Data;
+using Flock.Scripts.Build.Influence.Noise.Profiles;
+using Flock.Scripts.Build.Infrastructure.Grid.Jobs;
+using Flock.Scripts.Build.Influence.Noise.Data;
+using Flock.Scripts.Build.Influence.Noise.Jobs;
+using Flock.Scripts.Build.Agents.Fish.Data;
+using Flock.Scripts.Build.Agents.Fish.Jobs;
+using Flock.Scripts.Build.Utilities.Jobs;
 
-    using System;
-    using Unity.Jobs;
-    using Unity.Collections;
-    using Unity.Mathematics;
-    using Flock.Scripts.Build.Debug;
-    using System.Collections.Generic;
-    using Flock.Scripts.Build.Influence.Environment.Data;
+using System;
+using Unity.Jobs;
+using Unity.Collections;
+using Unity.Mathematics;
+using Flock.Scripts.Build.Debug;
+using System.Collections.Generic;
+using Flock.Scripts.Build.Influence.Environment.Data;
+
+namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation
+{
 
     /**
     * <summary>
     * Core flock simulation runtime. Owns native buffers and schedules the per-frame job graph.
     * </summary>
     */
-    public sealed partial class FlockSimulation {
+    public sealed partial class FlockSimulation
+    {
         #region Constants
 
         private const float DefaultObstacleAvoidStrength = 2.0f;
@@ -41,27 +42,37 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
 
         #region Public Properties
 
-        public int AgentCount { get; private set; }
-
         public bool IsCreated => positions.IsCreated;
+
         public NativeArray<float3> Positions => positions;
         public NativeArray<float3> Velocities => velocities;
+
         public float GlobalWanderMultiplier { get; set; } = 1.0f;
         public float GlobalGroupNoiseMultiplier { get; set; } = 1.0f;
         public float GlobalPatternMultiplier { get; set; } = 1.0f;
         public float GroupNoiseFrequency { get; set; } = 0.3f;
 
+        public int AgentCount { get; private set; }
+
         #endregion
 
         #region Private Fields
+
+        // Services.
+        private IFlockLogger logger;
+
+        // Job safety / staging.
+        private JobHandle inFlightHandle;
 
         // Core agent state.
         private NativeArray<float3> positions;
         private NativeArray<float3> velocities;
         private NativeArray<float3> prevVelocities;
+
         private NativeArray<int> behaviourIds;
         private NativeArray<FlockBehaviourSettings> behaviourSettings;
         private NativeArray<int> behaviourCellSearchRadius;
+
         private float simulationTime;
 
         // Environment / bounds response.
@@ -69,15 +80,41 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
         private NativeArray<float3> wallDirections;
         private NativeArray<float> wallDangers;
 
-        // Patterns.
-        // Patterns.
+        // Grid / neighbour sampling.
+        private NativeArray<int> cellAgentStarts;
+        private NativeArray<int> cellAgentCounts;
+        private NativeArray<CellAgentPair> cellAgentPairs;
+
+        private NativeArray<int> agentCellCounts;
+        private NativeArray<int> agentCellIds;
+        private NativeArray<int> agentEntryStarts;
+
+        private NativeArray<int> totalAgentPairCount;
+        private NativeArray<int> touchedAgentCells;
+        private NativeArray<int> touchedAgentCellCount;
+
+        private NativeArray<NeighbourAggregate> neighbourAggregates;
+
+        private int gridCellCount;
+        private int maxCellsPerAgent;
+
+        // Patterns (runtime instances + pooling).
+        private readonly List<int> runtimePatternVolumeActive = new List<int>(16);
+        private readonly List<PatternVolumeBoxShell> runtimeBoxShells = new List<PatternVolumeBoxShell>(16);
+        private readonly List<PatternVolumeSphereShell> runtimeSphereShells = new List<PatternVolumeSphereShell>(16);
+        private readonly List<RuntimePatternVolumeInstance> runtimeLayer3Patterns = new List<RuntimePatternVolumeInstance>(16);
+
+        private readonly Stack<int> runtimeBoxShellFree = new Stack<int>(16);
+        private readonly Stack<int> runtimeSphereShellFree = new Stack<int>(16);
+        private readonly Stack<int> runtimeLayer3Free = new Stack<int>(16);
+
+        // Patterns
         private NativeArray<float3> patternSteering;
         private NativeArray<float3> cellGroupNoise;
 
-        // was: FlockLayer3PatternCommand / SphereShell / BoxShell
-        private PatternVolumeCommand[] layer3PatternCommands = Array.Empty<PatternVolumeCommand>();
-        private PatternVolumeSphereShell[] layer3SphereShells = Array.Empty<PatternVolumeSphereShell>();
-        private PatternVolumeBoxShell[] layer3BoxShells = Array.Empty<PatternVolumeBoxShell>();
+        private PatternVolumeCommand[] patternVolumeCommands = Array.Empty<PatternVolumeCommand>();
+        private PatternVolumeSphereShell[] patternVolumeSphereShells = Array.Empty<PatternVolumeSphereShell>();
+        private PatternVolumeBoxShell[] patternVolumeBoxShells = Array.Empty<PatternVolumeBoxShell>();
 
         private float3 patternSphereCenter;
         private float patternSphereRadius;
@@ -85,27 +122,11 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
         private float patternSphereStrength;
         private uint patternSphereBehaviourMask;
 
-        private readonly List<int> runtimeLayer3Active = new List<int>(16);
-
-        // was: List<FlockLayer3PatternBoxShell> / SphereShell
-        private readonly List<PatternVolumeBoxShell> runtimeBoxShells =
-            new List<PatternVolumeBoxShell>(16);
-        private readonly List<PatternVolumeSphereShell> runtimeSphereShells =
-            new List<PatternVolumeSphereShell>(16);
-
-        private readonly List<RuntimePatternVolumeInstance> runtimeLayer3Patterns =
-            new List<RuntimePatternVolumeInstance>(16);
-
-        private readonly Stack<int> runtimeBoxShellFree = new Stack<int>(16);
-        private readonly Stack<int> runtimeSphereShellFree = new Stack<int>(16);
-        private readonly Stack<int> runtimeLayer3Free = new Stack<int>(16);
-
         // Obstacles.
         private NativeArray<FlockObstacleData> obstacles;
         private NativeArray<float3> obstacleSteering;
         private NativeParallelMultiHashMap<int, int> cellToObstacles;
-        private readonly List<IndexedObstacleChange> pendingObstacleChanges =
-            new List<IndexedObstacleChange>(32);
+        private readonly List<IndexedObstacleChange> pendingObstacleChanges = new List<IndexedObstacleChange>(32);
 
         private int obstacleCount;
         private bool obstacleGridDirty;
@@ -113,41 +134,21 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
         // Attractors.
         private NativeArray<FlockAttractorData> attractors;
         private NativeArray<float3> attractionSteering;
+
         private NativeArray<int> cellToIndividualAttractor;
         private NativeArray<int> cellToGroupAttractor;
         private NativeArray<float> cellIndividualPriority;
         private NativeArray<float> cellGroupPriority;
-        private readonly List<IndexedAttractorChange> pendingAttractorChanges =
-            new List<IndexedAttractorChange>(32);
+
+        private readonly List<IndexedAttractorChange> pendingAttractorChanges = new List<IndexedAttractorChange>(32);
 
         private int attractorCount;
         private bool attractorGridDirty;
 
-        // Grid / neighbour sampling.
-
-        private NativeArray<int> cellAgentStarts;
-        private NativeArray<int> cellAgentCounts;
-        private NativeArray<CellAgentPair> cellAgentPairs;
-        private NativeArray<int> agentCellCounts;
-        private NativeArray<int> agentCellIds;
-        private NativeArray<int> agentEntryStarts;
-        private NativeArray<int> totalAgentPairCount;
-        private NativeArray<int> touchedAgentCells;
-        private NativeArray<int> touchedAgentCellCount;
-        private NativeArray<NeighbourAggregate> neighbourAggregates;
-
-        private int gridCellCount;
-        private int maxCellsPerAgent;
-
-        // Job safety / staging.
-        private JobHandle inFlightHandle;
-
+        // Pending behaviour ids staging.
         private bool pendingBehaviourIdsDirty;
         private int pendingBehaviourIdsCount;
         private int[] pendingBehaviourIdsManaged;
-
-        // Logging / services.
-        private IFlockLogger logger;
 
         // Layer-2 group noise active state.
         private FlockGroupNoisePatternType activeLayer2GroupNoiseKind = FlockGroupNoisePatternType.SimpleSine;
@@ -158,6 +159,7 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
         private FlockGroupNoiseSphereShellPayload activeLayer2SphereShell = FlockGroupNoiseSphereShellPayload.Default;
 
         #endregion
+
 
         #region Public API
 
@@ -180,10 +182,12 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             FlockObstacleData[] obstaclesSource,
             FlockAttractorData[] attractorsSource,
             Allocator allocator,
-            IFlockLogger logger) {
+            IFlockLogger logger)
+        {
 
             // If someone re-initializes, do it safely.
-            if (IsCreated) {
+            if (IsCreated)
+            {
                 inFlightHandle.Complete();
                 Dispose();
             }
@@ -205,12 +209,12 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             activeLayer2SphereShell = FlockGroupNoiseSphereShellPayload.Default;
 
             // Reset Layer-3 baked + runtime state
-            layer3PatternCommands = Array.Empty<PatternVolumeCommand>();
-            layer3SphereShells = Array.Empty<PatternVolumeSphereShell>();
-            layer3BoxShells = Array.Empty<PatternVolumeBoxShell>();
+            patternVolumeCommands = Array.Empty<PatternVolumeCommand>();
+            patternVolumeSphereShells = Array.Empty<PatternVolumeSphereShell>();
+            patternVolumeBoxShells = Array.Empty<PatternVolumeBoxShell>();
 
             runtimeLayer3Patterns.Clear();
-            runtimeLayer3Active.Clear();
+            runtimePatternVolumeActive.Clear();
             runtimeLayer3Free.Clear();
             runtimeSphereShells.Clear();
             runtimeSphereShellFree.Clear();
@@ -247,7 +251,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             AllocateAttractorSimulationData(allocator);
 
             // Build initial grids ONCE during init (safe: no jobs running yet).
-            if (obstacleCount > 0 && cellToObstacles.IsCreated && obstacles.IsCreated && gridCellCount > 0) {
+            if (obstacleCount > 0 && cellToObstacles.IsCreated && obstacles.IsCreated && gridCellCount > 0)
+            {
                 BuildObstacleGrid();
                 obstacleGridDirty = false;
             }
@@ -258,9 +263,12 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 && cellToGroupAttractor.IsCreated
                 && cellIndividualPriority.IsCreated
                 && cellGroupPriority.IsCreated
-                && gridCellCount > 0) {
+                && gridCellCount > 0)
+            {
                 attractorGridDirty = true;
-            } else {
+            }
+            else
+            {
                 attractorGridDirty = false;
             }
 
@@ -273,10 +281,12 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 $"obstacles={obstacleCount}, attractors={attractorCount}.",
                 null);
 
-            for (int index = 0; index < behaviourSettings.Length; index += 1) {
+            for (int index = 0; index < behaviourSettings.Length; index += 1)
+            {
                 FlockBehaviourSettings behaviour = behaviourSettings[index];
 
-                if (behaviour.MaxSpeed <= 0.0f || behaviour.MaxAcceleration <= 0.0f) {
+                if (behaviour.MaxSpeed <= 0.0f || behaviour.MaxAcceleration <= 0.0f)
+                {
                     FlockLog.Warning(
                         this.logger,
                         FlockLogCategory.Simulation,
@@ -284,7 +294,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                         null);
                 }
 
-                if (behaviour.NeighbourRadius <= 0.0f) {
+                if (behaviour.NeighbourRadius <= 0.0f)
+                {
                     FlockLog.Warning(
                         this.logger,
                         FlockLogCategory.Simulation,
@@ -304,9 +315,11 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
         */
         public JobHandle ScheduleStepJobs(
            float deltaTime,
-           JobHandle inputHandle = default) {
+           JobHandle inputHandle = default)
+        {
 
-            if (AgentCount == 0) {
+            if (AgentCount == 0)
+            {
                 FlockLog.Warning(
                     logger,
                     FlockLogCategory.Simulation,
@@ -319,7 +332,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
 
             JobHandle frameDeps = JobHandle.CombineDependencies(inputHandle, inFlightHandle);
 
-            if (!ValidatePackedAgentGridCreated()) {
+            if (!ValidatePackedAgentGridCreated())
+            {
                 FlockLog.Error(
                     logger,
                     FlockLogCategory.Simulation,
@@ -357,11 +371,13 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             flockDeps = JobHandle.CombineDependencies(flockDeps, boundsHandle);
             flockDeps = JobHandle.CombineDependencies(flockDeps, clearPatternHandle);
 
-            if (useGroupNoiseField) {
+            if (useGroupNoiseField)
+            {
                 flockDeps = JobHandle.CombineDependencies(flockDeps, groupNoiseHandle);
             }
 
-            if (anyPattern) {
+            if (anyPattern)
+            {
                 flockDeps = JobHandle.CombineDependencies(flockDeps, patternHandle);
             }
 
@@ -391,7 +407,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
         * Disposes all native allocations owned by the simulation. Completes any in-flight jobs first.
         * </summary>
         */
-        public void Dispose() {
+        public void Dispose()
+        {
             inFlightHandle.Complete();
             inFlightHandle = default;
 
@@ -419,7 +436,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             DisposeArray(ref touchedAgentCells);
             DisposeArray(ref touchedAgentCellCount);
 
-            if (cellToObstacles.IsCreated) {
+            if (cellToObstacles.IsCreated)
+            {
                 cellToObstacles.Dispose();
                 cellToObstacles = default;
             }
@@ -451,8 +469,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
 
         #region Normal Methods
 
-        private JobHandle ScheduleNeighbourAggregate(NativeArray<float3> velRead, JobHandle deps) {
-            var job = new NeighbourAggregateJob {
+        private JobHandle ScheduleNeighbourAggregate(NativeArray<float3> velRead, JobHandle deps)
+        {
+            var job = new NeighbourAggregateJob
+            {
                 Positions = positions,
                 PrevVelocities = velRead,
 
@@ -481,11 +501,13 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             bool useObstacleAvoidance,
             bool useAttraction,
             JobHandle neighbourAggHandle,
-            JobHandle deps) {
+            JobHandle deps)
+        {
 
             JobHandle steeringDeps = JobHandle.CombineDependencies(deps, neighbourAggHandle);
 
-            var job = new SteeringIntegrateJob {
+            var job = new SteeringIntegrateJob
+            {
                 NeighbourAggregates = neighbourAggregates,
 
                 Positions = positions,
@@ -525,7 +547,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return job.Schedule(AgentCount, 64, steeringDeps);
         }
 
-        private bool ValidatePackedAgentGridCreated() {
+        private bool ValidatePackedAgentGridCreated()
+        {
             return cellAgentStarts.IsCreated
                 && cellAgentCounts.IsCreated
                 && cellAgentPairs.IsCreated
@@ -537,18 +560,22 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 && touchedAgentCellCount.IsCreated;
         }
 
-        private JobHandle ScheduleApplyPendingChanges(JobHandle frameDeps) {
+        private JobHandle ScheduleApplyPendingChanges(JobHandle frameDeps)
+        {
             JobHandle applyDeps = frameDeps;
 
-            if (pendingBehaviourIdsDirty && pendingBehaviourIdsCount > 0) {
+            if (pendingBehaviourIdsDirty && pendingBehaviourIdsCount > 0)
+            {
                 int count = math.min(pendingBehaviourIdsCount, AgentCount);
 
                 var tmp = new NativeArray<int>(count, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                for (int i = 0; i < count; i += 1) {
+                for (int i = 0; i < count; i += 1)
+                {
                     tmp[i] = pendingBehaviourIdsManaged[i];
                 }
 
-                var copyJob = new CopyIntArrayJob {
+                var copyJob = new CopyIntArrayJob
+                {
                     Source = tmp,
                     Destination = behaviourIds,
                     Count = count,
@@ -562,7 +589,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 pendingBehaviourIdsCount = 0;
             }
 
-            if (pendingObstacleChanges.Count > 0 && obstacles.IsCreated) {
+            if (pendingObstacleChanges.Count > 0 && obstacles.IsCreated)
+            {
                 int changeCount = pendingObstacleChanges.Count;
 
                 var tmp = new NativeArray<IndexedObstacleChange>(
@@ -570,13 +598,15 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                     Allocator.TempJob,
                     NativeArrayOptions.UninitializedMemory);
 
-                for (int i = 0; i < changeCount; i += 1) {
+                for (int i = 0; i < changeCount; i += 1)
+                {
                     tmp[i] = pendingObstacleChanges[i];
                 }
 
                 pendingObstacleChanges.Clear();
 
-                var applyJob = new ApplyIndexedObstacleChangesJob {
+                var applyJob = new ApplyIndexedObstacleChangesJob
+                {
                     Changes = tmp,
                     Obstacles = obstacles,
                 };
@@ -588,7 +618,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 obstacleGridDirty = true;
             }
 
-            if (pendingAttractorChanges.Count > 0 && attractors.IsCreated) {
+            if (pendingAttractorChanges.Count > 0 && attractors.IsCreated)
+            {
                 int changeCount = pendingAttractorChanges.Count;
 
                 var tmp = new NativeArray<IndexedAttractorChange>(
@@ -596,7 +627,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                     Allocator.TempJob,
                     NativeArrayOptions.UninitializedMemory);
 
-                for (int i = 0; i < changeCount; i += 1) {
+                for (int i = 0; i < changeCount; i += 1)
+                {
                     tmp[i] = pendingAttractorChanges[i];
                 }
 
@@ -606,7 +638,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 float envMaxY = environmentData.BoundsCenter.y + environmentData.BoundsExtents.y;
                 float envHeight = math.max(envMaxY - envMinY, 0.0001f);
 
-                var applyJob = new ApplyIndexedAttractorChangesJob {
+                var applyJob = new ApplyIndexedAttractorChangesJob
+                {
                     Changes = tmp,
                     Attractors = attractors,
                     EnvMinY = envMinY,
@@ -623,22 +656,26 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return applyDeps;
         }
 
-        private JobHandle ScheduleClearPatternSteering(JobHandle deps) {
-            var clearPatternJob = new ClearFloat3ArrayJob {
+        private JobHandle ScheduleClearPatternSteering(JobHandle deps)
+        {
+            var clearPatternJob = new ClearFloat3ArrayJob
+            {
                 Array = patternSteering,
             };
 
             return clearPatternJob.Schedule(AgentCount, 64, deps);
         }
 
-        private bool ShouldUseObstacleAvoidance() {
+        private bool ShouldUseObstacleAvoidance()
+        {
             return obstacleCount > 0
                 && cellToObstacles.IsCreated
                 && obstacles.IsCreated
                 && gridCellCount > 0;
         }
 
-        private bool ShouldUseAttraction() {
+        private bool ShouldUseAttraction()
+        {
             return attractorCount > 0
                 && attractors.IsCreated
                 && cellToIndividualAttractor.IsCreated
@@ -648,22 +685,27 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 && gridCellCount > 0;
         }
 
-        private bool ShouldUseGroupNoiseField() {
+        private bool ShouldUseGroupNoiseField()
+        {
             return cellGroupNoise.IsCreated && gridCellCount > 0;
         }
 
-        private JobHandle ScheduleRebuildObstacleGridIfDirty(JobHandle deps, bool useObstacleAvoidance) {
-            if (!useObstacleAvoidance || !obstacleGridDirty) {
+        private JobHandle ScheduleRebuildObstacleGridIfDirty(JobHandle deps, bool useObstacleAvoidance)
+        {
+            if (!useObstacleAvoidance || !obstacleGridDirty)
+            {
                 return deps;
             }
 
-            var clearMapJob = new ClearMultiHashMapJob {
+            var clearMapJob = new ClearMultiHashMapJob
+            {
                 Map = cellToObstacles,
             };
 
             JobHandle clearMapHandle = clearMapJob.Schedule(deps);
 
-            var buildJob = new BuildObstacleGridJob {
+            var buildJob = new BuildObstacleGridJob
+            {
                 Obstacles = obstacles,
                 CellToObstacles = cellToObstacles.AsParallelWriter(),
                 GridOrigin = environmentData.GridOrigin,
@@ -677,12 +719,15 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return obstacleGridHandle;
         }
 
-        private JobHandle ScheduleRebuildAttractorGridIfDirty(JobHandle deps, bool useAttraction) {
-            if (!useAttraction || !attractorGridDirty) {
+        private JobHandle ScheduleRebuildAttractorGridIfDirty(JobHandle deps, bool useAttraction)
+        {
+            if (!useAttraction || !attractorGridDirty)
+            {
                 return deps;
             }
 
-            var rebuildJob = new RebuildAttractorGridJob {
+            var rebuildJob = new RebuildAttractorGridJob
+            {
                 Attractors = attractors,
                 AttractorCount = attractorCount,
 
@@ -702,8 +747,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return attractorGridHandle;
         }
 
-        private JobHandle ScheduleRebuildPackedAgentGrid(JobHandle deps) {
-            var clearTouchedJob = new ClearTouchedAgentCellsJob {
+        private JobHandle ScheduleRebuildPackedAgentGrid(JobHandle deps)
+        {
+            var clearTouchedJob = new ClearTouchedAgentCellsJob
+            {
                 TouchedCells = touchedAgentCells,
                 TouchedCount = touchedAgentCellCount,
                 CellStarts = cellAgentStarts,
@@ -712,7 +759,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
 
             JobHandle clearTouchedHandle = clearTouchedJob.Schedule(deps);
 
-            var buildCellIdsJob = new AssignToGridJob {
+            var buildCellIdsJob = new AssignToGridJob
+            {
                 Positions = positions,
                 BehaviourIds = behaviourIds,
                 BehaviourSettings = behaviourSettings,
@@ -728,7 +776,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
 
             JobHandle buildCellIdsHandle = buildCellIdsJob.Schedule(AgentCount, 64, clearTouchedHandle);
 
-            var prefixJob = new ExclusivePrefixSumIntJob {
+            var prefixJob = new ExclusivePrefixSumIntJob
+            {
                 Counts = agentCellCounts,
                 Starts = agentEntryStarts,
                 Total = totalAgentPairCount,
@@ -736,7 +785,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
 
             JobHandle prefixHandle = prefixJob.Schedule(buildCellIdsHandle);
 
-            var fillPairsJob = new FillCellAgentPairsJob {
+            var fillPairsJob = new FillCellAgentPairsJob
+            {
                 MaxCellsPerAgent = maxCellsPerAgent,
                 AgentCellCounts = agentCellCounts,
                 AgentCellIds = agentCellIds,
@@ -746,14 +796,16 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
 
             JobHandle fillPairsHandle = fillPairsJob.Schedule(AgentCount, 64, prefixHandle);
 
-            var sortPairsJob = new SortCellAgentPairsJob {
+            var sortPairsJob = new SortCellAgentPairsJob
+            {
                 Pairs = cellAgentPairs,
                 Total = totalAgentPairCount,
             };
 
             JobHandle sortPairsHandle = sortPairsJob.Schedule(fillPairsHandle);
 
-            var buildRangesJob = new BuildCellAgentRangesJob {
+            var buildRangesJob = new BuildCellAgentRangesJob
+            {
                 Pairs = cellAgentPairs,
                 Total = totalAgentPairCount,
                 CellStarts = cellAgentStarts,
@@ -765,8 +817,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return buildRangesJob.Schedule(sortPairsHandle);
         }
 
-        private JobHandle ScheduleBoundsProbe(JobHandle deps) {
-            var boundsJob = new BoundsProbeJob {
+        private JobHandle ScheduleBoundsProbe(JobHandle deps)
+        {
+            var boundsJob = new BoundsProbeJob
+            {
                 Positions = positions,
                 BehaviourIds = behaviourIds,
                 BehaviourSettings = behaviourSettings,
@@ -783,15 +837,18 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             JobHandle assignHandle,
             JobHandle obstacleGridHandle,
             bool useObstacleAvoidance,
-            NativeArray<float3> velRead) {
+            NativeArray<float3> velRead)
+        {
 
-            if (!useObstacleAvoidance) {
+            if (!useObstacleAvoidance)
+            {
                 return assignHandle;
             }
 
             JobHandle obstacleDeps = JobHandle.CombineDependencies(assignHandle, obstacleGridHandle);
 
-            var obstacleJob = new ObstacleAvoidanceJob {
+            var obstacleJob = new ObstacleAvoidanceJob
+            {
                 Positions = positions,
                 Velocities = velRead,
 
@@ -815,15 +872,18 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
         private JobHandle ScheduleAttractorSampling(
             JobHandle assignHandle,
             JobHandle attractorGridHandle,
-            bool useAttraction) {
+            bool useAttraction)
+        {
 
-            if (!useAttraction) {
+            if (!useAttraction)
+            {
                 return assignHandle;
             }
 
             JobHandle attractionDeps = JobHandle.CombineDependencies(assignHandle, attractorGridHandle);
 
-            var attractionJob = new AttractorSamplingJob {
+            var attractionJob = new AttractorSamplingJob
+            {
                 Positions = positions,
                 BehaviourIds = behaviourIds,
 
@@ -842,14 +902,19 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return attractionJob.Schedule(AgentCount, 64, attractionDeps);
         }
 
-        private JobHandle ScheduleGroupNoiseField(JobHandle deps, bool useGroupNoiseField) {
-            if (!useGroupNoiseField) {
+        private JobHandle ScheduleGroupNoiseField(JobHandle deps, bool useGroupNoiseField)
+        {
+            if (!useGroupNoiseField)
+            {
                 return deps;
             }
 
-            switch (activeLayer2GroupNoiseKind) {
-                case FlockGroupNoisePatternType.VerticalBands: {
-                        var job = new GroupNoiseFieldVerticalBandsJob {
+            switch (activeLayer2GroupNoiseKind)
+            {
+                case FlockGroupNoisePatternType.VerticalBands:
+                    {
+                        var job = new GroupNoiseFieldVerticalBandsJob
+                        {
                             Time = simulationTime,
                             Frequency = GroupNoiseFrequency,
                             GridResolution = environmentData.GridResolution,
@@ -860,8 +925,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                         return job.Schedule(gridCellCount, 64, deps);
                     }
 
-                case FlockGroupNoisePatternType.Vortex: {
-                        var job = new GroupNoiseFieldVortexJob {
+                case FlockGroupNoisePatternType.Vortex:
+                    {
+                        var job = new GroupNoiseFieldVortexJob
+                        {
                             Time = simulationTime,
                             Frequency = GroupNoiseFrequency,
                             GridResolution = environmentData.GridResolution,
@@ -872,8 +939,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                         return job.Schedule(gridCellCount, 64, deps);
                     }
 
-                case FlockGroupNoisePatternType.SphereShell: {
-                        var job = new GroupNoiseFieldSphereShellJob {
+                case FlockGroupNoisePatternType.SphereShell:
+                    {
+                        var job = new GroupNoiseFieldSphereShellJob
+                        {
                             Time = simulationTime,
                             Frequency = GroupNoiseFrequency,
                             GridResolution = environmentData.GridResolution,
@@ -885,8 +954,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                     }
 
                 case FlockGroupNoisePatternType.SimpleSine:
-                default: {
-                        var job = new GroupNoiseFieldSimpleSineJob {
+                default:
+                    {
+                        var job = new GroupNoiseFieldSimpleSineJob
+                        {
                             Time = simulationTime,
                             Frequency = GroupNoiseFrequency,
                             GridResolution = environmentData.GridResolution,
@@ -899,31 +970,40 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             }
         }
 
-        private JobHandle ScheduleLayer3Patterns(JobHandle clearPatternHandle, out bool anyPattern) {
+        private JobHandle ScheduleLayer3Patterns(JobHandle clearPatternHandle, out bool anyPattern)
+        {
             JobHandle patternHandle = clearPatternHandle;
             anyPattern = false;
 
             // 1) Baked patterns
-            if (layer3PatternCommands != null && layer3PatternCommands.Length > 0) {
-                for (int i = 0; i < layer3PatternCommands.Length; i += 1) {
-                    PatternVolumeCommand cmd = layer3PatternCommands[i];
+            if (patternVolumeCommands != null && patternVolumeCommands.Length > 0)
+            {
+                for (int i = 0; i < patternVolumeCommands.Length; i += 1)
+                {
+                    PatternVolumeCommand cmd = patternVolumeCommands[i];
 
-                    if (cmd.Strength <= 0f) {
+                    if (cmd.Strength <= 0f)
+                    {
                         continue;
                     }
 
-                    switch (cmd.Kind) {
-                        case PatternVolumeKind.SphereShell: {
-                                if (layer3SphereShells == null || (uint)cmd.PayloadIndex >= (uint)layer3SphereShells.Length) {
+                    switch (cmd.Kind)
+                    {
+                        case PatternVolumeKind.SphereShell:
+                            {
+                                if (patternVolumeSphereShells == null || (uint)cmd.PayloadIndex >= (uint)patternVolumeSphereShells.Length)
+                                {
                                     continue;
                                 }
 
-                                PatternVolumeSphereShell s = layer3SphereShells[cmd.PayloadIndex];
-                                if (s.Radius <= 0f || s.Thickness <= 0f) {
+                                PatternVolumeSphereShell s = patternVolumeSphereShells[cmd.PayloadIndex];
+                                if (s.Radius <= 0f || s.Thickness <= 0f)
+                                {
                                     continue;
                                 }
 
-                                var job = new PatternVolumeSphereShellJob {
+                                var job = new PatternVolumeSphereShellJob
+                                {
                                     Center = s.Center,
                                     Radius = s.Radius,
                                     Thickness = s.Thickness,
@@ -943,17 +1023,21 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                                 break;
                             }
 
-                        case PatternVolumeKind.BoxShell: {
-                                if (layer3BoxShells == null || (uint)cmd.PayloadIndex >= (uint)layer3BoxShells.Length) {
+                        case PatternVolumeKind.BoxShell:
+                            {
+                                if (patternVolumeBoxShells == null || (uint)cmd.PayloadIndex >= (uint)patternVolumeBoxShells.Length)
+                                {
                                     continue;
                                 }
 
-                                PatternVolumeBoxShell b = layer3BoxShells[cmd.PayloadIndex];
-                                if (b.Thickness <= 0f || b.HalfExtents.x <= 0f || b.HalfExtents.y <= 0f || b.HalfExtents.z <= 0f) {
+                                PatternVolumeBoxShell b = patternVolumeBoxShells[cmd.PayloadIndex];
+                                if (b.Thickness <= 0f || b.HalfExtents.x <= 0f || b.HalfExtents.y <= 0f || b.HalfExtents.z <= 0f)
+                                {
                                     continue;
                                 }
 
-                                var job = new PatternVolumeBoxShellJob {
+                                var job = new PatternVolumeBoxShellJob
+                                {
                                     Center = b.Center,
                                     HalfExtents = b.HalfExtents,
                                     Thickness = b.Thickness,
@@ -976,31 +1060,40 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 }
             }
 
-            if (runtimeLayer3Active.Count > 0) {
-                for (int a = 0; a < runtimeLayer3Active.Count; a += 1) {
-                    int patternIndex = runtimeLayer3Active[a];
-                    if ((uint)patternIndex >= (uint)runtimeLayer3Patterns.Count) {
+            if (runtimePatternVolumeActive.Count > 0)
+            {
+                for (int a = 0; a < runtimePatternVolumeActive.Count; a += 1)
+                {
+                    int patternIndex = runtimePatternVolumeActive[a];
+                    if ((uint)patternIndex >= (uint)runtimeLayer3Patterns.Count)
+                    {
                         continue;
                     }
 
                     RuntimePatternVolumeInstance inst = runtimeLayer3Patterns[patternIndex];
-                    if (inst.Active == 0 || inst.Strength <= 0f) {
+                    if (inst.Active == 0 || inst.Strength <= 0f)
+                    {
                         continue;
                     }
 
-                    switch (inst.Kind) {
-                        case PatternVolumeKind.SphereShell: {
+                    switch (inst.Kind)
+                    {
+                        case PatternVolumeKind.SphereShell:
+                            {
                                 int payloadIndex = inst.PayloadIndex;
-                                if ((uint)payloadIndex >= (uint)runtimeSphereShells.Count) {
+                                if ((uint)payloadIndex >= (uint)runtimeSphereShells.Count)
+                                {
                                     continue;
                                 }
 
                                 PatternVolumeSphereShell s = runtimeSphereShells[payloadIndex];
-                                if (s.Radius <= 0f || s.Thickness <= 0f) {
+                                if (s.Radius <= 0f || s.Thickness <= 0f)
+                                {
                                     continue;
                                 }
 
-                                var job = new PatternVolumeSphereShellJob {
+                                var job = new PatternVolumeSphereShellJob
+                                {
                                     Center = s.Center,
                                     Radius = s.Radius,
                                     Thickness = s.Thickness,
@@ -1020,19 +1113,23 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                                 break;
                             }
 
-                        case PatternVolumeKind.BoxShell: {
+                        case PatternVolumeKind.BoxShell:
+                            {
                                 int payloadIndex = inst.PayloadIndex;
-                                if ((uint)payloadIndex >= (uint)runtimeBoxShells.Count) {
+                                if ((uint)payloadIndex >= (uint)runtimeBoxShells.Count)
+                                {
                                     continue;
                                 }
 
                                 PatternVolumeBoxShell b = runtimeBoxShells[payloadIndex];
 
-                                if (b.Thickness <= 0f || b.HalfExtents.x <= 0f || b.HalfExtents.y <= 0f || b.HalfExtents.z <= 0f) {
+                                if (b.Thickness <= 0f || b.HalfExtents.x <= 0f || b.HalfExtents.y <= 0f || b.HalfExtents.z <= 0f)
+                                {
                                     continue;
                                 }
 
-                                var job = new PatternVolumeBoxShellJob {
+                                var job = new PatternVolumeBoxShellJob
+                                {
                                     Center = b.Center,
                                     HalfExtents = b.HalfExtents,
                                     Thickness = b.Thickness,
@@ -1056,8 +1153,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             }
 
             bool useDynamicSphere = patternSphereRadius > 0f && patternSphereStrength > 0f;
-            if (useDynamicSphere) {
-                var dynJob = new PatternVolumeSphereShellJob {
+            if (useDynamicSphere)
+            {
+                var dynJob = new PatternVolumeSphereShellJob
+                {
                     Center = patternSphereCenter,
                     Radius = patternSphereRadius,
                     Thickness = patternSphereThickness,
@@ -1079,8 +1178,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return patternHandle;
         }
 
-        private JobHandle ScheduleIntegrate(float deltaTime, NativeArray<float3> velWrite, JobHandle deps) {
-            var integrateJob = new IntegrateJob {
+        private JobHandle ScheduleIntegrate(float deltaTime, NativeArray<float3> velWrite, JobHandle deps)
+        {
+            var integrateJob = new IntegrateJob
+            {
                 Positions = positions,
                 Velocities = velWrite,
                 EnvironmentData = environmentData,
@@ -1095,9 +1196,11 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
         #region Private Static Methods
 
         private static void DisposeArray<T>(ref NativeArray<T> array)
-            where T : struct {
+            where T : struct
+        {
 
-            if (!array.IsCreated) {
+            if (!array.IsCreated)
+            {
                 return;
             }
 
@@ -1109,7 +1212,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
 
         #region Inner Structs
 
-        private struct RuntimePatternVolumeInstance {
+        private struct RuntimePatternVolumeInstance
+        {
             public int Generation;
             public byte Active;
             public int ActiveListIndex;

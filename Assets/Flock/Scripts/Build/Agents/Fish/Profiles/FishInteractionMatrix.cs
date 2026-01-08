@@ -1,8 +1,10 @@
-﻿using System;
-using UnityEngine;
-using Flock.Scripts.Build.Agents.Fish.Data;
+﻿using Flock.Scripts.Build.Agents.Fish.Data;
 
-namespace Flock.Scripts.Build.Agents.Fish.Profiles {
+using System;
+using UnityEngine;
+
+namespace Flock.Scripts.Build.Agents.Fish.Profiles
+{
 
     /**
      * <summary>
@@ -13,7 +15,8 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
     [CreateAssetMenu(
         fileName = "FishInteractionMatrix",
         menuName = "Flock/Fish Interaction Matrix")]
-    public sealed class FishInteractionMatrix : ScriptableObject {
+    public sealed class FishInteractionMatrix : ScriptableObject
+    {
         [SerializeField]
         private FishTypePreset[] fishTypes = Array.Empty<FishTypePreset>();
 
@@ -49,18 +52,7 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
         [Min(0f)]
         private float defaultNeutralWeight = 1.0f;
 
-        /**
-         * <summary>
-         * Gets the ordered list of fish types used to index matrices and per-type arrays.
-         * </summary>
-         */
         public FishTypePreset[] FishTypes => fishTypes;
-
-        /**
-         * <summary>
-         * Gets the number of fish types currently present in <see cref="FishTypes"/>.
-         * </summary>
-         */
         public int Count => fishTypes != null ? fishTypes.Length : 0;
 
         /**
@@ -69,7 +61,8 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * preserving data where possible.
          * </summary>
          */
-        public void SyncSizeWithFishTypes() {
+        public void SyncSizeWithFishTypes()
+        {
             int typeCount = Count;
             int requiredMatrixSize = typeCount * typeCount;
 
@@ -104,9 +97,11 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * <param name="b">Column fish type index.</param>
          * <returns>True if enabled; otherwise false.</returns>
          */
-        public bool GetInteraction(int a, int b) {
+        public bool GetInteraction(int a, int b)
+        {
             int typeCount = Count;
-            if (a < 0 || b < 0 || a >= typeCount || b >= typeCount || interactionFlags == null) {
+            if (a < 0 || b < 0 || a >= typeCount || b >= typeCount || interactionFlags == null)
+            {
                 return false;
             }
 
@@ -122,9 +117,11 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * <param name="b">Second fish type index.</param>
          * <param name="enabled">Whether interaction is enabled.</param>
          */
-        public void SetSymmetricInteraction(int a, int b, bool enabled) {
+        public void SetSymmetricInteraction(int a, int b, bool enabled)
+        {
             int typeCount = Count;
-            if (a < 0 || b < 0 || a >= typeCount || b >= typeCount) {
+            if (a < 0 || b < 0 || a >= typeCount || b >= typeCount)
+            {
                 return;
             }
 
@@ -145,14 +142,17 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * <param name="b">Column fish type index.</param>
          * <returns>The relationship value, or Neutral if unavailable.</returns>
          */
-        public RelationType GetRelation(int a, int b) {
+        public RelationType GetRelation(int a, int b)
+        {
             int typeCount = Count;
-            if (a < 0 || b < 0 || a >= typeCount || b >= typeCount || relationTypes == null) {
+            if (a < 0 || b < 0 || a >= typeCount || b >= typeCount || relationTypes == null)
+            {
                 return RelationType.Neutral;
             }
 
             int index = GetMatrixIndex(a, b, typeCount);
-            if (index < 0 || index >= relationTypes.Length) {
+            if (index < 0 || index >= relationTypes.Length)
+            {
                 return RelationType.Neutral;
             }
 
@@ -167,16 +167,19 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * <param name="b">Second fish type index.</param>
          * <param name="relation">The relationship value to assign.</param>
          */
-        public void SetSymmetricRelation(int a, int b, RelationType relation) {
+        public void SetSymmetricRelation(int a, int b, RelationType relation)
+        {
             int typeCount = Count;
-            if (a < 0 || b < 0 || a >= typeCount || b >= typeCount || relationTypes == null) {
+            if (a < 0 || b < 0 || a >= typeCount || b >= typeCount || relationTypes == null)
+            {
                 return;
             }
 
             int indexAB = GetMatrixIndex(a, b, typeCount);
             int indexBA = GetMatrixIndex(b, a, typeCount);
 
-            if (indexAB < 0 || indexAB >= relationTypes.Length || indexBA < 0 || indexBA >= relationTypes.Length) {
+            if (indexAB < 0 || indexAB >= relationTypes.Length || indexBA < 0 || indexBA >= relationTypes.Length)
+            {
                 return;
             }
 
@@ -191,9 +194,11 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * <param name="typeIndex">The fish type index.</param>
          * <returns>The leadership weight, or the default if unavailable or non-positive.</returns>
          */
-        public float GetLeadershipWeight(int typeIndex) {
+        public float GetLeadershipWeight(int typeIndex)
+        {
             int typeCount = Count;
-            if (typeIndex < 0 || typeIndex >= typeCount || leadershipWeights == null) {
+            if (typeIndex < 0 || typeIndex >= typeCount || leadershipWeights == null)
+            {
                 return defaultLeadershipWeight;
             }
 
@@ -208,9 +213,11 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * <param name="typeIndex">The fish type index.</param>
          * <param name="weight">The weight value (clamped to non-negative).</param>
          */
-        public void SetLeadershipWeight(int typeIndex, float weight) {
+        public void SetLeadershipWeight(int typeIndex, float weight)
+        {
             int typeCount = Count;
-            if (typeIndex < 0 || typeIndex >= typeCount || leadershipWeights == null) {
+            if (typeIndex < 0 || typeIndex >= typeCount || leadershipWeights == null)
+            {
                 return;
             }
 
@@ -224,9 +231,11 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * <param name="typeIndex">The fish type index.</param>
          * <returns>The avoidance weight, or the default if unavailable or non-positive.</returns>
          */
-        public float GetAvoidanceWeight(int typeIndex) {
+        public float GetAvoidanceWeight(int typeIndex)
+        {
             int typeCount = Count;
-            if (typeIndex < 0 || typeIndex >= typeCount || avoidanceWeights == null) {
+            if (typeIndex < 0 || typeIndex >= typeCount || avoidanceWeights == null)
+            {
                 return defaultAvoidanceWeight;
             }
 
@@ -241,9 +250,11 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * <param name="typeIndex">The fish type index.</param>
          * <param name="weight">The weight value (clamped to non-negative).</param>
          */
-        public void SetAvoidanceWeight(int typeIndex, float weight) {
+        public void SetAvoidanceWeight(int typeIndex, float weight)
+        {
             int typeCount = Count;
-            if (typeIndex < 0 || typeIndex >= typeCount || avoidanceWeights == null) {
+            if (typeIndex < 0 || typeIndex >= typeCount || avoidanceWeights == null)
+            {
                 return;
             }
 
@@ -257,9 +268,11 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * <param name="typeIndex">The fish type index.</param>
          * <returns>The neutral weight, or the default if unavailable or non-positive.</returns>
          */
-        public float GetNeutralWeight(int typeIndex) {
+        public float GetNeutralWeight(int typeIndex)
+        {
             int typeCount = Count;
-            if (typeIndex < 0 || typeIndex >= typeCount || neutralWeights == null) {
+            if (typeIndex < 0 || typeIndex >= typeCount || neutralWeights == null)
+            {
                 return defaultNeutralWeight;
             }
 
@@ -274,29 +287,36 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
          * <param name="typeIndex">The fish type index.</param>
          * <param name="weight">The weight value (clamped to non-negative).</param>
          */
-        public void SetNeutralWeight(int typeIndex, float weight) {
+        public void SetNeutralWeight(int typeIndex, float weight)
+        {
             int typeCount = Count;
-            if (typeIndex < 0 || typeIndex >= typeCount || neutralWeights == null) {
+            if (typeIndex < 0 || typeIndex >= typeCount || neutralWeights == null)
+            {
                 return;
             }
 
             neutralWeights[typeIndex] = Mathf.Max(0f, weight);
         }
 
-        private static int GetMatrixIndex(int rowIndex, int columnIndex, int matrixSideLength) {
+        private static int GetMatrixIndex(int rowIndex, int columnIndex, int matrixSideLength)
+        {
             return rowIndex * matrixSideLength + columnIndex;
         }
 
-        private static int GetSquareMatrixSideLength<T>(T[] matrixValues) {
-            if (matrixValues == null || matrixValues.Length <= 0) {
+        private static int GetSquareMatrixSideLength<T>(T[] matrixValues)
+        {
+            if (matrixValues == null || matrixValues.Length <= 0)
+            {
                 return 0;
             }
 
             return Mathf.RoundToInt(Mathf.Sqrt(matrixValues.Length));
         }
 
-        private static void EnsureMatrixSize<T>(ref T[] matrixValues, int requiredSize) {
-            if (matrixValues != null && matrixValues.Length == requiredSize) {
+        private static void EnsureMatrixSize<T>(ref T[] matrixValues, int requiredSize)
+        {
+            if (matrixValues != null && matrixValues.Length == requiredSize)
+            {
                 return;
             }
 
@@ -307,14 +327,18 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
             T[] sourceMatrix,
             int sourceSideLength,
             T[] destinationMatrix,
-            int destinationSideLength) {
-            if (sourceMatrix == null || sourceSideLength <= 0) {
+            int destinationSideLength)
+        {
+            if (sourceMatrix == null || sourceSideLength <= 0)
+            {
                 return;
             }
 
             int copySideLength = Mathf.Min(sourceSideLength, destinationSideLength);
-            for (int rowIndex = 0; rowIndex < copySideLength; rowIndex++) {
-                for (int columnIndex = 0; columnIndex < copySideLength; columnIndex++) {
+            for (int rowIndex = 0; rowIndex < copySideLength; rowIndex++)
+            {
+                for (int columnIndex = 0; columnIndex < copySideLength; columnIndex++)
+                {
                     int sourceIndex = rowIndex * sourceSideLength + columnIndex;
                     int destinationIndex = rowIndex * destinationSideLength + columnIndex;
                     destinationMatrix[destinationIndex] = sourceMatrix[sourceIndex];
@@ -322,42 +346,53 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
             }
         }
 
-        private static float[] EnsurePerTypeArraySize(float[] currentWeights, float[] previousWeights, int typeCount) {
-            if (currentWeights != null && currentWeights.Length == typeCount) {
+        private static float[] EnsurePerTypeArraySize(float[] currentWeights, float[] previousWeights, int typeCount)
+        {
+            if (currentWeights != null && currentWeights.Length == typeCount)
+            {
                 return currentWeights;
             }
 
             float[] newWeights = new float[typeCount];
-            if (previousWeights == null) {
+            if (previousWeights == null)
+            {
                 return newWeights;
             }
 
             int copyCount = Mathf.Min(previousWeights.Length, typeCount);
-            for (int typeIndex = 0; typeIndex < copyCount; typeIndex++) {
+            for (int typeIndex = 0; typeIndex < copyCount; typeIndex++)
+            {
                 newWeights[typeIndex] = previousWeights[typeIndex];
             }
 
             return newWeights;
         }
 
-        private void ApplyDefaultWeights(int typeCount) {
-            for (int typeIndex = 0; typeIndex < typeCount; typeIndex++) {
-                if (leadershipWeights[typeIndex] <= 0f) {
+        private void ApplyDefaultWeights(int typeCount)
+        {
+            for (int typeIndex = 0; typeIndex < typeCount; typeIndex++)
+            {
+                if (leadershipWeights[typeIndex] <= 0f)
+                {
                     leadershipWeights[typeIndex] = defaultLeadershipWeight;
                 }
 
-                if (avoidanceWeights[typeIndex] <= 0f) {
+                if (avoidanceWeights[typeIndex] <= 0f)
+                {
                     avoidanceWeights[typeIndex] = defaultAvoidanceWeight;
                 }
 
-                if (neutralWeights[typeIndex] <= 0f) {
+                if (neutralWeights[typeIndex] <= 0f)
+                {
                     neutralWeights[typeIndex] = defaultNeutralWeight;
                 }
             }
         }
 
-        private void ClearRelationWhenInteractionDisabled(int typeCount, bool enabled, int indexAB, int indexBA) {
-            if (enabled || relationTypes == null || relationTypes.Length != typeCount * typeCount) {
+        private void ClearRelationWhenInteractionDisabled(int typeCount, bool enabled, int indexAB, int indexBA)
+        {
+            if (enabled || relationTypes == null || relationTypes.Length != typeCount * typeCount)
+            {
                 return;
             }
 

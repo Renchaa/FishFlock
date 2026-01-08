@@ -1,16 +1,19 @@
-using Flock.Scripts.Build.Influence.PatternVolume.Data;
-using Unity.Mathematics;
-using UnityEngine;
 using Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController;
+using Flock.Scripts.Build.Influence.PatternVolume.Data;
 
-namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime {
+using UnityEngine;
+using Unity.Mathematics;
+
+namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime
+{
 
     /**
      * <summary>
      * Creates a runtime Layer-3 pattern (SphereShell or BoxShell) and keeps it centered on a target transform.
      * </summary>
      */
-    public sealed class PatternVolumeDynamicDriver : MonoBehaviour {
+    public sealed class PatternVolumeDynamicDriver : MonoBehaviour
+    {
         [Tooltip("Bitmask used to affect all fish types.")]
         private const uint AllAffectedTypesMask = uint.MaxValue;
 
@@ -68,22 +71,28 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime {
         [Tooltip("Handle to the currently running runtime pattern (invalid when not running).")]
         private PatternVolumeHandle handle = PatternVolumeHandle.Invalid;
 
-        private void OnEnable() {
-            if (createOnEnable) {
+        private void OnEnable()
+        {
+            if (createOnEnable)
+            {
                 CreatePattern();
             }
         }
 
-        private void OnDisable() {
+        private void OnDisable()
+        {
             StopPattern();
         }
 
-        private void Update() {
-            if (controller == null) {
+        private void Update()
+        {
+            if (controller == null)
+            {
                 return;
             }
 
-            if (!handle.IsValid) {
+            if (!handle.IsValid)
+            {
                 TryCreatePatternWhenMissingHandle();
                 return;
             }
@@ -97,15 +106,18 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime {
          * </summary>
          */
         [ContextMenu("Create Pattern")]
-        public void CreatePattern() {
+        public void CreatePattern()
+        {
             EnsureControllerReference();
 
-            if (controller == null) {
+            if (controller == null)
+            {
                 Debug.Log(MissingControllerLogMessage);
                 return;
             }
 
-            if (handle.IsValid) {
+            if (handle.IsValid)
+            {
                 StopPattern();
             }
 
@@ -119,8 +131,10 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime {
          * </summary>
          */
         [ContextMenu("Stop Pattern")]
-        public void StopPattern() {
-            if (!handle.IsValid || controller == null) {
+        public void StopPattern()
+        {
+            if (!handle.IsValid || controller == null)
+            {
                 return;
             }
 
@@ -130,26 +144,32 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime {
 
         // If we don't have a valid handle yet, keep trying to create it.
         // This handles the case where simulation wasn't ready on OnEnable.
-        private void TryCreatePatternWhenMissingHandle() {
-            if (!createOnEnable) {
+        private void TryCreatePatternWhenMissingHandle()
+        {
+            if (!createOnEnable)
+            {
                 return;
             }
 
             CreatePattern();
         }
 
-        private void EnsureControllerReference() {
-            if (controller != null) {
+        private void EnsureControllerReference()
+        {
+            if (controller != null)
+            {
                 return;
             }
 
             controller = GetComponent<FlockController>();
         }
 
-        private void UpdatePattern() {
+        private void UpdatePattern()
+        {
             float3 centerPosition = GetCenterPosition();
 
-            switch (shape) {
+            switch (shape)
+            {
                 case PatternVolumeShape.SphereShell:
                     controller.UpdateRuntimeSphereShell(
                         handle,
@@ -172,8 +192,10 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime {
             }
         }
 
-        private PatternVolumeHandle StartPattern(float3 centerPosition) {
-            switch (shape) {
+        private PatternVolumeHandle StartPattern(float3 centerPosition)
+        {
+            switch (shape)
+            {
                 case PatternVolumeShape.SphereShell:
                     return controller.StartRuntimeSphereShell(
                         centerPosition,
@@ -195,7 +217,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime {
             }
         }
 
-        private float3 GetCenterPosition() {
+        private float3 GetCenterPosition()
+        {
             Transform trackingTransform = target != null ? target : transform;
             return (float3)trackingTransform.position;
         }

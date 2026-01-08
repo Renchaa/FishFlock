@@ -1,17 +1,17 @@
-using Unity.Mathematics;
 using UnityEngine;
+using Unity.Mathematics;
 using Random = Unity.Mathematics.Random;
 
-namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
-
-
+namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn
+{
     /**
      * <summary>
      * Defines a geometric spawn region in world space.
      * Counts and fish types are defined on <see cref="FlockMainSpawner"/>, not here.
      * </summary>
      */
-    public sealed class FlockSpawnPoint : MonoBehaviour {
+    public sealed class FlockSpawnPoint : MonoBehaviour
+    {
         [Header("Shape")]
 
         [Tooltip("Spawn shape used when sampling positions.")]
@@ -34,10 +34,12 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
          * <param name="random">Random generator used for sampling.</param>
          * <returns>A sampled world-space position.</returns>
          */
-        public float3 SamplePosition(ref Random random) {
+        public float3 SamplePosition(ref Random random)
+        {
             float3 centerPosition = (float3)transform.position;
 
-            switch (shape) {
+            switch (shape)
+            {
                 case FlockSpawnShape.Point:
                     return centerPosition;
 
@@ -52,10 +54,12 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             }
         }
 
-        private void OnDrawGizmosSelected() {
+        private void OnDrawGizmosSelected()
+        {
             Gizmos.color = new Color(1f, 0f, 0f, 0.3f);
 
-            switch (shape) {
+            switch (shape)
+            {
                 case FlockSpawnShape.Point:
                     Gizmos.DrawSphere(transform.position, 0.1f);
                     return;
@@ -70,22 +74,26 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             }
         }
 
-        private static float3 SampleInsideSphere(ref Random random, float3 centerPosition, float radius) {
-            if (radius <= 0f) {
+        private static float3 SampleInsideSphere(ref Random random, float3 centerPosition, float radius)
+        {
+            if (radius <= 0f)
+            {
                 return centerPosition;
             }
 
             // Uniform inside sphere: direction * radius * cbrt(u).
             float3 direction = new float3(0f, 0f, 1f);
 
-            for (int attemptIndex = 0; attemptIndex < 4; attemptIndex += 1) {
+            for (int attemptIndex = 0; attemptIndex < 4; attemptIndex += 1)
+            {
                 float3 candidate = new float3(
                     random.NextFloat(-1f, 1f),
                     random.NextFloat(-1f, 1f),
                     random.NextFloat(-1f, 1f));
 
                 float lengthSquared = math.lengthsq(candidate);
-                if (lengthSquared > 1e-6f) {
+                if (lengthSquared > 1e-6f)
+                {
                     direction = candidate / math.sqrt(lengthSquared);
                     break;
                 }
@@ -101,7 +109,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.Spawn {
             ref Random random,
             float3 centerPosition,
             Quaternion rotation,
-            Vector3 halfExtents) {
+            Vector3 halfExtents)
+        {
             Vector3 localOffset = new Vector3(
                 random.NextFloat(-halfExtents.x, halfExtents.x),
                 random.NextFloat(-halfExtents.y, halfExtents.y),

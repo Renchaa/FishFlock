@@ -1,21 +1,24 @@
-﻿// File: Assets/Tests/EditMode/Data/Environment/FlockController_ApplySimulationToTransforms_PositionAndRotation_Test.cs
-using System;
-using System.Collections.Generic;
-using System.Reflection;
-using Flock.Scripts.Build.Agents.Fish.Data;
-using NUnit.Framework;
-using Unity.Collections;
-using Unity.Mathematics;
-using UnityEngine;
+﻿using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
 using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
 using Flock.Scripts.Build.Influence.Environment.Data;
-using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
-using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
+using Flock.Scripts.Build.Agents.Fish.Data;
 
-namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
-    public sealed class FlockController_ApplySimulationToTransforms_PositionAndRotation_Test {
+using System;
+using UnityEngine;
+using NUnit.Framework;
+using Unity.Mathematics;
+using Unity.Collections;
+using System.Reflection;
+using System.Collections.Generic;
+
+namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController
+{
+    public sealed class FlockController_ApplySimulationToTransforms_PositionAndRotation_Test
+    {
         [Test]
-        public void ApplySimulationToTransforms_CopiesPositionsAndFacesVelocityDirection() {
+        public void ApplySimulationToTransforms_CopiesPositionsAndFacesVelocityDirection()
+        {
             GameObject controllerGo = null;
             GameObject aGo = null;
             GameObject bGo = null;
@@ -23,7 +26,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
             NativeArray<FlockBehaviourSettings> behaviourSettings = default;
             Build.Core.Simulation.Runtime.PartialFlockSimulation.FlockSimulation sim = null;
 
-            try {
+            try
+            {
                 controllerGo = new GameObject("FlockController_Test");
                 var controller = controllerGo.AddComponent<Build.Core.Simulation.Runtime.PartialFlockController.FlockController>();
 
@@ -37,7 +41,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
                 var env = InvokePrivateMethod<FlockEnvironmentData>(controller, "BuildEnvironmentData");
 
                 behaviourSettings = new NativeArray<FlockBehaviourSettings>(1, Allocator.Persistent);
-                behaviourSettings[0] = new FlockBehaviourSettings {
+                behaviourSettings[0] = new FlockBehaviourSettings
+                {
                     MaxSpeed = 5f,
                     MaxAcceleration = 10f,
                     NeighbourRadius = 3f,
@@ -81,12 +86,16 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
 
                 AssertForwardApprox(aGo.transform.forward, new Vector3(0f, 0f, 1f));
                 AssertForwardApprox(bGo.transform.forward, new Vector3(1f, 0f, 0f));
-            } finally {
-                if (sim != null && sim.IsCreated) {
+            }
+            finally
+            {
+                if (sim != null && sim.IsCreated)
+                {
                     sim.Dispose();
                 }
 
-                if (behaviourSettings.IsCreated) {
+                if (behaviourSettings.IsCreated)
+                {
                     behaviourSettings.Dispose();
                 }
 
@@ -96,31 +105,36 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
             }
         }
 
-        private static void SetPrivateField(object target, string fieldName, object value) {
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Private field not found: {fieldName}");
             field.SetValue(target, value);
         }
 
-        private static T GetPrivateField<T>(object target, string fieldName) {
+        private static T GetPrivateField<T>(object target, string fieldName)
+        {
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Private field not found: {fieldName}");
             return (T)field.GetValue(target);
         }
 
-        private static T InvokePrivateMethod<T>(object target, string methodName, params object[] args) {
+        private static T InvokePrivateMethod<T>(object target, string methodName, params object[] args)
+        {
             var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null, $"Private method not found: {methodName}");
             return (T)method.Invoke(target, args);
         }
 
-        private static void AssertVector3Approx(Vector3 actual, Vector3 expected, float eps = 1e-5f) {
+        private static void AssertVector3Approx(Vector3 actual, Vector3 expected, float eps = 1e-5f)
+        {
             Assert.That(actual.x, Is.EqualTo(expected.x).Within(eps));
             Assert.That(actual.y, Is.EqualTo(expected.y).Within(eps));
             Assert.That(actual.z, Is.EqualTo(expected.z).Within(eps));
         }
 
-        private static void AssertForwardApprox(Vector3 actualForward, Vector3 expectedForward, float minDot = 0.999f) {
+        private static void AssertForwardApprox(Vector3 actualForward, Vector3 expectedForward, float minDot = 0.999f)
+        {
             Vector3 a = actualForward.normalized;
             Vector3 b = expectedForward.normalized;
             float dot = Vector3.Dot(a, b);

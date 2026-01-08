@@ -1,22 +1,27 @@
-#if UNITY_EDITOR
-using System;
-using System.Reflection;
-using Flock.Scripts.Build.Agents.Fish.Data;
 using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
-using Flock.Scripts.Build.Influence.Environment.Data;
 using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Agents.Fish.Data;
+
+using System;
 using NUnit.Framework;
+using System.Reflection;
 using Unity.Collections;
 using Unity.Mathematics;
-namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
-    public sealed class FlockSimulation_Initialize_CoreState_Test {
+
+namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController
+{
+    public sealed class FlockSimulation_Initialize_CoreState_Test
+    {
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
         [Test]
-        public void Initialize_AllocatesCoreArrays_InitializesGridDefaults_AndComputesCellSearchRadius() {
+        public void Initialize_AllocatesCoreArrays_InitializesGridDefaults_AndComputesCellSearchRadius()
+        {
             Build.Core.Simulation.Runtime.PartialFlockSimulation.FlockSimulation sim = new Build.Core.Simulation.Runtime.PartialFlockSimulation.FlockSimulation();
 
-            FlockEnvironmentData env = new FlockEnvironmentData {
+            FlockEnvironmentData env = new FlockEnvironmentData
+            {
                 GridOrigin = new float3(0f, 0f, 0f),
                 GridResolution = new int3(2, 2, 2), // rgridCellCount=8
                 CellSize = 2.0f,
@@ -25,20 +30,23 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
             };
 
             NativeArray<FlockBehaviourSettings> settings = new NativeArray<FlockBehaviourSettings>(2, Allocator.Persistent);
-            settings[0] = new FlockBehaviourSettings {
+            settings[0] = new FlockBehaviourSettings
+            {
                 MaxSpeed = 1.0f,
                 MaxAcceleration = 1.0f,
                 NeighbourRadius = 0.0f, // => viewRadius=0 => cellRange => 1
                 BodyRadius = 0.0f
             };
-            settings[1] = new FlockBehaviourSettings {
+            settings[1] = new FlockBehaviourSettings
+            {
                 MaxSpeed = 1.0f,
                 MaxAcceleration = 1.0f,
                 NeighbourRadius = 3.1f, // => ceil(3.1/2)=2
                 BodyRadius = 0.0f
             };
 
-            try {
+            try
+            {
                 // Act
                 sim.Initialize(
                     agentCount: 4,
@@ -61,7 +69,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
                 NativeArray<int> behaviourIds = GetPrivateField<NativeArray<int>>(sim, "behaviourIds");
                 Assert.That(behaviourIds.IsCreated, Is.True);
                 Assert.That(behaviourIds.Length, Is.EqualTo(4));
-                for (int i = 0; i < behaviourIds.Length; i += 1) {
+                for (int i = 0; i < behaviourIds.Length; i += 1)
+                {
                     Assert.That(behaviourIds[i], Is.EqualTo(0), $"behaviourIds[{i}] must start at 0");
                 }
 
@@ -81,7 +90,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
                 Assert.That(cellAgentStarts.Length, Is.EqualTo(8));
                 Assert.That(cellAgentCounts.Length, Is.EqualTo(8));
 
-                for (int c = 0; c < 8; c += 1) {
+                for (int c = 0; c < 8; c += 1)
+                {
                     Assert.That(cellAgentStarts[c], Is.EqualTo(-1), $"cellAgentStarts[{c}] must be -1");
                     Assert.That(cellAgentCounts[c], Is.EqualTo(0), $"cellAgentCounts[{c}] must start at 0");
                 }
@@ -97,25 +107,27 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
                 Assert.That(prioInd.IsCreated, Is.True);
                 Assert.That(prioGroup.IsCreated, Is.True);
 
-                for (int c = 0; c < 8; c += 1) {
+                for (int c = 0; c < 8; c += 1)
+                {
                     Assert.That(cellToIndividual[c], Is.EqualTo(-1), $"cellToIndividualAttractor[{c}] must start at -1");
                     Assert.That(cellToGroup[c], Is.EqualTo(-1), $"cellToGroupAttractor[{c}] must start at -1");
                     Assert.That(prioInd[c], Is.EqualTo(float.NegativeInfinity), $"cellIndividualPriority[{c}] must start at -Inf");
                     Assert.That(prioGroup[c], Is.EqualTo(float.NegativeInfinity), $"cellGroupPriority[{c}] must start at -Inf");
                 }
-            } finally {
+            }
+            finally
+            {
                 if (settings.IsCreated) settings.Dispose();
                 sim.Dispose();
             }
         }
 
-        // ---------------- reflection helpers ----------------
 
-        private static T GetPrivateField<T>(object target, string fieldName) {
+        private static T GetPrivateField<T>(object target, string fieldName)
+        {
             FieldInfo fi = target.GetType().GetField(fieldName, BF);
             Assert.That(fi, Is.Not.Null, $"Missing field {target.GetType().Name}.{fieldName}");
             return (T)fi.GetValue(target);
         }
     }
 }
-#endif

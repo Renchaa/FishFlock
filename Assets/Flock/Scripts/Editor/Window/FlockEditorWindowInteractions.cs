@@ -1,25 +1,31 @@
 #if UNITY_EDITOR
+using Flock.Scripts.Build.Agents.Fish.Profiles;
 using System.Collections.Generic;
+
 using UnityEditor;
 using UnityEngine;
-using Flock.Scripts.Build.Agents.Fish.Profiles;
 
-namespace Flock.Scripts.Editor.Window {
+namespace Flock.Scripts.Editor.Window
+{
     /**
      * <summary>
      * Interactions tab UI and interaction-matrix asset wiring for the flock editor window.
      * </summary>
      */
-    public sealed partial class FlockEditorWindow {
-        private static void DrawInteractionsPanelHeader() {
+    public sealed partial class FlockEditorWindow
+    {
+        private static void DrawInteractionsPanelHeader()
+        {
             EditorGUILayout.LabelField("Interactions / Relationships", EditorStyles.boldLabel);
         }
 
-        private static void DrawMissingSetupHelpBox() {
+        private static void DrawMissingSetupHelpBox()
+        {
             EditorGUILayout.HelpBox("Assign a FlockSetup asset before editing interactions.", MessageType.Warning);
         }
 
-        private static void DrawMissingInteractionMatrixHelpBox() {
+        private static void DrawMissingInteractionMatrixHelpBox()
+        {
             EditorGUILayout.HelpBox(
                 "Assign or create a FishInteractionMatrix asset.\n" +
                 "Its custom inspector handles fish types, interaction grid, relationships and weights.",
@@ -29,7 +35,8 @@ namespace Flock.Scripts.Editor.Window {
         private static bool TryGetFishTypesProperty(
             FishInteractionMatrix matrix,
             out SerializedObject serializedObject,
-            out SerializedProperty fishTypesProperty) {
+            out SerializedProperty fishTypesProperty)
+        {
             serializedObject = new SerializedObject(matrix);
             fishTypesProperty = serializedObject.FindProperty("fishTypes");
             return fishTypesProperty != null;
@@ -38,11 +45,13 @@ namespace Flock.Scripts.Editor.Window {
         private static bool AreFishTypesInSync(
             SerializedProperty fishTypesProperty,
             IReadOnlyList<FishTypePreset> fishTypes,
-            int desiredFishTypeCount) {
+            int desiredFishTypeCount)
+        {
             if (fishTypesProperty.arraySize != desiredFishTypeCount) { return false; }
             if (desiredFishTypeCount == 0) { return true; }
 
-            for (int index = 0; index < desiredFishTypeCount; index += 1) {
+            for (int index = 0; index < desiredFishTypeCount; index += 1)
+            {
                 Object currentReference = fishTypesProperty.GetArrayElementAtIndex(index).objectReferenceValue;
                 Object desiredReference = index < fishTypes.Count ? fishTypes[index] : null;
                 if (currentReference != desiredReference) { return false; }
@@ -56,7 +65,8 @@ namespace Flock.Scripts.Editor.Window {
             SerializedProperty fishTypesProperty,
             IReadOnlyList<FishTypePreset> fishTypes,
             int desiredFishTypeCount,
-            FishInteractionMatrix matrix) {
+            FishInteractionMatrix matrix)
+        {
             SetFishTypeReferences(fishTypesProperty, fishTypes, desiredFishTypeCount);
             serializedObject.ApplyModifiedProperties();
             matrix.SyncSizeWithFishTypes();
@@ -66,17 +76,20 @@ namespace Flock.Scripts.Editor.Window {
         private static void SetFishTypeReferences(
             SerializedProperty fishTypesProperty,
             IReadOnlyList<FishTypePreset> fishTypes,
-            int desiredFishTypeCount) {
+            int desiredFishTypeCount)
+        {
             int fishTypeCount = fishTypes?.Count ?? 0;
             fishTypesProperty.arraySize = desiredFishTypeCount;
 
-            for (int index = 0; index < desiredFishTypeCount; index += 1) {
+            for (int index = 0; index < desiredFishTypeCount; index += 1)
+            {
                 FishTypePreset preset = index < fishTypeCount ? fishTypes[index] : null;
                 fishTypesProperty.GetArrayElementAtIndex(index).objectReferenceValue = preset;
             }
         }
 
-        private static bool TryGetInteractionMatrixAssetPath(out string path) {
+        private static bool TryGetInteractionMatrixAssetPath(out string path)
+        {
             path = EditorUtility.SaveFilePanelInProject(
                 "Create Fish Interaction Matrix",
                 "FishInteractionMatrix",
@@ -86,7 +99,8 @@ namespace Flock.Scripts.Editor.Window {
             return !string.IsNullOrEmpty(path);
         }
 
-        private static FishInteractionMatrix CreateInteractionMatrixAssetAtPath(string path) {
+        private static FishInteractionMatrix CreateInteractionMatrixAssetAtPath(string path)
+        {
             FishInteractionMatrix asset = ScriptableObject.CreateInstance<FishInteractionMatrix>();
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
@@ -94,7 +108,8 @@ namespace Flock.Scripts.Editor.Window {
             return asset;
         }
 
-        private void DrawInteractionsPanel() {
+        private void DrawInteractionsPanel()
+        {
             DrawInteractionsPanelHeader();
             if (_setup == null) { DrawMissingSetupHelpBox(); return; }
 
@@ -108,7 +123,8 @@ namespace Flock.Scripts.Editor.Window {
             DrawInteractionMatrixInspector();
         }
 
-        private bool TryDrawInteractionMatrixField(out FishInteractionMatrix selectedMatrix) {
+        private bool TryDrawInteractionMatrixField(out FishInteractionMatrix selectedMatrix)
+        {
             FishInteractionMatrix currentMatrix = _setup != null ? _setup.InteractionMatrix : null;
 
             EditorGUI.BeginChangeCheck();
@@ -121,25 +137,31 @@ namespace Flock.Scripts.Editor.Window {
             return _setup != null && EditorGUI.EndChangeCheck();
         }
 
-        private void ApplyInteractionMatrixSelection(FishInteractionMatrix matrix) {
+        private void ApplyInteractionMatrixSelection(FishInteractionMatrix matrix)
+        {
             _setup.InteractionMatrix = matrix;
             EditorUtility.SetDirty(_setup);
             RebuildInteractionMatrixEditor();
         }
 
-        private void DrawCreateMatrixAssetButton() {
+        private void DrawCreateMatrixAssetButton()
+        {
             using (new EditorGUILayout.HorizontalScope())
-            using (new EditorGUI.DisabledScope(_setup == null || _setup.InteractionMatrix != null)) {
+            using (new EditorGUI.DisabledScope(_setup == null || _setup.InteractionMatrix != null))
+            {
                 if (GUILayout.Button("Create Matrix Asset", GUILayout.Width(EditorUI.CreateMatrixAssetButtonWidth))) { CreateInteractionMatrixAsset(); }
             }
         }
 
-        private void EnsureInteractionMatrixEditorIsCurrent() {
+        private void EnsureInteractionMatrixEditorIsCurrent()
+        {
             if (_interactionMatrixEditor == null || _interactionMatrixEditor.target != _setup.InteractionMatrix) { RebuildInteractionMatrixEditor(); }
         }
 
-        private void DrawInteractionMatrixInspector() {
-            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox)) {
+        private void DrawInteractionMatrixInspector()
+        {
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
                 EditorGUILayout.LabelField("Interaction Matrix Editor", EditorStyles.boldLabel);
                 EditorGUILayout.Space(EditorUI.SpaceSmall);
 
@@ -149,7 +171,8 @@ namespace Flock.Scripts.Editor.Window {
             }
         }
 
-        private void SyncMatrixFishTypesFromSetup() {
+        private void SyncMatrixFishTypesFromSetup()
+        {
             if (!TryGetInteractionMatrixAndFishTypes(out FishInteractionMatrix matrix, out IReadOnlyList<FishTypePreset> fishTypes)) { return; }
             if (!TryGetFishTypesProperty(matrix, out SerializedObject serializedObject, out SerializedProperty fishTypesProperty)) { return; }
 
@@ -159,13 +182,15 @@ namespace Flock.Scripts.Editor.Window {
             ApplyFishTypesToMatrix(serializedObject, fishTypesProperty, fishTypes, desiredFishTypeCount, matrix);
         }
 
-        private bool TryGetInteractionMatrixAndFishTypes(out FishInteractionMatrix matrix, out IReadOnlyList<FishTypePreset> fishTypes) {
+        private bool TryGetInteractionMatrixAndFishTypes(out FishInteractionMatrix matrix, out IReadOnlyList<FishTypePreset> fishTypes)
+        {
             matrix = _setup != null ? _setup.InteractionMatrix : null;
             fishTypes = _setup != null ? _setup.FishTypes : null;
             return matrix != null;
         }
 
-        private void CreateInteractionMatrixAsset() {
+        private void CreateInteractionMatrixAsset()
+        {
             if (!TryGetInteractionMatrixAssetPath(out string path)) { return; }
 
             FishInteractionMatrix asset = CreateInteractionMatrixAssetAtPath(path);
@@ -175,18 +200,21 @@ namespace Flock.Scripts.Editor.Window {
             EditorGUIUtility.PingObject(asset);
         }
 
-        private void AssignInteractionMatrixAssetToSetup(FishInteractionMatrix asset) {
+        private void AssignInteractionMatrixAssetToSetup(FishInteractionMatrix asset)
+        {
             if (_setup == null) { return; }
             _setup.InteractionMatrix = asset;
             EditorUtility.SetDirty(_setup);
         }
 
-        private void RebuildInteractionMatrixEditor() {
+        private void RebuildInteractionMatrixEditor()
+        {
             if (_setup == null) { DestroyEditor(ref _interactionMatrixEditor); return; }
             EnsureEditor(ref _interactionMatrixEditor, _setup.InteractionMatrix);
         }
 
-        private void DestroyInteractionMatrixEditor() {
+        private void DestroyInteractionMatrixEditor()
+        {
             DestroyEditor(ref _interactionMatrixEditor);
         }
     }

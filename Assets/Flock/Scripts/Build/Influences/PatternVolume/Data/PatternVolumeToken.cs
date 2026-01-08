@@ -1,8 +1,9 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
+using System.Collections.Generic;
 
-namespace Flock.Scripts.Build.Influence.PatternVolume.Data {
+namespace Flock.Scripts.Build.Influence.PatternVolume.Data
+{
     /**
      * <summary>
      * Runtime-only token that owns one or more Layer-3 runtime pattern handles.
@@ -10,7 +11,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Data {
      * UpdateLayer3Pattern(...) / StopLayer3Pattern(...).
      * </summary>
      */
-    public sealed class PatternVolumeToken : ScriptableObject {
+    public sealed class PatternVolumeToken : ScriptableObject
+    {
         [SerializeField]
         [HideInInspector]
         private int handleCount;
@@ -18,9 +20,6 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Data {
         [SerializeField]
         [HideInInspector]
         private bool isValid;
-
-        // Not serialized intentionally (runtime-only). Keep it fast and simple.
-        private PatternVolumeHandle[] handles = Array.Empty<PatternVolumeHandle>();
 
         /**
          * <summary>
@@ -36,6 +35,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Data {
          */
         public int HandleCount => handleCount;
 
+        private PatternVolumeHandle[] handles = Array.Empty<PatternVolumeHandle>();
+
         /**
          * <summary>
          * Returns the handle at the given index, or <see cref="PatternVolumeHandle.Invalid"/> if unavailable.
@@ -43,12 +44,15 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Data {
          * <param name="index">Handle index.</param>
          * <returns>The handle, or an invalid handle if the token or index is not valid.</returns>
          */
-        public PatternVolumeHandle GetHandle(int index) {
-            if (!IsValid) {
+        public PatternVolumeHandle GetHandle(int index)
+        {
+            if (!IsValid)
+            {
                 return PatternVolumeHandle.Invalid;
             }
 
-            if ((uint)index >= (uint)handleCount) {
+            if ((uint)index >= (uint)handleCount)
+            {
                 return PatternVolumeHandle.Invalid;
             }
 
@@ -62,12 +66,15 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Data {
          * <param name="index">Handle index.</param>
          * <param name="handle">New handle value.</param>
          */
-        public void ReplaceHandle(int index, PatternVolumeHandle handle) {
-            if (!isValid) {
+        public void ReplaceHandle(int index, PatternVolumeHandle handle)
+        {
+            if (!isValid)
+            {
                 return;
             }
 
-            if ((uint)index >= (uint)handleCount) {
+            if ((uint)index >= (uint)handleCount)
+            {
                 return;
             }
 
@@ -79,7 +86,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Data {
          * Invalidates this token and clears the active handle count.
          * </summary>
          */
-        public void Invalidate() {
+        public void Invalidate()
+        {
             isValid = false;
             handleCount = 0;
         }
@@ -90,21 +98,25 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Data {
          * </summary>
          * <param name="source">Source list of handles.</param>
          */
-        public void SetHandles(List<PatternVolumeHandle> source) {
-            if (source == null || source.Count == 0) {
+        public void SetHandles(List<PatternVolumeHandle> source)
+        {
+            if (source == null || source.Count == 0)
+            {
                 Invalidate();
                 return;
             }
 
             int count = source.Count;
 
-            if (handles == null || handles.Length < count) {
+            if (handles == null || handles.Length < count)
+            {
                 // Grow to next power of two to reduce future reallocations.
                 int newSize = Mathf.NextPowerOfTwo(count);
                 handles = new PatternVolumeHandle[newSize];
             }
 
-            for (int i = 0; i < count; i += 1) {
+            for (int i = 0; i < count; i += 1)
+            {
                 handles[i] = source[i];
             }
 

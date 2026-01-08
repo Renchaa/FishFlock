@@ -1,14 +1,17 @@
-#if UNITY_EDITOR
 using Flock.Scripts.Build.Agents.Fish.Profiles;
 using Flock.Scripts.Build.Agents.Fish.Data;
-using NUnit.Framework;
-using UnityEngine;
 using Flock.Scripts.Build.Utilities.Data;
 
-namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
-    public sealed class InteractionMatrixCompiler_CompilesExpectedMasksTests {
+using UnityEngine;
+using NUnit.Framework;
+
+namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler
+{
+    public sealed class InteractionMatrixCompiler_CompilesExpectedMasksTests
+    {
         [Test]
-        public void BuildInteractionData_CompilesExpectedMasks_FromSymmetricMatrix() {
+        public void BuildInteractionData_CompilesExpectedMasks_FromSymmetricMatrix()
+        {
             // Arrange
             const int typeCount = 4; // must be <= 32 for mask bits
             var fishTypes = InteractionMatrixTestUtils.CreateFishTypes(typeCount);
@@ -76,4 +79,3 @@ namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
         }
     }
 }
-#endif

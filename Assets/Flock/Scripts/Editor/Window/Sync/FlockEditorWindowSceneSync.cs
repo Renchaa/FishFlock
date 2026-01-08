@@ -1,6 +1,7 @@
 ﻿#if UNITY_EDITOR
 using Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController;
 using Flock.Scripts.Editor.Sync;
+
 using UnityEngine;
 
 namespace Flock.Scripts.Editor.Window {

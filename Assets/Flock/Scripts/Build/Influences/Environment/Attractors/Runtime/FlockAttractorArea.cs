@@ -1,17 +1,20 @@
 using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
 using Flock.Scripts.Build.Agents.Fish.Profiles;
-using System;
-using Unity.Mathematics;
-using UnityEngine;
 
-namespace Flock.Scripts.Build.Influence.Environment.Attractors.Runtime {
+using System;
+using UnityEngine;
+using Unity.Mathematics;
+
+namespace Flock.Scripts.Build.Influence.Environment.Attractors.Runtime
+{
     /**
      * <summary>
      * Scene component that defines an attractor volume and converts it into a
      * <see cref="AttractorData"/> snapshot for runtime use.
      * </summary>
      */
-    public sealed class FlockAttractorArea : MonoBehaviour {
+    public sealed class FlockAttractorArea : MonoBehaviour
+    {
         [SerializeField]
         private FlockAttractorShape shape = FlockAttractorShape.Sphere;
 
@@ -44,17 +47,14 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Runtime {
         [Min(0f)]
         private float cellPriority = 1.0f;
 
-        /**
-         * <summary>
-         * Gets the fish types affected by this attractor (used to build masks externally).
-         * </summary>
-         */
         public FishTypePreset[] AttractedTypes => attractedTypes;
 
-        private void OnDrawGizmos() {
+        private void OnDrawGizmos()
+        {
             Gizmos.color = new Color(0.0f, 0.8f, 1.0f, 0.75f);
 
-            if (shape == FlockAttractorShape.Sphere) {
+            if (shape == FlockAttractorShape.Sphere)
+            {
                 Gizmos.DrawWireSphere(transform.position, sphereRadius);
                 return;
             }
@@ -78,13 +78,15 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Runtime {
          * <param name="affectedTypesMask">Mask of fish types affected by this attractor (0 means all).</param>
          * <returns>The populated <see cref="AttractorData"/>.</returns>
          */
-        public FlockAttractorData ToData(uint affectedTypesMask) {
+        public FlockAttractorData ToData(uint affectedTypesMask)
+        {
             FlockAttractorData data = CreateBaseData(affectedTypesMask);
             ApplyShapeData(ref data);
             return data;
         }
 
-        private FlockAttractorData CreateBaseData(uint affectedTypesMask) {
+        private FlockAttractorData CreateBaseData(uint affectedTypesMask)
+        {
             FlockAttractorData data = default;
 
             data.Shape = shape;
@@ -100,8 +102,10 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Runtime {
             return data;
         }
 
-        private void ApplyShapeData(ref FlockAttractorData data) {
-            if (shape == FlockAttractorShape.Sphere) {
+        private void ApplyShapeData(ref FlockAttractorData data)
+        {
+            if (shape == FlockAttractorShape.Sphere)
+            {
                 ApplySphereData(ref data);
                 return;
             }
@@ -109,7 +113,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Runtime {
             ApplyBoxData(ref data);
         }
 
-        private void ApplySphereData(ref FlockAttractorData data) {
+        private void ApplySphereData(ref FlockAttractorData data)
+        {
             float radius = math.max(0.0f, sphereRadius);
 
             data.Radius = radius;
@@ -117,7 +122,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Attractors.Runtime {
             data.BoxRotation = quaternion.identity;
         }
 
-        private void ApplyBoxData(ref FlockAttractorData data) {
+        private void ApplyBoxData(ref FlockAttractorData data)
+        {
             float3 halfExtents = new float3(
                 math.max(0.0f, boxSize.x * 0.5f),
                 math.max(0.0f, boxSize.y * 0.5f),

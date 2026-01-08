@@ -1,23 +1,28 @@
-namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
-    using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
-    using Flock.Scripts.Build.Influence.Environment.Obstacles.Runtime;
-    using System;
-    using UnityEngine;
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Runtime;
 
+using System;
+using UnityEngine;
+
+namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController
+{
     /**
     * <summary>
     * Runtime obstacle ingestion and per-frame dynamic obstacle synchronization for the flock simulation.
     * </summary>
     */
-    public sealed partial class FlockController {
+    public sealed partial class FlockController
+    {
         private int[] dynamicObstacleIndices;
 
-        private FlockObstacleData[] BuildObstacleData() {
+        private FlockObstacleData[] BuildObstacleData()
+        {
             int staticCount = staticObstacles != null ? staticObstacles.Length : 0;
             int dynamicCount = dynamicObstacles != null ? dynamicObstacles.Length : 0;
             int totalCount = staticCount + dynamicCount;
 
-            if (totalCount == 0) {
+            if (totalCount == 0)
+            {
                 dynamicObstacleIndices = Array.Empty<int>();
                 return Array.Empty<FlockObstacleData>();
             }
@@ -28,19 +33,23 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             writeIndex = WriteStaticObstacleData(data, writeIndex, staticCount);
             writeIndex = WriteDynamicObstacleData(data, writeIndex, dynamicCount);
 
-            if (writeIndex < totalCount) {
+            if (writeIndex < totalCount)
+            {
                 Array.Resize(ref data, writeIndex);
             }
 
             return data;
         }
 
-        private void UpdateDynamicObstacles() {
-            if (!TryGetDynamicObstacleUpdateCount(out int count)) {
+        private void UpdateDynamicObstacles()
+        {
+            if (!TryGetDynamicObstacleUpdateCount(out int count))
+            {
                 return;
             }
 
-            for (int index = 0; index < count; index += 1) {
+            for (int index = 0; index < count; index += 1)
+            {
                 UpdateDynamicObstacleAtIndex(index);
             }
         }
@@ -48,15 +57,19 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
         private int WriteStaticObstacleData(
             FlockObstacleData[] data,
             int writeIndex,
-            int staticCount) {
+            int staticCount)
+        {
 
-            if (staticCount <= 0) {
+            if (staticCount <= 0)
+            {
                 return writeIndex;
             }
 
-            for (int index = 0; index < staticCount; index += 1) {
+            for (int index = 0; index < staticCount; index += 1)
+            {
                 FlockObstacle obstacle = staticObstacles[index];
-                if (obstacle == null) {
+                if (obstacle == null)
+                {
                     continue;
                 }
 
@@ -70,19 +83,23 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
         private int WriteDynamicObstacleData(
             FlockObstacleData[] data,
             int writeIndex,
-            int dynamicCount) {
+            int dynamicCount)
+        {
 
-            if (dynamicCount <= 0) {
+            if (dynamicCount <= 0)
+            {
                 dynamicObstacleIndices = Array.Empty<int>();
                 return writeIndex;
             }
 
             EnsureDynamicObstacleIndexBuffer(dynamicCount);
 
-            for (int index = 0; index < dynamicCount; index += 1) {
+            for (int index = 0; index < dynamicCount; index += 1)
+            {
                 FlockObstacle obstacle = dynamicObstacles[index];
 
-                if (obstacle == null) {
+                if (obstacle == null)
+                {
                     dynamicObstacleIndices[index] = -1;
                     continue;
                 }
@@ -95,23 +112,28 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             return writeIndex;
         }
 
-        private void EnsureDynamicObstacleIndexBuffer(int dynamicCount) {
-            if (dynamicObstacleIndices == null || dynamicObstacleIndices.Length != dynamicCount) {
+        private void EnsureDynamicObstacleIndexBuffer(int dynamicCount)
+        {
+            if (dynamicObstacleIndices == null || dynamicObstacleIndices.Length != dynamicCount)
+            {
                 dynamicObstacleIndices = new int[dynamicCount];
             }
         }
 
-        private bool TryGetDynamicObstacleUpdateCount(out int count) {
+        private bool TryGetDynamicObstacleUpdateCount(out int count)
+        {
             count = 0;
 
-            if (simulation == null || !simulation.IsCreated) {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 return false;
             }
 
             if (dynamicObstacles == null
                 || dynamicObstacles.Length == 0
                 || dynamicObstacleIndices == null
-                || dynamicObstacleIndices.Length == 0) {
+                || dynamicObstacleIndices.Length == 0)
+            {
                 return false;
             }
 
@@ -119,14 +141,17 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             return count > 0;
         }
 
-        private void UpdateDynamicObstacleAtIndex(int index) {
+        private void UpdateDynamicObstacleAtIndex(int index)
+        {
             int obstacleIndex = dynamicObstacleIndices[index];
-            if (obstacleIndex < 0) {
+            if (obstacleIndex < 0)
+            {
                 return;
             }
 
             FlockObstacle obstacle = dynamicObstacles[index];
-            if (obstacle == null) {
+            if (obstacle == null)
+            {
                 return;
             }
 

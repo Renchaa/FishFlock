@@ -1,8 +1,9 @@
-using Flock.Scripts.Build.Debug;
-using Flock.Scripts.Build.Influence.Noise.Data;
 using Flock.Scripts.Build.Influence.Noise.Profiles;
+using Flock.Scripts.Build.Influence.Noise.Data;
+using Flock.Scripts.Build.Debug;
 
-namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
+namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation
+{
 
     /**
      * <summary>
@@ -10,7 +11,9 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
      * This partial definition contains the public Layer-2 group-noise configuration API.
      * </summary>
      */
-    public sealed partial class FlockSimulation {
+    public sealed partial class FlockSimulation
+    {
+
         /**
          * <summary>
          * Sets the active Layer-2 group-noise pattern to <see cref="FlockGroupNoisePatternType.SimpleSine"/>.
@@ -20,7 +23,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
          */
         public void SetLayer2GroupNoiseSimpleSine(
             in FlockGroupNoiseCommonSettings common,
-            in FlockGroupNoiseSimpleSinePayload payload) {
+            in FlockGroupNoiseSimpleSinePayload payload)
+        {
 
             activeLayer2GroupNoiseKind = FlockGroupNoisePatternType.SimpleSine;
             activeLayer2GroupNoiseCommon = common;
@@ -42,7 +46,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
          */
         public void SetLayer2GroupNoiseVerticalBands(
             in FlockGroupNoiseCommonSettings common,
-            in FlockGroupNoiseVerticalBandsPayload payload) {
+            in FlockGroupNoiseVerticalBandsPayload payload)
+        {
 
             activeLayer2GroupNoiseKind = FlockGroupNoisePatternType.VerticalBands;
             activeLayer2GroupNoiseCommon = common;
@@ -64,7 +69,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
          */
         public void SetLayer2GroupNoiseVortex(
             in FlockGroupNoiseCommonSettings common,
-            in GroupNoiseVortexPayload payload) {
+            in GroupNoiseVortexPayload payload)
+        {
 
             activeLayer2GroupNoiseKind = FlockGroupNoisePatternType.Vortex;
             activeLayer2GroupNoiseCommon = common;
@@ -86,7 +92,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
          */
         public void SetLayer2GroupNoiseSphereShell(
             in FlockGroupNoiseCommonSettings common,
-            in FlockGroupNoiseSphereShellPayload payload) {
+            in FlockGroupNoiseSphereShellPayload payload)
+        {
 
             activeLayer2GroupNoiseKind = FlockGroupNoisePatternType.SphereShell;
             activeLayer2GroupNoiseCommon = common;

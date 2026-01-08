@@ -1,7 +1,7 @@
-#if UNITY_EDITOR
-using Flock.Scripts.Build.Agents.Fish.Data;
 using Flock.Scripts.Build.Infrastructure.Grid.Data;
 using Flock.Scripts.Build.Infrastructure.Grid.Jobs;
+using Flock.Scripts.Build.Agents.Fish.Data;
+
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -145,4 +145,3 @@ namespace Flock.Scripts.Tests.EditorMode.Jobs.NeighbourAggregate {
         }
     }
 }
-#endif

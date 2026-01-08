@@ -1,14 +1,17 @@
 using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
-using Unity.Mathematics;
-using UnityEngine;
 
-namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Runtime {
+using UnityEngine;
+using Unity.Mathematics;
+
+namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Runtime
+{
     /**
      * <summary>
      * Scene obstacle definition that can be converted into a runtime <see cref="FlockObstacleData"/> snapshot.
      * </summary>
      */
-    public sealed class FlockObstacle : MonoBehaviour {
+    public sealed class FlockObstacle : MonoBehaviour
+    {
         [Tooltip("Obstacle shape used when converting to runtime obstacle data.")]
         [SerializeField]
         private FlockObstacleShape shape = FlockObstacleShape.Sphere;
@@ -25,10 +28,12 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Runtime {
         [SerializeField]
         private Vector3 boxSize = Vector3.one;
 
-        private void OnDrawGizmos() {
+        private void OnDrawGizmos()
+        {
             Gizmos.color = Color.yellow;
 
-            if (shape == FlockObstacleShape.Sphere) {
+            if (shape == FlockObstacleShape.Sphere)
+            {
                 Gizmos.DrawWireSphere(transform.position, sphereRadius);
                 return;
             }
@@ -51,13 +56,15 @@ namespace Flock.Scripts.Build.Influence.Environment.Obstacles.Runtime {
          * </summary>
          * <returns>The populated <see cref="FlockObstacleData"/>.</returns>
          */
-        public FlockObstacleData ToData() {
+        public FlockObstacleData ToData()
+        {
             FlockObstacleData data;
 
             data.Shape = shape;
             data.Position = transform.position;
 
-            if (shape == FlockObstacleShape.Sphere) {
+            if (shape == FlockObstacleShape.Sphere)
+            {
                 float radius = math.max(0.0f, sphereRadius);
 
                 data.Radius = radius;

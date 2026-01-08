@@ -1,14 +1,16 @@
 using System;
 using Unity.Mathematics;
 
-namespace Flock.Scripts.Build.Influence.Noise.Data {
+namespace Flock.Scripts.Build.Influence.Noise.Data
+{
     /**
      * <summary>
      * Runtime settings snapshot for group noise pattern generation.
      * </summary>
      */
     [Serializable]
-    public struct FlockGroupNoisePatternSettings {
+    public struct FlockGroupNoisePatternSettings
+    {
         // Common
         public float BaseFrequency;
         public float3 TimeScale;
@@ -39,7 +41,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Data {
         * Gets sane defaults used when no profile is assigned.
         * </summary>
         */
-        public static FlockGroupNoisePatternSettings Default => new FlockGroupNoisePatternSettings {
+        public static FlockGroupNoisePatternSettings Default => new FlockGroupNoisePatternSettings
+        {
             BaseFrequency = 1.0f,
             TimeScale = new float3(1.0f, 1.1f, 1.3f),
             PhaseOffset = float3.zero,

@@ -1,38 +1,35 @@
-using Flock.Scripts.Build.Influence.Noise.Data;
 using Flock.Scripts.Build.Influence.Noise.Utilities;
+using Flock.Scripts.Build.Influence.Noise.Data;
+
+using Unity.Jobs;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Jobs;
 using Unity.Mathematics;
 
-namespace Flock.Scripts.Build.Influence.Noise.Jobs {
+namespace Flock.Scripts.Build.Influence.Noise.Jobs
+{
     /**
      * <summary>
      * Generates per-cell noise directions that form a spherical shell field with radial push/pull and tangential swirl.
      * </summary>
      */
     [BurstCompile]
-    public struct GroupNoiseFieldSphereShellJob : IJobParallelFor {
-        [ReadOnly]
-        public float Time;
+    public struct GroupNoiseFieldSphereShellJob : IJobParallelFor
+    {
+        [ReadOnly] public float Time;
+        [ReadOnly] public float Frequency;
 
-        [ReadOnly]
-        public float Frequency;
+        [ReadOnly] public int3 GridResolution;
 
-        [ReadOnly]
-        public int3 GridResolution;
+        [ReadOnly] public FlockGroupNoiseCommonSettings Common;
+        [ReadOnly] public FlockGroupNoiseSphereShellPayload Payload;
 
-        [ReadOnly]
-        public FlockGroupNoiseCommonSettings Common;
+        [NativeDisableParallelForRestriction] public NativeArray<float3> CellNoise;
 
-        [ReadOnly]
-        public FlockGroupNoiseSphereShellPayload Payload;
-
-        [NativeDisableParallelForRestriction]
-        public NativeArray<float3> CellNoise;
-
-        public void Execute(int index) {
-            if (!CellNoise.IsCreated || (uint)index >= (uint)CellNoise.Length) {
+        public void Execute(int index)
+        {
+            if (!CellNoise.IsCreated || (uint)index >= (uint)CellNoise.Length)
+            {
                 return;
             }
 
@@ -51,7 +48,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Jobs {
             CellNoise[index] = math.normalizesafe(direction, float3.zero);
         }
 
-        private float3 EvaluateDirection(float3 position, float timeScaled, float3 hashPhase) {
+        private float3 EvaluateDirection(float3 position, float timeScaled, float3 hashPhase)
+        {
             float worldScale = math.max(0.001f, Common.WorldScale);
 
             float3 centerNormalised = new float3(
@@ -67,7 +65,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Jobs {
             float3 relative = position - center;
             float distance = math.length(relative);
 
-            if (distance < 1e-5f || radius <= 0f) {
+            if (distance < 1e-5f || radius <= 0f)
+            {
                 return new float3(0f, 1f, 0f);
             }
 
@@ -96,13 +95,16 @@ namespace Flock.Scripts.Build.Influence.Noise.Jobs {
             float radius,
             float thickness,
             float innerRadius,
-            float outerRadius) {
-            if (distance < innerRadius) {
+            float outerRadius)
+        {
+            if (distance < innerRadius)
+            {
                 float innerT = math.saturate((innerRadius - distance) / thickness);
                 return +math.lerp(0.5f, 1f, innerT);
             }
 
-            if (distance > outerRadius) {
+            if (distance > outerRadius)
+            {
                 float outerT = math.saturate((distance - outerRadius) / thickness);
                 return -math.lerp(0.5f, 1f, outerT);
             }
@@ -115,7 +117,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Jobs {
             return sign * soften * 0.35f;
         }
 
-        private float3 ComputeSwirlDirection(float3 radialDirection, float timeScaled, float hashPhaseX) {
+        private float3 ComputeSwirlDirection(float3 radialDirection, float timeScaled, float hashPhaseX)
+        {
             float3 referenceAxis = math.abs(radialDirection.y) < 0.8f
                 ? new float3(0f, 1f, 0f)
                 : new float3(1f, 0f, 0f);

@@ -1,14 +1,17 @@
 ﻿using Flock.Scripts.Build.Influence.Noise.Data;
-using Unity.Mathematics;
-using UnityEngine;
 
-namespace Flock.Scripts.Build.Influence.Noise.Profiles {
+using UnityEngine;
+using Unity.Mathematics;
+
+namespace Flock.Scripts.Build.Influence.Noise.Profiles
+{
     /**
      * <summary>
      * Supported procedural group-noise pattern types.
      * </summary>
      */
-    public enum FlockGroupNoisePatternType {
+    public enum FlockGroupNoisePatternType
+    {
         SimpleSine = 0,
         VerticalBands = 1,
         Vortex = 2,
@@ -23,7 +26,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Profiles {
     [CreateAssetMenu(
         fileName = "GroupNoisePattern",
         menuName = "Flock/Group Noise Pattern")]
-    public sealed class GroupNoisePatternProfile : ScriptableObject {
+    public sealed class GroupNoisePatternProfile : ScriptableObject
+    {
         [Header("Common")]
 
         [Tooltip("Base frequency multiplier applied to the selected pattern.")]
@@ -107,7 +111,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Profiles {
          * </summary>
          * <returns>The populated <see cref="GroupNoisePatternSettings"/>.</returns>
          */
-        public FlockGroupNoisePatternSettings ToSettings() {
+        public FlockGroupNoisePatternSettings ToSettings()
+        {
             FlockGroupNoisePatternSettings settings;
 
             settings.BaseFrequency = Mathf.Max(0f, baseFrequency);
@@ -157,8 +162,10 @@ namespace Flock.Scripts.Build.Influence.Noise.Profiles {
          * </summary>
          * <returns>The populated <see cref="GroupNoiseCommonSettings"/>.</returns>
          */
-        public FlockGroupNoiseCommonSettings ToCommonSettings() {
-            return new FlockGroupNoiseCommonSettings {
+        public FlockGroupNoiseCommonSettings ToCommonSettings()
+        {
+            return new FlockGroupNoiseCommonSettings
+            {
                 BaseFrequency = Mathf.Max(0f, baseFrequency),
                 TimeScale = new float3(timeScale.x, timeScale.y, timeScale.z),
                 PhaseOffset = new float3(phaseOffset.x, phaseOffset.y, phaseOffset.z),
@@ -173,8 +180,10 @@ namespace Flock.Scripts.Build.Influence.Noise.Profiles {
          * </summary>
          * <returns>The populated <see cref="GroupNoiseSimpleSinePayload"/>.</returns>
          */
-        public FlockGroupNoiseSimpleSinePayload ToSimpleSinePayload() {
-            return new FlockGroupNoiseSimpleSinePayload {
+        public FlockGroupNoiseSimpleSinePayload ToSimpleSinePayload()
+        {
+            return new FlockGroupNoiseSimpleSinePayload
+            {
                 SwirlStrength = Mathf.Max(0f, swirlStrength),
             };
         }
@@ -185,8 +194,10 @@ namespace Flock.Scripts.Build.Influence.Noise.Profiles {
          * </summary>
          * <returns>The populated <see cref="GroupNoiseVerticalBandsPayload"/>.</returns>
          */
-        public FlockGroupNoiseVerticalBandsPayload ToVerticalBandsPayload() {
-            return new FlockGroupNoiseVerticalBandsPayload {
+        public FlockGroupNoiseVerticalBandsPayload ToVerticalBandsPayload()
+        {
+            return new FlockGroupNoiseVerticalBandsPayload
+            {
                 VerticalBias = verticalBias,
             };
         }
@@ -197,8 +208,10 @@ namespace Flock.Scripts.Build.Influence.Noise.Profiles {
          * </summary>
          * <returns>The populated <see cref="GroupNoiseVortexPayload"/>.</returns>
          */
-        public GroupNoiseVortexPayload ToVortexPayload() {
-            return new GroupNoiseVortexPayload {
+        public GroupNoiseVortexPayload ToVortexPayload()
+        {
+            return new GroupNoiseVortexPayload
+            {
                 CenterNorm = new float3(
                     Mathf.Clamp01(vortexCenterNorm.x),
                     Mathf.Clamp01(vortexCenterNorm.y),
@@ -215,8 +228,10 @@ namespace Flock.Scripts.Build.Influence.Noise.Profiles {
          * </summary>
          * <returns>The populated <see cref="GroupNoiseSphereShellPayload"/>.</returns>
          */
-        public FlockGroupNoiseSphereShellPayload ToSphereShellPayload() {
-            return new FlockGroupNoiseSphereShellPayload {
+        public FlockGroupNoiseSphereShellPayload ToSphereShellPayload()
+        {
+            return new FlockGroupNoiseSphereShellPayload
+            {
                 CenterNorm = new float3(
                     Mathf.Clamp01(sphereCenterNorm.x),
                     Mathf.Clamp01(sphereCenterNorm.y),

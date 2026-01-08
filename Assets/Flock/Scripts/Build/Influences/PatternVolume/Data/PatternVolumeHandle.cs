@@ -1,6 +1,7 @@
 using System;
 
-namespace Flock.Scripts.Build.Influence.PatternVolume.Data {
+namespace Flock.Scripts.Build.Influence.PatternVolume.Data
+{
     /**
      * <summary>
      * Opaque handle to a runtime-instanced Layer-3 pattern.
@@ -8,27 +9,23 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Data {
      * </summary>
      */
     [Serializable]
-    public struct PatternVolumeHandle : IEquatable<PatternVolumeHandle> {
-        // Identity
-        public int Index;
-        public int Generation;
-
-        /**
-         * <summary>
-         * Gets whether this handle refers to a valid slot.
-         * </summary>
-         */
-        public bool IsValid => Index >= 0;
-
+    public struct PatternVolumeHandle : IEquatable<PatternVolumeHandle>
+    {
         /**
          * <summary>
          * Gets an invalid handle value.
          * </summary>
          */
-        public static PatternVolumeHandle Invalid => new PatternVolumeHandle {
+        public static PatternVolumeHandle Invalid => new PatternVolumeHandle
+        {
             Index = -1,
             Generation = 0,
         };
+
+        public bool IsValid => Index >= 0;
+
+        public int Index;
+        public int Generation;
 
         public static bool operator ==(PatternVolumeHandle a, PatternVolumeHandle b) => a.Equals(b);
 

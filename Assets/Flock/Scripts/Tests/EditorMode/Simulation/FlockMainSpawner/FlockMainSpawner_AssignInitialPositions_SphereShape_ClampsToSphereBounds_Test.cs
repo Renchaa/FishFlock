@@ -1,71 +1,76 @@
-using Flock.Scripts.Build.Agents.Fish.Profiles;
 using Flock.Scripts.Build.Core.Simulation.Runtime.Spawn;
 using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
 using Flock.Tests.Shared;
-    using NUnit.Framework;
-    using Unity.Collections;
-    using Unity.Mathematics;
-    using UnityEngine;
-    namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockMainSpawner {
-        public sealed class FlockMainSpawner_AssignInitialPositions_SphereSpawn_ClampsToSphereBounds_Test {
-            [Test]
-            public void FlockMainSpawner_AssignInitialPositions_SphereSpawn_ClampsToSphereBounds_Test_Run() {
-                var spawner = FlockTestUtils.CreateMainSpawner("Spawner", out GameObject spawnerGo);
 
-                var presetA = FlockTestUtils.CreateFishTypePreset("A");
-                FishTypePreset[] fishTypes = { presetA };
+using UnityEngine;
+using NUnit.Framework;
+using Unity.Mathematics;
+using Unity.Collections;
 
-                // Spawn sphere centered outside the environment sphere so clamping path is exercised.
-                var spherePoint = FlockTestUtils.CreateSpawnPoint(
-                    name: "SphereSpawn",
-                    position: new Vector3(20f, 0f, 0f),
-                    rotation: Quaternion.identity,
-                    shape: FlockSpawnShape.Sphere,
-                    radius: 5f,
-                    halfExtents: Vector3.zero,
-                    out GameObject sphereGo);
+namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockMainSpawner
+{
+    public sealed class FlockMainSpawner_AssignInitialPositions_SphereSpawn_ClampsToSphereBounds_Test
+    {
+        [Test]
+        public void FlockMainSpawner_AssignInitialPositions_SphereSpawn_ClampsToSphereBounds_Test_Run()
+        {
+            var spawner = FlockTestUtils.CreateMainSpawner("Spawner", out GameObject spawnerGo);
 
-                const uint seed = 777u;
+            var presetA = FlockTestUtils.CreateFishTypePreset("A");
+            FishTypePreset[] fishTypes = { presetA };
 
-                var pointConfig = FlockTestUtils.PointSpawn(
-                    point: spherePoint,
-                    useSeed: true,
-                    seed: seed,
-                    FlockTestUtils.Entry(presetA, 1));
+            // Spawn sphere centered outside the environment sphere so clamping path is exercised.
+            var spherePoint = FlockTestUtils.CreateSpawnPoint(
+                name: "SphereSpawn",
+                position: new Vector3(20f, 0f, 0f),
+                rotation: Quaternion.identity,
+                shape: FlockSpawnShape.Sphere,
+                radius: 5f,
+                halfExtents: Vector3.zero,
+                out GameObject sphereGo);
 
-                FlockTestUtils.ConfigureSpawner(
-                    spawner,
-                    pointSpawns: new[] { pointConfig },
-                    seedSpawns: null,
-                    globalSeed: 1u);
+            const uint seed = 777u;
 
-                int[] agentBehaviourIds = { 0 };
+            var pointConfig = FlockTestUtils.PointSpawn(
+                point: spherePoint,
+                useSeed: true,
+                seed: seed,
+                FlockTestUtils.Entry(presetA, 1));
 
-                FlockEnvironmentData env = FlockTestUtils.MakeSphereEnvironment(
-                    center: new float3(0f, 0f, 0f),
-                    radius: 10f);
+            FlockTestUtils.ConfigureSpawner(
+                spawner,
+                pointSpawns: new[] { pointConfig },
+                seedSpawns: null,
+                globalSeed: 1u);
 
-                float3 raw = FlockTestUtils.SampleSpawnPointDeterministic(spherePoint, seed);
-                float3 expected = FlockTestUtils.ClampToBounds(raw, env);
+            int[] agentBehaviourIds = { 0 };
 
-                var positions = new NativeArray<float3>(1, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+            FlockEnvironmentData env = FlockTestUtils.MakeSphereEnvironment(
+                center: new float3(0f, 0f, 0f),
+                radius: 10f);
 
-                spawner.AssignInitialPositions(env, fishTypes, agentBehaviourIds, positions);
+            float3 raw = FlockTestUtils.SampleSpawnPointDeterministic(spherePoint, seed);
+            float3 expected = FlockTestUtils.ClampToBounds(raw, env);
 
-                float3 actual = positions[0];
+            var positions = new NativeArray<float3>(1, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
 
-                Assert.AreEqual(expected.x, actual.x, 1e-6f);
-                Assert.AreEqual(expected.y, actual.y, 1e-6f);
-                Assert.AreEqual(expected.z, actual.z, 1e-6f);
+            spawner.AssignInitialPositions(env, fishTypes, agentBehaviourIds, positions);
 
-                // Additionally enforce "inside sphere" invariant.
-                float distSq = math.lengthsq(actual - env.BoundsCenter);
-                Assert.LessOrEqual(distSq, env.BoundsRadius * env.BoundsRadius);
+            float3 actual = positions[0];
 
-                FlockTestUtils.DisposeIfCreated(ref positions);
-                FlockTestUtils.DestroyImmediateSafe(spawnerGo);
-                FlockTestUtils.DestroyImmediateSafe(sphereGo);
-                FlockTestUtils.DestroyImmediateSafe(presetA);
-            }
+            Assert.AreEqual(expected.x, actual.x, 1e-6f);
+            Assert.AreEqual(expected.y, actual.y, 1e-6f);
+            Assert.AreEqual(expected.z, actual.z, 1e-6f);
+
+            // Additionally enforce "inside sphere" invariant.
+            float distSq = math.lengthsq(actual - env.BoundsCenter);
+            Assert.LessOrEqual(distSq, env.BoundsRadius * env.BoundsRadius);
+
+            FlockTestUtils.DisposeIfCreated(ref positions);
+            FlockTestUtils.DestroyImmediateSafe(spawnerGo);
+            FlockTestUtils.DestroyImmediateSafe(sphereGo);
+            FlockTestUtils.DestroyImmediateSafe(presetA);
         }
     }
+}

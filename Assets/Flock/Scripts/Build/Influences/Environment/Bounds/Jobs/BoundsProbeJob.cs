@@ -1,13 +1,14 @@
-﻿using Unity.Collections;
-using Unity.Mathematics;
+﻿using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Agents.Fish.Data;
+
 using Unity.Burst;
 using Unity.Jobs;
+using Unity.Mathematics;
+using Unity.Collections;
 
-using Flock.Scripts.Build.Agents.Fish.Data;
-using Flock.Scripts.Build.Influence.Environment.Data;
-using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
-
-namespace Flock.Scripts.Build.Influence.Environment.Bounds.Jobs {
+namespace Flock.Scripts.Build.Influence.Environment.Bounds.Jobs
+{
     /**
      * <summary>
      * Computes per-agent wall direction + danger based only on position and bounds.
@@ -15,36 +16,31 @@ namespace Flock.Scripts.Build.Influence.Environment.Bounds.Jobs {
      * </summary>
      */
     [BurstCompile]
-    public struct BoundsProbeJob : IJobParallelFor {
-        [ReadOnly]
-        public NativeArray<float3> Positions;
+    public struct BoundsProbeJob : IJobParallelFor
+    {
+        [ReadOnly] public FlockEnvironmentData EnvironmentData;
 
-        [ReadOnly]
-        public NativeArray<int> BehaviourIds;
+        [ReadOnly] public NativeArray<int> BehaviourIds;
+        [ReadOnly] public NativeArray<float3> Positions;
+        [ReadOnly] public NativeArray<FlockBehaviourSettings> BehaviourSettings;
 
-        [ReadOnly]
-        public NativeArray<FlockBehaviourSettings> BehaviourSettings;
+        [WriteOnly] public NativeArray<float> WallDangers;
+        [WriteOnly] public NativeArray<float3> WallDirections;
 
-        [ReadOnly]
-        public FlockEnvironmentData EnvironmentData;
-
-        [WriteOnly]
-        public NativeArray<float3> WallDirections;
-
-        [WriteOnly]
-        public NativeArray<float> WallDangers;
-
-        public void Execute(int index) {
+        public void Execute(int index)
+        {
             float3 position = Positions[index];
 
             WallDirections[index] = float3.zero;
             WallDangers[index] = 0f;
 
-            if (!TryGetSeparationMargin(index, out float margin)) {
+            if (!TryGetSeparationMargin(index, out float margin))
+            {
                 return;
             }
 
-            switch (EnvironmentData.BoundsType) {
+            switch (EnvironmentData.BoundsType)
+            {
                 case FlockBoundsType.Box:
                     TryProbeBoxBounds(index, position, margin);
                     return;
@@ -55,10 +51,12 @@ namespace Flock.Scripts.Build.Influence.Environment.Bounds.Jobs {
             }
         }
 
-        private bool TryGetSeparationMargin(int index, out float margin) {
+        private bool TryGetSeparationMargin(int index, out float margin)
+        {
             int behaviourIndex = BehaviourIds[index];
 
-            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length) {
+            if ((uint)behaviourIndex >= (uint)BehaviourSettings.Length)
+            {
                 margin = 0f;
                 return false;
             }
@@ -68,11 +66,13 @@ namespace Flock.Scripts.Build.Influence.Environment.Bounds.Jobs {
             return true;
         }
 
-        private void TryProbeBoxBounds(int index, float3 position, float margin) {
+        private void TryProbeBoxBounds(int index, float3 position, float margin)
+        {
             float3 center = EnvironmentData.BoundsCenter;
             float3 extents = EnvironmentData.BoundsExtents;
 
-            if (extents.x <= 0f && extents.y <= 0f && extents.z <= 0f) {
+            if (extents.x <= 0f && extents.y <= 0f && extents.z <= 0f)
+            {
                 return;
             }
 
@@ -139,7 +139,8 @@ namespace Flock.Scripts.Build.Influence.Environment.Bounds.Jobs {
                 maximumDanger: ref maximumDanger,
                 isMaximumSide: true);
 
-            if (math.lengthsq(accumulatedDirection) < 1e-8f || maximumDanger <= 0f) {
+            if (math.lengthsq(accumulatedDirection) < 1e-8f || maximumDanger <= 0f)
+            {
                 return;
             }
 
@@ -147,10 +148,12 @@ namespace Flock.Scripts.Build.Influence.Environment.Bounds.Jobs {
             WallDangers[index] = maximumDanger;
         }
 
-        private void TryProbeSphereBounds(int index, float3 position, float margin) {
+        private void TryProbeSphereBounds(int index, float3 position, float margin)
+        {
             float radius = EnvironmentData.BoundsRadius;
 
-            if (radius <= 0f) {
+            if (radius <= 0f)
+            {
                 return;
             }
 
@@ -159,20 +162,23 @@ namespace Flock.Scripts.Build.Influence.Environment.Bounds.Jobs {
 
             float distanceSquared = math.lengthsq(offset);
 
-            if (distanceSquared < 1e-8f) {
+            if (distanceSquared < 1e-8f)
+            {
                 return;
             }
 
             float distance = math.sqrt(distanceSquared);
             float distanceToSurface = radius - distance;
 
-            if (distanceToSurface >= margin) {
+            if (distanceToSurface >= margin)
+            {
                 return;
             }
 
             float t = 1f - math.saturate(distanceToSurface / math.max(margin, 0.0001f));
 
-            if (t <= 0f) {
+            if (t <= 0f)
+            {
                 return;
             }
 
@@ -190,24 +196,28 @@ namespace Flock.Scripts.Build.Influence.Environment.Bounds.Jobs {
             float3 inwardNormal,
             ref float3 accumulatedDirection,
             ref float maximumDanger,
-            bool isMaximumSide = false) {
+            bool isMaximumSide = false)
+        {
             float distanceInterior = isMaximumSide
                 ? (wallMaximum - positionComponent)
                 : (positionComponent - wallMinimum);
 
-            if (distanceInterior >= margin) {
+            if (distanceInterior >= margin)
+            {
                 return;
             }
 
             float t = 1f - math.saturate(distanceInterior / math.max(margin, 0.0001f));
 
-            if (t <= 0f) {
+            if (t <= 0f)
+            {
                 return;
             }
 
             accumulatedDirection += inwardNormal * t;
 
-            if (t > maximumDanger) {
+            if (t > maximumDanger)
+            {
                 maximumDanger = t;
             }
         }

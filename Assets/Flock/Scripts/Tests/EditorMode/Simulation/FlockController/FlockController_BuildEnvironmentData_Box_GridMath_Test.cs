@@ -1,17 +1,22 @@
-// File: Assets/Tests/EditMode/Data/Environment/FlockController_BuildEnvironmentData_Box_GridMath_Test.cs
-using System.Reflection;
 using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
 using Flock.Scripts.Build.Influence.Environment.Data;
+using System.Reflection;
+
+using UnityEngine;
 using NUnit.Framework;
 using Unity.Mathematics;
-using UnityEngine;
-namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
-    public sealed class FlockController_BuildEnvironmentData_Box_GridMath_Test {
+
+namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController
+{
+    public sealed class FlockController_BuildEnvironmentData_Box_GridMath_Test
+    {
         [Test]
-        public void BuildEnvironmentData_Box_ComputesGridOriginResolutionAndRadius() {
+        public void BuildEnvironmentData_Box_ComputesGridOriginResolutionAndRadius()
+        {
             GameObject go = null;
 
-            try {
+            try
+            {
                 go = new GameObject("FlockController_Test");
                 var controller = go.AddComponent<Build.Core.Simulation.Runtime.PartialFlockController.FlockController>();
 
@@ -40,24 +45,29 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockController {
 
                 Assert.That(env.CellSize, Is.EqualTo(2.5f).Within(1e-6f));
                 Assert.That(env.GlobalDamping, Is.EqualTo(0.7f).Within(1e-6f));
-            } finally {
+            }
+            finally
+            {
                 if (go != null) Object.DestroyImmediate(go);
             }
         }
 
-        private static void SetPrivateField(object target, string fieldName, object value) {
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Private field not found: {fieldName}");
             field.SetValue(target, value);
         }
 
-        private static T InvokePrivateMethod<T>(object target, string methodName, params object[] args) {
+        private static T InvokePrivateMethod<T>(object target, string methodName, params object[] args)
+        {
             var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null, $"Private method not found: {methodName}");
             return (T)method.Invoke(target, args);
         }
 
-        private static void AssertFloat3Approx(float3 actual, float3 expected, float eps = 1e-5f) {
+        private static void AssertFloat3Approx(float3 actual, float3 expected, float eps = 1e-5f)
+        {
             Assert.That(actual.x, Is.EqualTo(expected.x).Within(eps));
             Assert.That(actual.y, Is.EqualTo(expected.y).Within(eps));
             Assert.That(actual.z, Is.EqualTo(expected.z).Within(eps));

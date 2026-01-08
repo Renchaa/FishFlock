@@ -1,7 +1,9 @@
 using Flock.Scripts.Build.Agents.Fish.Data;
+
 using UnityEngine;
 
-namespace Flock.Scripts.Build.Agents.Fish.Profiles {
+namespace Flock.Scripts.Build.Agents.Fish.Profiles
+{
     /**
      * <summary>
      * ScriptableObject profile that stores fish behaviour tuning parameters and can be converted into
@@ -11,7 +13,8 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
     [CreateAssetMenu(
         fileName = "FishBehaviourProfile",
         menuName = "Flock/Fish Behaviour Profile")]
-    public sealed class FishBehaviourProfile : ScriptableObject {
+    public sealed class FishBehaviourProfile : ScriptableObject
+    {
         [Header("Movement")]
         [Tooltip("Maximum speed in world units per second.")]
         [SerializeField] float maxSpeed = 5.0f;
@@ -212,14 +215,14 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
         [SerializeField, Min(0)]
         int maxSeparationSamples = 64;
 
-
         /**
          * <summary>
          * Creates a runtime settings snapshot from this profile.
          * </summary>
          * <returns>The populated <see cref="BehaviourSettings"/>.</returns>
          */
-        public FlockBehaviourSettings ToSettings() {
+        public FlockBehaviourSettings ToSettings()
+        {
             FlockBehaviourSettings settings = default;
 
             ApplyMovementSettings(ref settings);
@@ -245,23 +248,27 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
             return settings;
         }
 
-        private void ApplyMovementSettings(ref FlockBehaviourSettings settings) {
+        private void ApplyMovementSettings(ref FlockBehaviourSettings settings)
+        {
             settings.MaxSpeed = maxSpeed;
             settings.MaxAcceleration = maxAcceleration;
             settings.DesiredSpeed = Mathf.Clamp(desiredSpeed, 0.0f, maxSpeed);
         }
 
-        private void ApplyNeighbourhoodSettings(ref FlockBehaviourSettings settings) {
+        private void ApplyNeighbourhoodSettings(ref FlockBehaviourSettings settings)
+        {
             settings.NeighbourRadius = neighbourRadius;
             settings.SeparationRadius = separationRadius;
         }
 
-        private void ApplyBodySettings(ref FlockBehaviourSettings settings) {
+        private void ApplyBodySettings(ref FlockBehaviourSettings settings)
+        {
             float baseBodyRadius = bodyRadius > 0f ? bodyRadius : separationRadius;
             settings.BodyRadius = Mathf.Max(0.01f, baseBodyRadius);
         }
 
-        private void ApplyRelationshipDefaults(ref FlockBehaviourSettings settings) {
+        private void ApplyRelationshipDefaults(ref FlockBehaviourSettings settings)
+        {
             // Relationship-related defaults – will be overridden by interaction matrix.
             settings.AvoidanceWeight = Mathf.Max(0f, avoidanceWeight);
             settings.NeutralWeight = Mathf.Max(0f, neutralWeight);
@@ -270,35 +277,41 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
             settings.NeutralMask = 0u;
         }
 
-        private void ApplyRuleWeightSettings(ref FlockBehaviourSettings settings) {
+        private void ApplyRuleWeightSettings(ref FlockBehaviourSettings settings)
+        {
             settings.AlignmentWeight = alignmentWeight;
             settings.CohesionWeight = cohesionWeight;
             settings.SeparationWeight = separationWeight;
         }
 
-        private void ApplyInfluenceAndFlowSettings(ref FlockBehaviourSettings settings) {
+        private void ApplyInfluenceAndFlowSettings(ref FlockBehaviourSettings settings)
+        {
             settings.InfluenceWeight = influenceWeight;
             settings.GroupFlowWeight = Mathf.Max(0f, groupFlowWeight);
         }
 
-        private void ApplyLeadershipAndGroupMaskDefaults(ref FlockBehaviourSettings settings) {
+        private void ApplyLeadershipAndGroupMaskDefaults(ref FlockBehaviourSettings settings)
+        {
             // Leadership / group mask – overridden from matrix.
             settings.LeadershipWeight = 1.0f;
             settings.GroupMask = 0u;
         }
 
-        private void ApplyGroupingSettings(ref FlockBehaviourSettings settings) {
+        private void ApplyGroupingSettings(ref FlockBehaviourSettings settings)
+        {
             ApplyGroupingLimits(ref settings);
             ApplyGroupingRadiusMultipliers(ref settings);
             ApplyGroupingWeights(ref settings);
         }
 
-        private void ApplyGroupingLimits(ref FlockBehaviourSettings settings) {
+        private void ApplyGroupingLimits(ref FlockBehaviourSettings settings)
+        {
             settings.MinGroupSize = Mathf.Max(1, minGroupSize);
             settings.MaxGroupSize = Mathf.Max(0, maxGroupSize);
         }
 
-        private void ApplyGroupingRadiusMultipliers(ref FlockBehaviourSettings settings) {
+        private void ApplyGroupingRadiusMultipliers(ref FlockBehaviourSettings settings)
+        {
             settings.GroupRadiusMultiplier = Mathf.Max(0.1f, groupRadiusMultiplier);
 
             float safeLonerMultiplier = Mathf.Max(groupRadiusMultiplier, lonerRadiusMultiplier);
@@ -307,40 +320,47 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
             settings.LonerCohesionBoost = Mathf.Max(0f, lonerCohesionBoost);
         }
 
-        private void ApplyGroupingWeights(ref FlockBehaviourSettings settings) {
+        private void ApplyGroupingWeights(ref FlockBehaviourSettings settings)
+        {
             settings.MinGroupSizeWeight = Mathf.Max(0f, minGroupSizeWeight);
             settings.MaxGroupSizeWeight = Mathf.Max(0f, maxGroupSizeWeight);
         }
 
-        private void ApplySplitSettings(ref FlockBehaviourSettings settings) {
+        private void ApplySplitSettings(ref FlockBehaviourSettings settings)
+        {
             settings.SplitPanicThreshold = splitPanicThreshold;
             settings.SplitLateralWeight = splitLateralWeight;
             settings.SplitAccelBoost = splitAccelBoost;
         }
 
-        private void ApplySchoolingSettings(ref FlockBehaviourSettings settings) {
+        private void ApplySchoolingSettings(ref FlockBehaviourSettings settings)
+        {
             ApplySchoolingDistanceBandSettings(ref settings);
             ApplySchoolingForceShapingSettings(ref settings);
         }
 
-        private void ApplySchoolingDistanceBandSettings(ref FlockBehaviourSettings settings) {
+        private void ApplySchoolingDistanceBandSettings(ref FlockBehaviourSettings settings)
+        {
             settings.SchoolingSpacingFactor = Mathf.Max(0.5f, schoolingSpacingFactor);
             settings.SchoolingOuterFactor = Mathf.Max(1f, schoolingOuterFactor);
             settings.SchoolingDeadzoneFraction = Mathf.Clamp(schoolingDeadzoneFraction, 0f, 0.5f);
         }
 
-        private void ApplySchoolingForceShapingSettings(ref FlockBehaviourSettings settings) {
+        private void ApplySchoolingForceShapingSettings(ref FlockBehaviourSettings settings)
+        {
             settings.SchoolingStrength = Mathf.Max(0f, schoolingStrength);
             settings.SchoolingInnerSoftness = Mathf.Clamp01(schoolingInnerSoftness);
             settings.SchoolingRadialDamping = Mathf.Max(0f, schoolingRadialDamping);
         }
 
-        private void ApplyAttractionAndAvoidResponseSettings(ref FlockBehaviourSettings settings) {
+        private void ApplyAttractionAndAvoidResponseSettings(ref FlockBehaviourSettings settings)
+        {
             settings.AttractionWeight = Mathf.Max(0f, attractionWeight);
             settings.AvoidResponse = Mathf.Max(0f, avoidResponse);
         }
 
-        private void ApplyNoiseSettings(ref FlockBehaviourSettings settings) {
+        private void ApplyNoiseSettings(ref FlockBehaviourSettings settings)
+        {
             settings.WanderStrength = Mathf.Max(0f, wanderStrength);
             settings.WanderFrequency = Mathf.Max(0f, wanderFrequency);
 
@@ -351,7 +371,8 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
             settings.GroupNoiseSpeedWeight = Mathf.Clamp01(groupNoiseSpeedWeight);
         }
 
-        private void ApplyPreferredDepthSettings(ref FlockBehaviourSettings settings) {
+        private void ApplyPreferredDepthSettings(ref FlockBehaviourSettings settings)
+        {
             GetPreferredDepthBand(preferredDepthMin, preferredDepthMax, out float preferredDepthMinimum, out float preferredDepthMaximum);
 
             settings.UsePreferredDepth = (byte)(usePreferredDepth ? 1 : 0);
@@ -375,11 +396,13 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
             float preferredDepthMinimumValue,
             float preferredDepthMaximumValue,
             out float preferredDepthMinimum,
-            out float preferredDepthMaximum) {
+            out float preferredDepthMaximum)
+        {
             preferredDepthMinimum = Mathf.Clamp01(preferredDepthMinimumValue);
             preferredDepthMaximum = Mathf.Clamp01(preferredDepthMaximumValue);
 
-            if (preferredDepthMaximum >= preferredDepthMinimum) {
+            if (preferredDepthMaximum >= preferredDepthMinimum)
+            {
                 return;
             }
 
@@ -389,13 +412,15 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles {
             preferredDepthMaximum = temporaryPreferredDepth;
         }
 
-        private void ApplyBoundsSettings(ref FlockBehaviourSettings settings) {
+        private void ApplyBoundsSettings(ref FlockBehaviourSettings settings)
+        {
             settings.BoundsWeight = Mathf.Max(0f, boundsWeight);
             settings.BoundsTangentialDamping = Mathf.Max(0f, boundsTangentialDamping);
             settings.BoundsInfluenceSuppression = Mathf.Max(0f, boundsInfluenceSuppression);
         }
 
-        private void ApplyPerformanceCapSettings(ref FlockBehaviourSettings settings) {
+        private void ApplyPerformanceCapSettings(ref FlockBehaviourSettings settings)
+        {
             settings.MaxNeighbourChecks = Mathf.Max(0, maxNeighbourChecks);
             settings.MaxFriendlySamples = Mathf.Max(0, maxFriendlySamples);
             settings.MaxSeparationSamples = Mathf.Max(0, maxSeparationSamples);

@@ -5,38 +5,48 @@ using Flock.Scripts.Build.Agents.Fish.Profiles;
 using System;
 using UnityEngine;
 
-namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
+namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController
+{
     /**
      * <summary>
      * Runtime controller that owns flock simulation state, configuration, and per-frame updates.
      * </summary>
      */
-    public sealed partial class FlockController {
+    public sealed partial class FlockController
+    {
         private int[] dynamicAttractorIndices;
 
-        private FlockAttractorData[] BuildAttractorData() {
+        private FlockAttractorData[] BuildAttractorData()
+        {
             int staticAttractorCount = staticAttractors != null ? staticAttractors.Length : 0;
             int dynamicAttractorCount = dynamicAttractors != null ? dynamicAttractors.Length : 0;
 
             int totalCount = 0;
 
-            if (staticAttractorCount > 0) {
-                for (int index = 0; index < staticAttractorCount; index += 1) {
-                    if (staticAttractors[index] != null) {
+            if (staticAttractorCount > 0)
+            {
+                for (int index = 0; index < staticAttractorCount; index += 1)
+                {
+                    if (staticAttractors[index] != null)
+                    {
                         totalCount += 1;
                     }
                 }
             }
 
-            if (dynamicAttractorCount > 0) {
-                for (int index = 0; index < dynamicAttractorCount; index += 1) {
-                    if (dynamicAttractors[index] != null) {
+            if (dynamicAttractorCount > 0)
+            {
+                for (int index = 0; index < dynamicAttractorCount; index += 1)
+                {
+                    if (dynamicAttractors[index] != null)
+                    {
                         totalCount += 1;
                     }
                 }
             }
 
-            if (totalCount == 0) {
+            if (totalCount == 0)
+            {
                 dynamicAttractorIndices = Array.Empty<int>();
                 return Array.Empty<FlockAttractorData>();
             }
@@ -44,10 +54,13 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             FlockAttractorData[] data = new FlockAttractorData[totalCount];
             int writeIndex = 0;
 
-            if (staticAttractorCount > 0) {
-                for (int index = 0; index < staticAttractorCount; index += 1) {
+            if (staticAttractorCount > 0)
+            {
+                for (int index = 0; index < staticAttractorCount; index += 1)
+                {
                     FlockAttractorArea area = staticAttractors[index];
-                    if (area == null) {
+                    if (area == null)
+                    {
                         continue;
                     }
 
@@ -57,15 +70,19 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 }
             }
 
-            if (dynamicAttractorCount > 0) {
-                if (dynamicAttractorIndices == null || dynamicAttractorIndices.Length != dynamicAttractorCount) {
+            if (dynamicAttractorCount > 0)
+            {
+                if (dynamicAttractorIndices == null || dynamicAttractorIndices.Length != dynamicAttractorCount)
+                {
                     dynamicAttractorIndices = new int[dynamicAttractorCount];
                 }
 
-                for (int index = 0; index < dynamicAttractorCount; index += 1) {
+                for (int index = 0; index < dynamicAttractorCount; index += 1)
+                {
                     FlockAttractorArea area = dynamicAttractors[index];
 
-                    if (area == null) {
+                    if (area == null)
+                    {
                         dynamicAttractorIndices[index] = -1;
                         continue;
                     }
@@ -75,38 +92,49 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                     dynamicAttractorIndices[index] = writeIndex;
                     writeIndex += 1;
                 }
-            } else {
+            }
+            else
+            {
                 dynamicAttractorIndices = Array.Empty<int>();
             }
 
-            if (writeIndex < totalCount) {
+            if (writeIndex < totalCount)
+            {
                 Array.Resize(ref data, writeIndex);
             }
 
             return data;
         }
 
-        private uint ComputeAttractorMask(FlockAttractorArea area) {
-            if (area == null || fishTypes == null || fishTypes.Length == 0) {
+        private uint ComputeAttractorMask(FlockAttractorArea area)
+        {
+            if (area == null || fishTypes == null || fishTypes.Length == 0)
+            {
                 return uint.MaxValue;
             }
 
             FishTypePreset[] targetTypes = area.AttractedTypes;
-            if (targetTypes == null || targetTypes.Length == 0) {
+            if (targetTypes == null || targetTypes.Length == 0)
+            {
                 return uint.MaxValue;
             }
 
             uint mask = 0u;
 
-            for (int targetTypeIndex = 0; targetTypeIndex < targetTypes.Length; targetTypeIndex += 1) {
+            for (int targetTypeIndex = 0; targetTypeIndex < targetTypes.Length; targetTypeIndex += 1)
+            {
                 FishTypePreset targetType = targetTypes[targetTypeIndex];
-                if (targetType == null) {
+                if (targetType == null)
+                {
                     continue;
                 }
 
-                for (int fishTypeIndex = 0; fishTypeIndex < fishTypes.Length; fishTypeIndex += 1) {
-                    if (fishTypes[fishTypeIndex] == targetType) {
-                        if (fishTypeIndex < 32) {
+                for (int fishTypeIndex = 0; fishTypeIndex < fishTypes.Length; fishTypeIndex += 1)
+                {
+                    if (fishTypes[fishTypeIndex] == targetType)
+                    {
+                        if (fishTypeIndex < 32)
+                        {
                             mask |= 1u << fishTypeIndex;
                         }
 
@@ -115,36 +143,43 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 }
             }
 
-            if (mask == 0u) {
+            if (mask == 0u)
+            {
                 return uint.MaxValue;
             }
 
             return mask;
         }
 
-        private void UpdateDynamicAttractors() {
-            if (simulation == null || !simulation.IsCreated) {
+        private void UpdateDynamicAttractors()
+        {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 return;
             }
 
             if (dynamicAttractors == null
                 || dynamicAttractors.Length == 0
                 || dynamicAttractorIndices == null
-                || dynamicAttractorIndices.Length == 0) {
+                || dynamicAttractorIndices.Length == 0)
+            {
                 return;
             }
 
             int count = Mathf.Min(dynamicAttractors.Length, dynamicAttractorIndices.Length);
             bool anyUpdated = false;
 
-            for (int index = 0; index < count; index += 1) {
+            for (int index = 0; index < count; index += 1)
+            {
                 int attractorIndex = dynamicAttractorIndices[index];
-                if (attractorIndex < 0) {
+                if (attractorIndex < 0)
+                {
                     continue;
                 }
 
                 FlockAttractorArea area = dynamicAttractors[index];
-                if (area == null) {
+                if (area == null)
+                {
                     continue;
                 }
 
@@ -154,7 +189,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 anyUpdated = true;
             }
 
-            if (anyUpdated) {
+            if (anyUpdated)
+            {
                 simulation.RebuildAttractorGrid();
             }
         }

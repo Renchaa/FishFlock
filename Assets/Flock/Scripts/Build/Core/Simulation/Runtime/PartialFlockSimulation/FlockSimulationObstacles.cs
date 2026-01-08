@@ -1,14 +1,18 @@
-namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
-    using Flock.Scripts.Build.Debug;
-    using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
-    using Unity.Collections;
-    using Unity.Mathematics;
+using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
+using Flock.Scripts.Build.Debug;
+
+using Unity.Collections;
+using Unity.Mathematics;
+
+namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation
+{
     /**
      * <summary>
      * Simulation runtime that manages native state for agents, grids, obstacles, and related steering data.
      * </summary>
      */
-    public sealed partial class FlockSimulation {
+    public sealed partial class FlockSimulation
+    {
         /**
          * <summary>
          * Queues a single obstacle data update to be applied to the simulation and marks the obstacle grid as dirty.
@@ -16,16 +20,20 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
          * <param name="index">Index of the obstacle to update.</param>
          * <param name="data">New obstacle data to apply.</param>
          */
-        public void SetObstacleData(int index, FlockObstacleData data) {
-            if (!IsCreated || !obstacles.IsCreated) {
+        public void SetObstacleData(int index, FlockObstacleData data)
+        {
+            if (!IsCreated || !obstacles.IsCreated)
+            {
                 return;
             }
 
-            if ((uint)index >= (uint)obstacles.Length) {
+            if ((uint)index >= (uint)obstacles.Length)
+            {
                 return;
             }
 
-            pendingObstacleChanges.Add(new IndexedObstacleChange {
+            pendingObstacleChanges.Add(new IndexedObstacleChange
+            {
                 Index = index,
                 Data = data,
             });
@@ -33,8 +41,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             obstacleGridDirty = true;
         }
 
-        void AllocateObstacles(FlockObstacleData[] sourceObstacles, Allocator allocator) {
-            if (!TryAllocateObstacleArray(sourceObstacles, allocator)) {
+        void AllocateObstacles(FlockObstacleData[] sourceObstacles, Allocator allocator)
+        {
+            if (!TryAllocateObstacleArray(sourceObstacles, allocator))
+            {
                 return;
             }
 
@@ -47,13 +57,15 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 null);
         }
 
-        void AllocateObstacleSimulationData(Allocator allocator) {
+        void AllocateObstacleSimulationData(Allocator allocator)
+        {
             obstacleSteering = new NativeArray<float3>(
                 AgentCount,
                 allocator,
                 NativeArrayOptions.ClearMemory);
 
-            if (!ShouldAllocateObstacleGrid()) {
+            if (!ShouldAllocateObstacleGrid())
+            {
                 cellToObstacles = default;
                 return;
             }
@@ -67,8 +79,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 allocator);
         }
 
-        void BuildObstacleGrid() {
-            if (!ShouldBuildObstacleGrid()) {
+        void BuildObstacleGrid()
+        {
+            if (!ShouldBuildObstacleGrid())
+            {
                 return;
             }
 
@@ -78,7 +92,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
 
             int layerSize = resolution.x * resolution.y;
 
-            for (int obstacleIndex = 0; obstacleIndex < obstacleCount; obstacleIndex += 1) {
+            for (int obstacleIndex = 0; obstacleIndex < obstacleCount; obstacleIndex += 1)
+            {
                 FlockObstacleData obstacleData = obstacles[obstacleIndex];
 
                 if (!TryGetObstacleCellBounds(
@@ -89,7 +104,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                     gridMinimum,
                     gridMaximum,
                     out int3 minimumCell,
-                    out int3 maximumCell)) {
+                    out int3 maximumCell))
+                {
                     continue;
                 }
 
@@ -97,8 +113,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             }
         }
 
-        bool TryAllocateObstacleArray(FlockObstacleData[] sourceObstacles, Allocator allocator) {
-            if (sourceObstacles == null || sourceObstacles.Length == 0) {
+        bool TryAllocateObstacleArray(FlockObstacleData[] sourceObstacles, Allocator allocator)
+        {
+            if (sourceObstacles == null || sourceObstacles.Length == 0)
+            {
                 obstacleCount = 0;
                 obstacles = default;
 
@@ -121,22 +139,28 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return true;
         }
 
-        void CopyObstacleArray(FlockObstacleData[] sourceObstacles) {
-            for (int index = 0; index < obstacleCount; index += 1) {
+        void CopyObstacleArray(FlockObstacleData[] sourceObstacles)
+        {
+            for (int index = 0; index < obstacleCount; index += 1)
+            {
                 obstacles[index] = sourceObstacles[index];
             }
         }
 
-        bool ShouldAllocateObstacleGrid() {
-            if (obstacleCount <= 0 || gridCellCount <= 0) {
+        bool ShouldAllocateObstacleGrid()
+        {
+            if (obstacleCount <= 0 || gridCellCount <= 0)
+            {
                 return false;
             }
 
             return obstacles.IsCreated;
         }
 
-        bool ShouldBuildObstacleGrid() {
-            if (obstacleCount <= 0 || gridCellCount <= 0) {
+        bool ShouldBuildObstacleGrid()
+        {
+            if (obstacleCount <= 0 || gridCellCount <= 0)
+            {
                 return false;
             }
 
@@ -148,7 +172,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             out float3 origin,
             out int3 resolution,
             out float3 gridMinimum,
-            out float3 gridMaximum) {
+            out float3 gridMaximum)
+        {
 
             cellSize = math.max(environmentData.CellSize, 0.0001f);
             origin = environmentData.GridOrigin;
@@ -163,11 +188,13 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             float3 origin,
             int3 resolution,
             float3 gridMinimum,
-            float3 gridMaximum) {
+            float3 gridMaximum)
+        {
 
             long capacityEstimate = 0;
 
-            for (int obstacleIndex = 0; obstacleIndex < obstacleCount; obstacleIndex += 1) {
+            for (int obstacleIndex = 0; obstacleIndex < obstacleCount; obstacleIndex += 1)
+            {
                 FlockObstacleData obstacleData = obstacles[obstacleIndex];
 
                 if (!TryGetObstacleCellBounds(
@@ -178,7 +205,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                     gridMinimum,
                     gridMaximum,
                     out int3 minimumCell,
-                    out int3 maximumCell)) {
+                    out int3 maximumCell))
+                {
                     continue;
                 }
 
@@ -205,14 +233,16 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             float3 gridMinimum,
             float3 gridMaximum,
             out int3 minimumCell,
-            out int3 maximumCell) {
+            out int3 maximumCell)
+        {
 
             float radius = ComputeObstacleStampRadius(obstacleData, cellSize);
 
             float3 worldMinimum = obstacleData.Position - new float3(radius);
             float3 worldMaximum = obstacleData.Position + new float3(radius);
 
-            if (!IntersectsGridBounds(worldMinimum, worldMaximum, gridMinimum, gridMaximum)) {
+            if (!IntersectsGridBounds(worldMinimum, worldMaximum, gridMinimum, gridMaximum))
+            {
                 minimumCell = default;
                 maximumCell = default;
                 return false;
@@ -233,29 +263,36 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return true;
         }
 
-        float ComputeObstacleStampRadius(in FlockObstacleData obstacleData, float cellSize) {
+        float ComputeObstacleStampRadius(in FlockObstacleData obstacleData, float cellSize)
+        {
             float radius = math.max(0.0f, obstacleData.Radius);
             return math.max(radius, cellSize * 0.5f);
         }
 
-        static bool IntersectsGridBounds(float3 worldMinimum, float3 worldMaximum, float3 gridMinimum, float3 gridMaximum) {
-            if (worldMaximum.x < gridMinimum.x || worldMinimum.x > gridMaximum.x) {
+        static bool IntersectsGridBounds(float3 worldMinimum, float3 worldMaximum, float3 gridMinimum, float3 gridMaximum)
+        {
+            if (worldMaximum.x < gridMinimum.x || worldMinimum.x > gridMaximum.x)
+            {
                 return false;
             }
 
-            if (worldMaximum.y < gridMinimum.y || worldMinimum.y > gridMaximum.y) {
+            if (worldMaximum.y < gridMinimum.y || worldMinimum.y > gridMaximum.y)
+            {
                 return false;
             }
 
-            if (worldMaximum.z < gridMinimum.z || worldMinimum.z > gridMaximum.z) {
+            if (worldMaximum.z < gridMinimum.z || worldMinimum.z > gridMaximum.z)
+            {
                 return false;
             }
 
             return true;
         }
 
-        void AddObstacleToGrid(int obstacleIndex, int3 minimumCell, int3 maximumCell, int3 resolution, int layerSize) {
-            for (int zIndex = minimumCell.z; zIndex <= maximumCell.z; zIndex += 1) {
+        void AddObstacleToGrid(int obstacleIndex, int3 minimumCell, int3 maximumCell, int3 resolution, int layerSize)
+        {
+            for (int zIndex = minimumCell.z; zIndex <= maximumCell.z; zIndex += 1)
+            {
                 AddObstacleToGridLayer(obstacleIndex, minimumCell, maximumCell, resolution, layerSize, zIndex);
             }
         }
@@ -266,16 +303,20 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             int3 maximumCell,
             int3 resolution,
             int layerSize,
-            int zIndex) {
+            int zIndex)
+        {
 
-            for (int yIndex = minimumCell.y; yIndex <= maximumCell.y; yIndex += 1) {
+            for (int yIndex = minimumCell.y; yIndex <= maximumCell.y; yIndex += 1)
+            {
                 int rowBase = (yIndex * resolution.x) + (zIndex * layerSize);
                 AddObstacleToGridRow(obstacleIndex, minimumCell.x, maximumCell.x, rowBase);
             }
         }
 
-        void AddObstacleToGridRow(int obstacleIndex, int minimumX, int maximumX, int rowBase) {
-            for (int xIndex = minimumX; xIndex <= maximumX; xIndex += 1) {
+        void AddObstacleToGridRow(int obstacleIndex, int minimumX, int maximumX, int rowBase)
+        {
+            for (int xIndex = minimumX; xIndex <= maximumX; xIndex += 1)
+            {
                 int cellIndex = xIndex + rowBase;
                 cellToObstacles.Add(cellIndex, obstacleIndex);
             }

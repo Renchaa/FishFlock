@@ -4,7 +4,8 @@ using Flock.Scripts.Build.Core.Simulation.Runtime.Spawn;
 using UnityEditor;
 using UnityEngine;
 
-namespace Flock.Scripts.Editor.Inspectors {
+namespace Flock.Scripts.Editor.Inspectors
+{
     /**
      * <summary>
      * Custom inspector for <see cref="FlockSpawnPoint"/> that conditionally displays
@@ -13,18 +14,21 @@ namespace Flock.Scripts.Editor.Inspectors {
      */
     [CustomEditor(typeof(FlockSpawnPoint))]
     [CanEditMultipleObjects]
-    public sealed class FlockSpawnPointEditor : UnityEditor.Editor {
+    public sealed class FlockSpawnPointEditor : UnityEditor.Editor
+    {
         SerializedProperty shapeProperty;
         SerializedProperty radiusProperty;
         SerializedProperty halfExtentsProperty;
 
-        void OnEnable() {
+        void OnEnable()
+        {
             shapeProperty = serializedObject.FindProperty("shape");
             radiusProperty = serializedObject.FindProperty("radius");
             halfExtentsProperty = serializedObject.FindProperty("halfExtents");
         }
 
-        public override void OnInspectorGUI() {
+        public override void OnInspectorGUI()
+        {
             serializedObject.Update();
 
             EditorGUILayout.PropertyField(shapeProperty);
@@ -33,7 +37,8 @@ namespace Flock.Scripts.Editor.Inspectors {
 
             EditorGUILayout.Space(4f);
 
-            switch (shapeValue) {
+            switch (shapeValue)
+            {
                 case FlockSpawnShape.Sphere:
                     DrawSphereSettings();
                     break;
@@ -51,17 +56,20 @@ namespace Flock.Scripts.Editor.Inspectors {
             serializedObject.ApplyModifiedProperties();
         }
 
-        void DrawSphereSettings() {
+        void DrawSphereSettings()
+        {
             EditorGUILayout.LabelField("Sphere Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(radiusProperty, new GUIContent("Radius"));
         }
 
-        void DrawBoxSettings() {
+        void DrawBoxSettings()
+        {
             EditorGUILayout.LabelField("Box Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(halfExtentsProperty, new GUIContent("Half Extents"));
         }
 
-        static void DrawPointHelpBox() {
+        static void DrawPointHelpBox()
+        {
             EditorGUILayout.HelpBox("Point spawns exactly at the Transform position.", MessageType.Info);
         }
     }

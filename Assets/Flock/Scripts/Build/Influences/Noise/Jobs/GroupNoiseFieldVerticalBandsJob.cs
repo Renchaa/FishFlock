@@ -1,38 +1,35 @@
+using Flock.Scripts.Build.Influence.Noise.Utilities;
+using Flock.Scripts.Build.Influence.Noise.Data;
+
+using Unity.Jobs;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Jobs;
 using Unity.Mathematics;
-using Flock.Scripts.Build.Influence.Noise.Data;
-using Flock.Scripts.Build.Influence.Noise.Utilities;
 
-namespace Flock.Scripts.Build.Influence.Noise.Jobs { 
+namespace Flock.Scripts.Build.Influence.Noise.Jobs
+{
     /**
      * <summary>
      * Generates per-cell noise directions using a vertical-bands pattern with an optional vertical bias.
      * </summary>
      */
     [BurstCompile]
-    public struct GroupNoiseFieldVerticalBandsJob : IJobParallelFor {
-        [ReadOnly]
-        public float Time;
+    public struct GroupNoiseFieldVerticalBandsJob : IJobParallelFor
+    {
+        [ReadOnly] public float Time;
+        [ReadOnly] public float Frequency;
 
-        [ReadOnly]
-        public float Frequency;
+        [ReadOnly] public int3 GridResolution;
 
-        [ReadOnly]
-        public int3 GridResolution;
+        [ReadOnly] public FlockGroupNoiseCommonSettings Common;
+        [ReadOnly] public FlockGroupNoiseVerticalBandsPayload Payload;
 
-        [ReadOnly]
-        public FlockGroupNoiseCommonSettings Common;
+        [NativeDisableParallelForRestriction] public NativeArray<float3> CellNoise;
 
-        [ReadOnly]
-        public FlockGroupNoiseVerticalBandsPayload Payload;
-
-        [NativeDisableParallelForRestriction]
-        public NativeArray<float3> CellNoise;
-
-        public void Execute(int index) {
-            if (!CellNoise.IsCreated || (uint)index >= (uint)CellNoise.Length) {
+        public void Execute(int index)
+        {
+            if (!CellNoise.IsCreated || (uint)index >= (uint)CellNoise.Length)
+            {
                 return;
             }
 
@@ -51,7 +48,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Jobs {
             CellNoise[index] = math.normalizesafe(direction, float3.zero);
         }
 
-        private float3 EvaluateDirection(float3 position, float3 uvw, float timeScaled, float3 hashPhase) {
+        private float3 EvaluateDirection(float3 position, float3 uvw, float timeScaled, float3 hashPhase)
+        {
             float heightPhase =
                 (uvw.y - 0.5f) * GroupNoiseFieldMath.TwoPi
                 + timeScaled

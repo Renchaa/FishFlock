@@ -1,17 +1,20 @@
-using System.Collections.Generic;
-using Unity.Mathematics;
-using UnityEngine;
-using Flock.Scripts.Build.Agents.Fish.Profiles;
 using Flock.Scripts.Build.Influence.PatternVolume.Data;
 using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Agents.Fish.Profiles;
 
-namespace Flock.Scripts.Build.Influence.PatternVolume.Profiles {
+using UnityEngine;
+using Unity.Mathematics;
+using System.Collections.Generic;
+
+namespace Flock.Scripts.Build.Influence.PatternVolume.Profiles
+{
     /**
      * <summary>
      * Base ScriptableObject for Layer-3 pattern profiles that compile into runtime pattern commands/payloads.
      * </summary>
      */
-    public abstract class PatternVolumeFlockProfile : ScriptableObject {
+    public abstract class PatternVolumeFlockProfile : ScriptableObject
+    {
         [Header("Common")]
 
         [Tooltip("If false, this profile contributes no pattern data during baking.")]
@@ -27,32 +30,7 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profiles {
         [SerializeField]
         private FishTypePreset[] affectedTypes;
 
-        /**
-         * <summary>
-         * Gets whether this profile is enabled for baking.
-         * </summary>
-         */
-        public bool Enabled => enabled;
-
-        /**
-         * <summary>
-         * Gets the strength multiplier applied by this profile.
-         * </summary>
-         */
         public float Strength => strength;
-
-        /**
-         * <summary>
-         * Gets the fish type filter used when building the behaviour mask.
-         * </summary>
-         */
-        public FishTypePreset[] AffectedTypes => affectedTypes;
-
-        /**
-         * <summary>
-         * Gets the pattern kind produced by this profile.
-         * </summary>
-         */
         public abstract PatternVolumeKind Kind { get; }
 
         /**
@@ -70,14 +48,17 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profiles {
             FishTypePreset[] controllerFishTypes,
             List<PatternVolumeCommand> commands,
             List<PatternVolumeSphereShell> sphereShellPayloads,
-            List<PatternVolumeBoxShell> boxShellPayloads) {
-            if (!enabled || strength <= 0f) {
+            List<PatternVolumeBoxShell> boxShellPayloads)
+        {
+            if (!enabled || strength <= 0f)
+            {
                 return;
             }
 
             uint behaviourMask = BuildBehaviourMask(controllerFishTypes, affectedTypes);
 
-            if (behaviourMask == 0u) {
+            if (behaviourMask == 0u)
+            {
                 return;
             }
 
@@ -116,24 +97,30 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profiles {
          */
         protected static uint BuildBehaviourMask(
             FishTypePreset[] controllerFishTypes,
-            FishTypePreset[] targetTypes) {
-            if (controllerFishTypes == null || controllerFishTypes.Length == 0) {
+            FishTypePreset[] targetTypes)
+        {
+            if (controllerFishTypes == null || controllerFishTypes.Length == 0)
+            {
                 return uint.MaxValue;
             }
 
-            if (targetTypes == null) {
+            if (targetTypes == null)
+            {
                 return uint.MaxValue;
             }
 
-            if (targetTypes.Length == 0) {
+            if (targetTypes.Length == 0)
+            {
                 return 0u;
             }
 
             uint behaviourMask = 0u;
 
-            for (int targetTypeIndex = 0; targetTypeIndex < targetTypes.Length; targetTypeIndex += 1) {
+            for (int targetTypeIndex = 0; targetTypeIndex < targetTypes.Length; targetTypeIndex += 1)
+            {
                 FishTypePreset targetType = targetTypes[targetTypeIndex];
-                if (targetType == null) {
+                if (targetType == null)
+                {
                     continue;
                 }
 
@@ -153,7 +140,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profiles {
          */
         protected static float3 BoundsNormToWorld(
             in FlockEnvironmentData env,
-            float3 norm01) {
+            float3 norm01)
+        {
             float3 boundsMinimum = env.BoundsCenter - env.BoundsExtents;
             float3 boundsMaximum = env.BoundsCenter + env.BoundsExtents;
             float3 boundsSize = boundsMaximum - boundsMinimum;
@@ -162,9 +150,12 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profiles {
             return boundsMinimum + saturatedNormalised * boundsSize;
         }
 
-        private static uint FindTypeBit(FishTypePreset[] controllerFishTypes, FishTypePreset targetType) {
-            for (int controllerTypeIndex = 0; controllerTypeIndex < controllerFishTypes.Length && controllerTypeIndex < 32; controllerTypeIndex += 1) {
-                if (controllerFishTypes[controllerTypeIndex] == targetType) {
+        private static uint FindTypeBit(FishTypePreset[] controllerFishTypes, FishTypePreset targetType)
+        {
+            for (int controllerTypeIndex = 0; controllerTypeIndex < controllerFishTypes.Length && controllerTypeIndex < 32; controllerTypeIndex += 1)
+            {
+                if (controllerFishTypes[controllerTypeIndex] == targetType)
+                {
                     return 1u << controllerTypeIndex;
                 }
             }

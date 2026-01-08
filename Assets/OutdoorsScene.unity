@@ -1324,8 +1324,10 @@ MonoBehaviour:
   boundsSphereRadius: 25
   cellSize: 2
   globalDamping: 0.1
+  enabledLogLevels: 4
+  enabledLogCategories: 16
   debugDrawBounds: 1
-  debugDrawGrid: 0
+  debugDrawGrid: 1
   debugDrawAgents: 0
   debugDrawNeighbourhood: 0
   debugAgentIndex: 0
@@ -1342,10 +1344,6 @@ MonoBehaviour:
   - {fileID: 1842005994}
   - {fileID: 305406291}
   dynamicObstacles: []
-  enabledLogLevels: 4
-  enabledLogCategories: 16
-  debugObstacleAvoidance: 0
-  debugObstacleCellsToLog: 4
   interactionMatrix: {fileID: 11400000, guid: 69997841281513840a4f142d2cae17de, type: 2}
   staticAttractors: []
   dynamicAttractors: []

@@ -1,9 +1,11 @@
 #if UNITY_EDITOR
-using UnityEditor;
 using Flock.Scripts.Build.Influence.Environment.Attractors.Runtime;
 using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
 
-namespace Flock.Scripts.Editor.Inspectors {
+using UnityEditor;
+
+namespace Flock.Scripts.Editor.Inspectors
+{
     /**
      * <summary>
      * Custom inspector for <see cref="FlockAttractorArea"/> that conditionally displays shape-specific
@@ -13,7 +15,8 @@ namespace Flock.Scripts.Editor.Inspectors {
     [CustomEditor(typeof(FlockAttractorArea))]
 
     [CanEditMultipleObjects]
-    public sealed class AttractorAreaEditor : UnityEditor.Editor {
+    public sealed class AttractorAreaEditor : UnityEditor.Editor
+    {
 
         private SerializedProperty shapeProperty;
         private SerializedProperty sphereRadiusProperty;
@@ -26,7 +29,8 @@ namespace Flock.Scripts.Editor.Inspectors {
         private SerializedProperty usageProperty;
         private SerializedProperty cellPriorityProperty;
 
-        private void OnEnable() {
+        private void OnEnable()
+        {
             shapeProperty = serializedObject.FindProperty("shape");
             sphereRadiusProperty = serializedObject.FindProperty("sphereRadius");
             boxSizeProperty = serializedObject.FindProperty("boxSize");
@@ -44,7 +48,8 @@ namespace Flock.Scripts.Editor.Inspectors {
          * Draws the custom inspector UI.
          * </summary>
          */
-        public override void OnInspectorGUI() {
+        public override void OnInspectorGUI()
+        {
             serializedObject.Update();
 
             DrawShapeSection();
@@ -54,11 +59,13 @@ namespace Flock.Scripts.Editor.Inspectors {
             serializedObject.ApplyModifiedProperties();
         }
 
-        private void DrawShapeSection() {
+        private void DrawShapeSection()
+        {
             EditorGUILayout.PropertyField(shapeProperty);
 
             FlockAttractorShape shapeValue = (FlockAttractorShape)shapeProperty.enumValueIndex;
-            if (shapeValue == FlockAttractorShape.Sphere) {
+            if (shapeValue == FlockAttractorShape.Sphere)
+            {
                 EditorGUILayout.PropertyField(sphereRadiusProperty);
                 return;
             }
@@ -66,13 +73,15 @@ namespace Flock.Scripts.Editor.Inspectors {
             EditorGUILayout.PropertyField(boxSizeProperty);
         }
 
-        private void DrawAttractionSection() {
+        private void DrawAttractionSection()
+        {
             EditorGUILayout.PropertyField(baseStrengthProperty);
             EditorGUILayout.PropertyField(falloffPowerProperty);
             EditorGUILayout.PropertyField(attractedTypesProperty, true);
         }
 
-        private void DrawUsageSection() {
+        private void DrawUsageSection()
+        {
             EditorGUILayout.PropertyField(usageProperty);
             EditorGUILayout.PropertyField(cellPriorityProperty);
         }

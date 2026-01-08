@@ -1,10 +1,12 @@
 ﻿using Flock.Scripts.Build.Influence.PatternVolume.Data;
+
+using Unity.Jobs;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Jobs;
 using Unity.Mathematics;
 
-namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
+namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs
+{
     /**
      * <summary>
      * Layer-3 pattern that applies a soft radial constraint towards a spherical band.
@@ -12,31 +14,21 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
      * </summary>
      */
     [BurstCompile]
-    public struct PatternVolumeSphereShellJob : IJobParallelFor, IPatternVolumeJob {
+    public struct PatternVolumeSphereShellJob : IJobParallelFor, IPatternVolumeJob
+    {
         private const float MinimumDistanceEpsilon = 1e-5f;
         private const float MinimumThicknessEpsilon = 0.0001f;
         private const float ComfortBandCorrectionStrength = 0.25f;
 
-        [ReadOnly]
-        public NativeArray<float3> Positions;
+        [ReadOnly] public NativeArray<float3> Positions;
+        [ReadOnly] public NativeArray<int> BehaviourIds;
 
-        [ReadOnly] 
-        public NativeArray<int> BehaviourIds;
+        [ReadOnly] public float3 Center;
+        [ReadOnly] public float Radius;
+        [ReadOnly] public float Thickness;
 
-        [ReadOnly] 
-        public float3 Center;
-
-        [ReadOnly] 
-        public float Radius;
-
-        [ReadOnly] 
-        public float Thickness;
-
-        [ReadOnly] 
-        public float Strength;
-
-        [ReadOnly] 
-        public uint BehaviourMask;
+        [ReadOnly] public float Strength;
+        [ReadOnly] public uint BehaviourMask;
 
         public NativeArray<float3> PatternSteering;
 
@@ -50,7 +42,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
             NativeArray<int> behaviourIds,
             NativeArray<float3> patternSteering,
             uint behaviourMask,
-            float strength) {
+            float strength)
+        {
 
             Positions = positions;
             BehaviourIds = behaviourIds;
@@ -64,8 +57,10 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
          * Computes and accumulates sphere-shell steering for a single agent.
          * </summary>
          */
-        public void Execute(int index) {
-            if (!IsIndexValid(index) || !IsPatternEnabled() || !IsBehaviourAllowed(index)) {
+        public void Execute(int index)
+        {
+            if (!IsIndexValid(index) || !IsPatternEnabled() || !IsBehaviourAllowed(index))
+            {
                 return;
             }
 
@@ -73,7 +68,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
             float3 relativePosition = position - Center;
 
             float distanceFromCenter = math.length(relativePosition);
-            if (distanceFromCenter < MinimumDistanceEpsilon) {
+            if (distanceFromCenter < MinimumDistanceEpsilon)
+            {
                 return;
             }
 
@@ -83,7 +79,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
             PatternSteering[index] += radialDirection * radialScalar * Strength;
         }
 
-        private bool IsIndexValid(int index) {
+        private bool IsIndexValid(int index)
+        {
             return PatternSteering.IsCreated
                 && Positions.IsCreated
                 && index >= 0
@@ -91,25 +88,31 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
                 && index < PatternSteering.Length;
         }
 
-        private bool IsPatternEnabled() {
+        private bool IsPatternEnabled()
+        {
             return Radius > 0f && Strength > 0f && Thickness > 0f;
         }
 
-        private bool IsBehaviourAllowed(int index) {
-            if (!BehaviourIds.IsCreated) {
+        private bool IsBehaviourAllowed(int index)
+        {
+            if (!BehaviourIds.IsCreated)
+            {
                 return true;
             }
 
             int behaviourIndex = 0;
-            if (index >= 0 && index < BehaviourIds.Length) {
+            if (index >= 0 && index < BehaviourIds.Length)
+            {
                 behaviourIndex = BehaviourIds[index];
             }
 
-            if (BehaviourMask == uint.MaxValue) {
+            if (BehaviourMask == uint.MaxValue)
+            {
                 return true;
             }
 
-            if (behaviourIndex < 0 || behaviourIndex >= 32) {
+            if (behaviourIndex < 0 || behaviourIndex >= 32)
+            {
                 return false;
             }
 
@@ -117,17 +120,20 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Jobs {
             return (BehaviourMask & bit) != 0u;
         }
 
-        private float ComputeRadialScalar(float distanceFromCenter) {
+        private float ComputeRadialScalar(float distanceFromCenter)
+        {
             float innerRadius = math.max(Radius - Thickness, 0f);
             float outerRadius = Radius + Thickness;
             float bandWidth = math.max(Thickness, MinimumThicknessEpsilon);
 
-            if (distanceFromCenter < innerRadius) {
+            if (distanceFromCenter < innerRadius)
+            {
                 float innerT = math.saturate((innerRadius - distanceFromCenter) / bandWidth);
                 return +innerT;
             }
 
-            if (distanceFromCenter > outerRadius) {
+            if (distanceFromCenter > outerRadius)
+            {
                 float outerT = math.saturate((distanceFromCenter - outerRadius) / bandWidth);
                 return -outerT;
             }

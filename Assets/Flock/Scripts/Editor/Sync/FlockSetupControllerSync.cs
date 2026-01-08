@@ -1,23 +1,25 @@
 ﻿#if UNITY_EDITOR
 using Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController;
+using Flock.Scripts.Build.Influence.PatternVolume.Profiles;
 using Flock.Scripts.Build.Core.Simulation.Profiles;
+using Flock.Scripts.Build.Influence.Noise.Profiles;
 using Flock.Scripts.Build.Agents.Fish.Profiles;
 using System.Collections.Generic;
 
 using System;
 using UnityEditor;
 using UnityEngine;
-using Flock.Scripts.Build.Influence.PatternVolume.Profiles;
-using Flock.Scripts.Build.Influence.Noise.Profiles;
 
-namespace Flock.Scripts.Editor.Sync {
+namespace Flock.Scripts.Editor.Sync
+{
     /**
      * <summary>
      * Synchronizes reference data between a FlockSetup asset and a FlockController instance.
      * </summary>
      */
     [Serializable]
-    public sealed class FlockSetupControllerSync {
+    public sealed class FlockSetupControllerSync
+    {
         [SerializeField] private int[] _lastSyncedSetupFishIds;
         [SerializeField] private int[] _lastSyncedControllerFishIds;
         [SerializeField] private int[] _lastSyncedSetupPatternIds;
@@ -40,7 +42,8 @@ namespace Flock.Scripts.Editor.Sync {
          * Clears all recorded baselines and conflict-resolution state.
          * </summary>
          */
-        public void Reset() {
+        public void Reset()
+        {
             _lastSyncedSetupFishIds = null;
             _lastSyncedControllerFishIds = null;
             _lastSyncedSetupPatternIds = null;
@@ -69,14 +72,17 @@ namespace Flock.Scripts.Editor.Sync {
         public SyncResult SyncTwoWay(
             FlockSetup setup,
             FlockController controller,
-            Action<FlockController> afterControllerWrite = null) {
+            Action<FlockController> afterControllerWrite = null)
+        {
             SyncResult result = new SyncResult();
 
-            if (!TryBeginSync(setup, controller)) {
+            if (!TryBeginSync(setup, controller))
+            {
                 return result;
             }
 
-            try {
+            try
+            {
                 EnsureSetupListsInitialized(setup);
 
                 SyncContext context = CreateSyncContext(setup, controller);
@@ -92,7 +98,9 @@ namespace Flock.Scripts.Editor.Sync {
                 UpdateBaselines(context, winners);
 
                 return result;
-            } finally {
+            }
+            finally
+            {
                 EndSync();
             }
         }
@@ -105,10 +113,12 @@ namespace Flock.Scripts.Editor.Sync {
          * <param name="controller">The controller to read from.</param>
          * <returns>A result describing which tracks changed.</returns>
          */
-        public SyncResult PullControllerIntoSetup(FlockSetup setup, FlockController controller) {
+        public SyncResult PullControllerIntoSetup(FlockSetup setup, FlockController controller)
+        {
             SyncResult result = new SyncResult();
 
-            if (controller == null || setup == null) {
+            if (controller == null || setup == null)
+            {
                 return result;
             }
 
@@ -120,22 +130,26 @@ namespace Flock.Scripts.Editor.Sync {
             SyncGroupNoiseFromController(controllerSerializedObject, setup, ref result);
             SyncPatternAssetsFromController(controllerSerializedObject, setup, ref result);
 
-            if (result.AnyChange) {
+            if (result.AnyChange)
+            {
                 EditorUtility.SetDirty(setup);
             }
 
             return result;
         }
 
-        private static void EnsureSetupListsInitialized(FlockSetup setup) {
+        private static void EnsureSetupListsInitialized(FlockSetup setup)
+        {
             setup.FishTypes ??= new List<FishTypePreset>();
             setup.PatternAssets ??= new List<PatternVolumeFlockProfile>();
         }
 
-        private static SyncContext CreateSyncContext(FlockSetup setup, FlockController controller) {
+        private static SyncContext CreateSyncContext(FlockSetup setup, FlockController controller)
+        {
             ControllerSerializedState controllerSerializedState = CreateControllerSerializedState(controller);
 
-            return new SyncContext {
+            return new SyncContext
+            {
                 Setup = setup,
                 Controller = controller,
                 ControllerSerializedState = controllerSerializedState,
@@ -145,18 +159,22 @@ namespace Flock.Scripts.Editor.Sync {
             };
         }
 
-        private static ControllerSerializedState CreateControllerSerializedState(FlockController controller) {
+        private static ControllerSerializedState CreateControllerSerializedState(FlockController controller)
+        {
             SerializedObject controllerSerializedObject = new SerializedObject(controller);
 
-            return new ControllerSerializedState {
+            return new ControllerSerializedState
+            {
                 SerializedObject = controllerSerializedObject,
                 InteractionMatrixProperty = controllerSerializedObject.FindProperty("interactionMatrix"),
                 GroupNoiseProperty = controllerSerializedObject.FindProperty("groupNoisePattern")
             };
         }
 
-        private static SetupSnapshot CaptureSetupSnapshot(FlockSetup setup) {
-            return new SetupSnapshot {
+        private static SetupSnapshot CaptureSetupSnapshot(FlockSetup setup)
+        {
+            return new SetupSnapshot
+            {
                 FishIds = BuildInstanceIdArray(setup.FishTypes),
                 PatternIds = BuildInstanceIdArray(setup.PatternAssets),
                 MatrixId = setup.InteractionMatrix != null ? setup.InteractionMatrix.GetInstanceID() : 0,
@@ -166,8 +184,10 @@ namespace Flock.Scripts.Editor.Sync {
 
         private static ControllerSnapshot CaptureControllerSnapshot(
             FlockController controller,
-            in ControllerSerializedState controllerSerializedState) {
-            return new ControllerSnapshot {
+            in ControllerSerializedState controllerSerializedState)
+        {
+            return new ControllerSnapshot
+            {
                 FishIds = BuildInstanceIdArray(controller.FishTypes),
                 PatternIds = BuildInstanceIdArray(controller.Layer3Patterns),
                 MatrixId = GetInstanceId(controllerSerializedState.InteractionMatrixProperty),
@@ -175,13 +195,16 @@ namespace Flock.Scripts.Editor.Sync {
             };
         }
 
-        private static int GetInstanceId(SerializedProperty property) {
+        private static int GetInstanceId(SerializedProperty property)
+        {
             UnityEngine.Object unityObject = property != null ? property.objectReferenceValue : null;
             return unityObject != null ? unityObject.GetInstanceID() : 0;
         }
 
-        private static void ApplyControllerWritesIfDirty(ref SyncContext context, Action<FlockController> afterControllerWrite) {
-            if (!context.IsControllerDirty) {
+        private static void ApplyControllerWritesIfDirty(ref SyncContext context, Action<FlockController> afterControllerWrite)
+        {
+            if (!context.IsControllerDirty)
+            {
                 return;
             }
 
@@ -193,7 +216,8 @@ namespace Flock.Scripts.Editor.Sync {
             RefreshControllerState(ref context);
         }
 
-        private static void RefreshControllerState(ref SyncContext context) {
+        private static void RefreshControllerState(ref SyncContext context)
+        {
             context.ControllerSerializedState.InteractionMatrixProperty =
                 context.ControllerSerializedState.SerializedObject.FindProperty("interactionMatrix");
             context.ControllerSerializedState.GroupNoiseProperty =
@@ -202,16 +226,19 @@ namespace Flock.Scripts.Editor.Sync {
             context.ControllerSnapshot = CaptureControllerSnapshot(context.Controller, context.ControllerSerializedState);
         }
 
-        private static void WriteFishTypesFromSetupToController(ref SyncContext context, ref SyncResult result) {
+        private static void WriteFishTypesFromSetupToController(ref SyncContext context, ref SyncResult result)
+        {
             SerializedProperty fishTypesProperty = context.ControllerSerializedState.SerializedObject.FindProperty("fishTypes");
-            if (fishTypesProperty == null) {
+            if (fishTypesProperty == null)
+            {
                 return;
             }
 
             List<FishTypePreset> fishTypes = context.Setup.FishTypes;
             fishTypesProperty.arraySize = fishTypes.Count;
 
-            for (int index = 0; index < fishTypes.Count; index += 1) {
+            for (int index = 0; index < fishTypes.Count; index += 1)
+            {
                 fishTypesProperty.GetArrayElementAtIndex(index).objectReferenceValue = fishTypes[index];
             }
 
@@ -220,12 +247,14 @@ namespace Flock.Scripts.Editor.Sync {
             result.FishTypesChanged = true;
         }
 
-        private static void WriteFishTypesFromControllerToSetup(ref SyncContext context, ref SyncResult result) {
+        private static void WriteFishTypesFromControllerToSetup(ref SyncContext context, ref SyncResult result)
+        {
             Undo.RecordObject(context.Setup, "Sync Setup Fish Types From Controller");
             context.Setup.FishTypes.Clear();
 
             FishTypePreset[] controllerFishTypes = context.Controller.FishTypes;
-            if (controllerFishTypes != null && controllerFishTypes.Length > 0) {
+            if (controllerFishTypes != null && controllerFishTypes.Length > 0)
+            {
                 context.Setup.FishTypes.AddRange(controllerFishTypes);
             }
 
@@ -236,16 +265,19 @@ namespace Flock.Scripts.Editor.Sync {
             context.SetupSnapshot = CaptureSetupSnapshot(context.Setup);
         }
 
-        private static void WritePatternAssetsFromSetupToController(ref SyncContext context, ref SyncResult result) {
+        private static void WritePatternAssetsFromSetupToController(ref SyncContext context, ref SyncResult result)
+        {
             SerializedProperty layer3PatternsProperty = context.ControllerSerializedState.SerializedObject.FindProperty("layer3Patterns");
-            if (layer3PatternsProperty == null) {
+            if (layer3PatternsProperty == null)
+            {
                 return;
             }
 
             List<PatternVolumeFlockProfile> patterns = context.Setup.PatternAssets;
             layer3PatternsProperty.arraySize = patterns.Count;
 
-            for (int index = 0; index < patterns.Count; index += 1) {
+            for (int index = 0; index < patterns.Count; index += 1)
+            {
                 layer3PatternsProperty.GetArrayElementAtIndex(index).objectReferenceValue = patterns[index];
             }
 
@@ -254,12 +286,14 @@ namespace Flock.Scripts.Editor.Sync {
             result.PatternAssetsChanged = true;
         }
 
-        private static void WritePatternAssetsFromControllerToSetup(ref SyncContext context, ref SyncResult result) {
+        private static void WritePatternAssetsFromControllerToSetup(ref SyncContext context, ref SyncResult result)
+        {
             Undo.RecordObject(context.Setup, "Sync Setup Patterns From Controller");
             context.Setup.PatternAssets.Clear();
 
             PatternVolumeFlockProfile[] controllerPatterns = context.Controller.Layer3Patterns;
-            if (controllerPatterns != null && controllerPatterns.Length > 0) {
+            if (controllerPatterns != null && controllerPatterns.Length > 0)
+            {
                 context.Setup.PatternAssets.AddRange(controllerPatterns);
             }
 
@@ -270,8 +304,10 @@ namespace Flock.Scripts.Editor.Sync {
             context.SetupSnapshot = CaptureSetupSnapshot(context.Setup);
         }
 
-        private static void WriteInteractionMatrixFromSetupToController(ref SyncContext context, ref SyncResult result) {
-            if (context.ControllerSerializedState.InteractionMatrixProperty == null) {
+        private static void WriteInteractionMatrixFromSetupToController(ref SyncContext context, ref SyncResult result)
+        {
+            if (context.ControllerSerializedState.InteractionMatrixProperty == null)
+            {
                 return;
             }
 
@@ -282,8 +318,10 @@ namespace Flock.Scripts.Editor.Sync {
             result.MatrixChanged = true;
         }
 
-        private static void WriteInteractionMatrixFromControllerToSetup(ref SyncContext context, ref SyncResult result) {
-            if (context.ControllerSerializedState.InteractionMatrixProperty == null) {
+        private static void WriteInteractionMatrixFromControllerToSetup(ref SyncContext context, ref SyncResult result)
+        {
+            if (context.ControllerSerializedState.InteractionMatrixProperty == null)
+            {
                 return;
             }
 
@@ -300,8 +338,10 @@ namespace Flock.Scripts.Editor.Sync {
             context.SetupSnapshot = CaptureSetupSnapshot(context.Setup);
         }
 
-        private static void WriteGroupNoiseFromSetupToController(ref SyncContext context, ref SyncResult result) {
-            if (context.ControllerSerializedState.GroupNoiseProperty == null) {
+        private static void WriteGroupNoiseFromSetupToController(ref SyncContext context, ref SyncResult result)
+        {
+            if (context.ControllerSerializedState.GroupNoiseProperty == null)
+            {
                 return;
             }
 
@@ -313,8 +353,10 @@ namespace Flock.Scripts.Editor.Sync {
             result.GroupNoiseChanged = true;
         }
 
-        private static void WriteGroupNoiseFromControllerToSetup(ref SyncContext context, ref SyncResult result) {
-            if (context.ControllerSerializedState.GroupNoiseProperty == null) {
+        private static void WriteGroupNoiseFromControllerToSetup(ref SyncContext context, ref SyncResult result)
+        {
+            if (context.ControllerSerializedState.GroupNoiseProperty == null)
+            {
                 return;
             }
 
@@ -331,16 +373,19 @@ namespace Flock.Scripts.Editor.Sync {
             context.SetupSnapshot = CaptureSetupSnapshot(context.Setup);
         }
 
-        private static void SyncFishTypesFromController(SerializedObject controllerSerializedObject, FlockSetup setup, ref SyncResult result) {
+        private static void SyncFishTypesFromController(SerializedObject controllerSerializedObject, FlockSetup setup, ref SyncResult result)
+        {
             SerializedProperty controllerFishTypesProperty = controllerSerializedObject.FindProperty("fishTypes");
-            if (controllerFishTypesProperty == null) {
+            if (controllerFishTypesProperty == null)
+            {
                 return;
             }
 
             int count = controllerFishTypesProperty.arraySize;
             setup.FishTypes ??= new List<FishTypePreset>(count);
 
-            if (!HasFishTypesMismatch(setup.FishTypes, controllerFishTypesProperty, count)) {
+            if (!HasFishTypesMismatch(setup.FishTypes, controllerFishTypesProperty, count))
+            {
                 return;
             }
 
@@ -349,13 +394,15 @@ namespace Flock.Scripts.Editor.Sync {
             result.FishTypesChanged = true;
         }
 
-        private static void ApplyFishTypesFromController(FlockSetup setup, SerializedProperty controllerFishTypesProperty, int count) {
+        private static void ApplyFishTypesFromController(FlockSetup setup, SerializedProperty controllerFishTypesProperty, int count)
+        {
             Undo.RecordObject(setup, "Sync Setup Fish Types From Controller");
 
             setup.FishTypes.Clear();
             setup.FishTypes.Capacity = Mathf.Max(setup.FishTypes.Capacity, count);
 
-            for (int index = 0; index < count; index += 1) {
+            for (int index = 0; index < count; index += 1)
+            {
                 FishTypePreset fromController =
                     (FishTypePreset)controllerFishTypesProperty.GetArrayElementAtIndex(index).objectReferenceValue;
 
@@ -363,16 +410,20 @@ namespace Flock.Scripts.Editor.Sync {
             }
         }
 
-        private static bool HasFishTypesMismatch(List<FishTypePreset> fishTypes, SerializedProperty controllerFishTypesProperty, int count) {
-            if (fishTypes.Count != count) {
+        private static bool HasFishTypesMismatch(List<FishTypePreset> fishTypes, SerializedProperty controllerFishTypesProperty, int count)
+        {
+            if (fishTypes.Count != count)
+            {
                 return true;
             }
 
-            for (int index = 0; index < count; index += 1) {
+            for (int index = 0; index < count; index += 1)
+            {
                 FishTypePreset fromController =
                     (FishTypePreset)controllerFishTypesProperty.GetArrayElementAtIndex(index).objectReferenceValue;
 
-                if (fishTypes[index] != fromController) {
+                if (fishTypes[index] != fromController)
+                {
                     return true;
                 }
             }
@@ -380,11 +431,13 @@ namespace Flock.Scripts.Editor.Sync {
             return false;
         }
 
-        private static void SyncInteractionMatrixFromController(SerializedObject controllerSerializedObject, FlockSetup setup, ref SyncResult result) {
+        private static void SyncInteractionMatrixFromController(SerializedObject controllerSerializedObject, FlockSetup setup, ref SyncResult result)
+        {
             FishInteractionMatrix controllerMatrix =
                 controllerSerializedObject.FindProperty("interactionMatrix")?.objectReferenceValue as FishInteractionMatrix;
 
-            if (setup.InteractionMatrix == controllerMatrix) {
+            if (setup.InteractionMatrix == controllerMatrix)
+            {
                 return;
             }
 
@@ -395,11 +448,13 @@ namespace Flock.Scripts.Editor.Sync {
             result.MatrixChanged = true;
         }
 
-        private static void SyncGroupNoiseFromController(SerializedObject controllerSerializedObject, FlockSetup setup, ref SyncResult result) {
+        private static void SyncGroupNoiseFromController(SerializedObject controllerSerializedObject, FlockSetup setup, ref SyncResult result)
+        {
             GroupNoisePatternProfile controllerNoise =
                 controllerSerializedObject.FindProperty("groupNoisePattern")?.objectReferenceValue as GroupNoisePatternProfile;
 
-            if (setup.GroupNoiseSettings == controllerNoise) {
+            if (setup.GroupNoiseSettings == controllerNoise)
+            {
                 return;
             }
 
@@ -410,16 +465,19 @@ namespace Flock.Scripts.Editor.Sync {
             result.GroupNoiseChanged = true;
         }
 
-        private static void SyncPatternAssetsFromController(SerializedObject controllerSerializedObject, FlockSetup setup, ref SyncResult result) {
+        private static void SyncPatternAssetsFromController(SerializedObject controllerSerializedObject, FlockSetup setup, ref SyncResult result)
+        {
             SerializedProperty controllerLayer3PatternsProperty = controllerSerializedObject.FindProperty("layer3Patterns");
-            if (controllerLayer3PatternsProperty == null) {
+            if (controllerLayer3PatternsProperty == null)
+            {
                 return;
             }
 
             int count = controllerLayer3PatternsProperty.arraySize;
             setup.PatternAssets ??= new List<PatternVolumeFlockProfile>(count);
 
-            if (!HasPatternAssetsMismatch(setup.PatternAssets, controllerLayer3PatternsProperty, count)) {
+            if (!HasPatternAssetsMismatch(setup.PatternAssets, controllerLayer3PatternsProperty, count))
+            {
                 return;
             }
 
@@ -428,13 +486,15 @@ namespace Flock.Scripts.Editor.Sync {
             result.PatternAssetsChanged = true;
         }
 
-        private static void ApplyPatternAssetsFromController(FlockSetup setup, SerializedProperty controllerLayer3PatternsProperty, int count) {
+        private static void ApplyPatternAssetsFromController(FlockSetup setup, SerializedProperty controllerLayer3PatternsProperty, int count)
+        {
             Undo.RecordObject(setup, "Sync Setup Patterns From Controller");
 
             setup.PatternAssets.Clear();
             setup.PatternAssets.Capacity = Mathf.Max(setup.PatternAssets.Capacity, count);
 
-            for (int index = 0; index < count; index += 1) {
+            for (int index = 0; index < count; index += 1)
+            {
                 PatternVolumeFlockProfile fromController =
                     (PatternVolumeFlockProfile)controllerLayer3PatternsProperty.GetArrayElementAtIndex(index).objectReferenceValue;
 
@@ -445,16 +505,20 @@ namespace Flock.Scripts.Editor.Sync {
         private static bool HasPatternAssetsMismatch(
             List<PatternVolumeFlockProfile> patternAssets,
             SerializedProperty controllerLayer3PatternsProperty,
-            int count) {
-            if (patternAssets.Count != count) {
+            int count)
+        {
+            if (patternAssets.Count != count)
+            {
                 return true;
             }
 
-            for (int index = 0; index < count; index += 1) {
+            for (int index = 0; index < count; index += 1)
+            {
                 PatternVolumeFlockProfile fromController =
                     (PatternVolumeFlockProfile)controllerLayer3PatternsProperty.GetArrayElementAtIndex(index).objectReferenceValue;
 
-                if (patternAssets[index] != fromController) {
+                if (patternAssets[index] != fromController)
+                {
                     return true;
                 }
             }
@@ -462,25 +526,30 @@ namespace Flock.Scripts.Editor.Sync {
             return false;
         }
 
-        private static bool IntArraysEqual(int[] first, int[] second) {
+        private static bool IntArraysEqual(int[] first, int[] second)
+        {
             if (ReferenceEquals(first, second)) { return true; }
             if (first == null || second == null) { return false; }
             if (first.Length != second.Length) { return false; }
 
-            for (int index = 0; index < first.Length; index += 1) {
+            for (int index = 0; index < first.Length; index += 1)
+            {
                 if (first[index] != second[index]) { return false; }
             }
 
             return true;
         }
 
-        private static int[] BuildInstanceIdArray<T>(List<T> list) where T : UnityEngine.Object {
-            if (list == null || list.Count == 0) {
+        private static int[] BuildInstanceIdArray<T>(List<T> list) where T : UnityEngine.Object
+        {
+            if (list == null || list.Count == 0)
+            {
                 return Array.Empty<int>();
             }
 
             int[] instanceIds = new int[list.Count];
-            for (int index = 0; index < list.Count; index += 1) {
+            for (int index = 0; index < list.Count; index += 1)
+            {
                 T unityObject = list[index];
                 instanceIds[index] = unityObject != null ? unityObject.GetInstanceID() : 0;
             }
@@ -488,13 +557,16 @@ namespace Flock.Scripts.Editor.Sync {
             return instanceIds;
         }
 
-        private static int[] BuildInstanceIdArray<T>(T[] array) where T : UnityEngine.Object {
-            if (array == null || array.Length == 0) {
+        private static int[] BuildInstanceIdArray<T>(T[] array) where T : UnityEngine.Object
+        {
+            if (array == null || array.Length == 0)
+            {
                 return Array.Empty<int>();
             }
 
             int[] instanceIds = new int[array.Length];
-            for (int index = 0; index < array.Length; index += 1) {
+            for (int index = 0; index < array.Length; index += 1)
+            {
                 T unityObject = array[index];
                 instanceIds[index] = unityObject != null ? unityObject.GetInstanceID() : 0;
             }
@@ -502,28 +574,35 @@ namespace Flock.Scripts.Editor.Sync {
             return instanceIds;
         }
 
-        private static SyncSource DetermineWinner(bool setupChanged, bool controllerChanged, SyncSource lastSource) {
-            if (!setupChanged && !controllerChanged) {
+        private static SyncSource DetermineWinner(bool setupChanged, bool controllerChanged, SyncSource lastSource)
+        {
+            if (!setupChanged && !controllerChanged)
+            {
                 return SyncSource.None;
             }
 
-            if (setupChanged && !controllerChanged) {
+            if (setupChanged && !controllerChanged)
+            {
                 return SyncSource.Setup;
             }
 
-            if (!setupChanged && controllerChanged) {
+            if (!setupChanged && controllerChanged)
+            {
                 return SyncSource.Controller;
             }
 
-            if (lastSource == SyncSource.Controller) {
+            if (lastSource == SyncSource.Controller)
+            {
                 return SyncSource.Controller;
             }
 
             return SyncSource.Setup;
         }
 
-        private bool TryBeginSync(FlockSetup setup, FlockController controller) {
-            if (_isSyncing || controller == null || setup == null) {
+        private bool TryBeginSync(FlockSetup setup, FlockController controller)
+        {
+            if (_isSyncing || controller == null || setup == null)
+            {
                 return false;
             }
 
@@ -531,12 +610,15 @@ namespace Flock.Scripts.Editor.Sync {
             return true;
         }
 
-        private void EndSync() {
+        private void EndSync()
+        {
             _isSyncing = false;
         }
 
-        private ChangeSet DetectChanges(in SyncContext context) {
-            return new ChangeSet {
+        private ChangeSet DetectChanges(in SyncContext context)
+        {
+            return new ChangeSet
+            {
                 SetupFishChanged = !IntArraysEqual(context.SetupSnapshot.FishIds, _lastSyncedSetupFishIds),
                 ControllerFishChanged = !IntArraysEqual(context.ControllerSnapshot.FishIds, _lastSyncedControllerFishIds),
 
@@ -551,8 +633,10 @@ namespace Flock.Scripts.Editor.Sync {
             };
         }
 
-        private WinnerSet DetermineTrackWinners(in ChangeSet changes) {
-            return new WinnerSet {
+        private WinnerSet DetermineTrackWinners(in ChangeSet changes)
+        {
+            return new WinnerSet
+            {
                 FishWinner = DetermineWinner(changes.SetupFishChanged, changes.ControllerFishChanged, _lastFishSyncSource),
                 PatternWinner = DetermineWinner(changes.SetupPatternChanged, changes.ControllerPatternChanged, _lastPatternSyncSource),
                 MatrixWinner = DetermineWinner(changes.SetupMatrixChanged, changes.ControllerMatrixChanged, _lastMatrixSyncSource),
@@ -560,111 +644,136 @@ namespace Flock.Scripts.Editor.Sync {
             };
         }
 
-        private void ApplyFishTypesSync(ref SyncContext context, SyncSource winner, ref SyncResult result) {
-            if (winner == SyncSource.Setup) {
+        private void ApplyFishTypesSync(ref SyncContext context, SyncSource winner, ref SyncResult result)
+        {
+            if (winner == SyncSource.Setup)
+            {
                 WriteFishTypesFromSetupToController(ref context, ref result);
                 return;
             }
 
-            if (winner == SyncSource.Controller) {
+            if (winner == SyncSource.Controller)
+            {
                 WriteFishTypesFromControllerToSetup(ref context, ref result);
             }
         }
 
-        private void ApplyPatternAssetsSync(ref SyncContext context, SyncSource winner, ref SyncResult result) {
-            if (winner == SyncSource.Setup) {
+        private void ApplyPatternAssetsSync(ref SyncContext context, SyncSource winner, ref SyncResult result)
+        {
+            if (winner == SyncSource.Setup)
+            {
                 WritePatternAssetsFromSetupToController(ref context, ref result);
                 return;
             }
 
-            if (winner == SyncSource.Controller) {
+            if (winner == SyncSource.Controller)
+            {
                 WritePatternAssetsFromControllerToSetup(ref context, ref result);
             }
         }
 
-        private void ApplyInteractionMatrixSync(ref SyncContext context, SyncSource winner, ref SyncResult result) {
-            if (winner == SyncSource.Setup) {
+        private void ApplyInteractionMatrixSync(ref SyncContext context, SyncSource winner, ref SyncResult result)
+        {
+            if (winner == SyncSource.Setup)
+            {
                 WriteInteractionMatrixFromSetupToController(ref context, ref result);
                 return;
             }
 
-            if (winner == SyncSource.Controller) {
+            if (winner == SyncSource.Controller)
+            {
                 WriteInteractionMatrixFromControllerToSetup(ref context, ref result);
             }
         }
 
-        private void ApplyGroupNoiseSync(ref SyncContext context, SyncSource winner, ref SyncResult result) {
-            if (winner == SyncSource.Setup) {
+        private void ApplyGroupNoiseSync(ref SyncContext context, SyncSource winner, ref SyncResult result)
+        {
+            if (winner == SyncSource.Setup)
+            {
                 WriteGroupNoiseFromSetupToController(ref context, ref result);
                 return;
             }
 
-            if (winner == SyncSource.Controller) {
+            if (winner == SyncSource.Controller)
+            {
                 WriteGroupNoiseFromControllerToSetup(ref context, ref result);
             }
         }
 
-        private void UpdateBaselines(in SyncContext context, in WinnerSet winners) {
+        private void UpdateBaselines(in SyncContext context, in WinnerSet winners)
+        {
             UpdateFishBaselines(context, winners.FishWinner);
             UpdatePatternBaselines(context, winners.PatternWinner);
             UpdateMatrixBaselines(context, winners.MatrixWinner);
             UpdateNoiseBaselines(context, winners.NoiseWinner);
         }
 
-        private void UpdateFishBaselines(in SyncContext context, SyncSource fishWinner) {
-            if (fishWinner != SyncSource.None) {
+        private void UpdateFishBaselines(in SyncContext context, SyncSource fishWinner)
+        {
+            if (fishWinner != SyncSource.None)
+            {
                 _lastSyncedSetupFishIds = context.SetupSnapshot.FishIds;
                 _lastSyncedControllerFishIds = context.ControllerSnapshot.FishIds;
                 _lastFishSyncSource = fishWinner;
                 return;
             }
 
-            if (_lastSyncedSetupFishIds == null) {
+            if (_lastSyncedSetupFishIds == null)
+            {
                 _lastSyncedSetupFishIds = context.SetupSnapshot.FishIds;
                 _lastSyncedControllerFishIds = context.ControllerSnapshot.FishIds;
                 _lastFishSyncSource = SyncSource.Setup;
             }
         }
 
-        private void UpdatePatternBaselines(in SyncContext context, SyncSource patternWinner) {
-            if (patternWinner != SyncSource.None) {
+        private void UpdatePatternBaselines(in SyncContext context, SyncSource patternWinner)
+        {
+            if (patternWinner != SyncSource.None)
+            {
                 _lastSyncedSetupPatternIds = context.SetupSnapshot.PatternIds;
                 _lastSyncedControllerPatternIds = context.ControllerSnapshot.PatternIds;
                 _lastPatternSyncSource = patternWinner;
                 return;
             }
 
-            if (_lastSyncedSetupPatternIds == null) {
+            if (_lastSyncedSetupPatternIds == null)
+            {
                 _lastSyncedSetupPatternIds = context.SetupSnapshot.PatternIds;
                 _lastSyncedControllerPatternIds = context.ControllerSnapshot.PatternIds;
                 _lastPatternSyncSource = SyncSource.Setup;
             }
         }
 
-        private void UpdateMatrixBaselines(in SyncContext context, SyncSource matrixWinner) {
-            if (matrixWinner != SyncSource.None) {
+        private void UpdateMatrixBaselines(in SyncContext context, SyncSource matrixWinner)
+        {
+            if (matrixWinner != SyncSource.None)
+            {
                 _lastSetupMatrixId = context.SetupSnapshot.MatrixId;
                 _lastControllerMatrixId = context.ControllerSnapshot.MatrixId;
                 _lastMatrixSyncSource = matrixWinner;
                 return;
             }
 
-            if (_lastMatrixSyncSource == SyncSource.None) {
+            if (_lastMatrixSyncSource == SyncSource.None)
+            {
                 _lastSetupMatrixId = context.SetupSnapshot.MatrixId;
                 _lastControllerMatrixId = context.ControllerSnapshot.MatrixId;
                 _lastMatrixSyncSource = SyncSource.Setup;
             }
         }
 
-        private void UpdateNoiseBaselines(in SyncContext context, SyncSource noiseWinner) {
-            if (noiseWinner != SyncSource.None) {
+        private void UpdateNoiseBaselines(in SyncContext context, SyncSource noiseWinner)
+        {
+            if (noiseWinner != SyncSource.None)
+            {
                 _lastSetupNoiseId = context.SetupSnapshot.NoiseId;
                 _lastControllerNoiseId = context.ControllerSnapshot.NoiseId;
                 _lastNoiseSyncSource = noiseWinner;
                 return;
             }
 
-            if (_lastNoiseSyncSource == SyncSource.None) {
+            if (_lastNoiseSyncSource == SyncSource.None)
+            {
                 _lastSetupNoiseId = context.SetupSnapshot.NoiseId;
                 _lastControllerNoiseId = context.ControllerSnapshot.NoiseId;
                 _lastNoiseSyncSource = SyncSource.Setup;
@@ -672,14 +781,16 @@ namespace Flock.Scripts.Editor.Sync {
         }
 
         [Serializable]
-        private enum SyncSource {
+        private enum SyncSource
+        {
             None,
             Setup,
             Controller
         }
 
         [Serializable]
-        public struct SyncResult {
+        public struct SyncResult
+        {
             /**
              * <summary>
              * True if any synchronization track performed writes.
@@ -716,21 +827,24 @@ namespace Flock.Scripts.Editor.Sync {
             public bool GroupNoiseChanged;
         }
 
-        private struct SetupSnapshot {
+        private struct SetupSnapshot
+        {
             public int[] FishIds;
             public int[] PatternIds;
             public int MatrixId;
             public int NoiseId;
         }
 
-        private struct ControllerSnapshot {
+        private struct ControllerSnapshot
+        {
             public int[] FishIds;
             public int[] PatternIds;
             public int MatrixId;
             public int NoiseId;
         }
 
-        private struct ChangeSet {
+        private struct ChangeSet
+        {
             public bool SetupFishChanged;
             public bool ControllerFishChanged;
 
@@ -744,20 +858,23 @@ namespace Flock.Scripts.Editor.Sync {
             public bool ControllerNoiseChanged;
         }
 
-        private struct WinnerSet {
+        private struct WinnerSet
+        {
             public SyncSource FishWinner;
             public SyncSource PatternWinner;
             public SyncSource MatrixWinner;
             public SyncSource NoiseWinner;
         }
 
-        private struct ControllerSerializedState {
+        private struct ControllerSerializedState
+        {
             public SerializedObject SerializedObject;
             public SerializedProperty InteractionMatrixProperty;
             public SerializedProperty GroupNoiseProperty;
         }
 
-        private struct SyncContext {
+        private struct SyncContext
+        {
             public FlockSetup Setup;
             public FlockController Controller;
             public ControllerSerializedState ControllerSerializedState;

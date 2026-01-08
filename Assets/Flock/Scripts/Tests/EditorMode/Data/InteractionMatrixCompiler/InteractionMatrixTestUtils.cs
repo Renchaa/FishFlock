@@ -1,32 +1,39 @@
-#if UNITY_EDITOR
-using Flock.Scripts.Build.Agents.Fish.Data;
 using Flock.Scripts.Build.Agents.Fish.Profiles;
+using Flock.Scripts.Build.Agents.Fish.Data;
+
+using UnityEngine;
 using NUnit.Framework;
 using System.Reflection;
-using UnityEngine;
-namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
-    internal static class InteractionMatrixTestUtils {
+
+namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler
+{
+    internal static class InteractionMatrixTestUtils
+    {
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
-        internal static FishTypePreset[] CreateFishTypes(int count) {
+        internal static FishTypePreset[] CreateFishTypes(int count)
+        {
             var arr = new FishTypePreset[count];
             for (int i = 0; i < count; i++)
                 arr[i] = ScriptableObject.CreateInstance<FishTypePreset>();
             return arr;
         }
 
-        internal static void DestroyFishTypes(FishTypePreset[] fishTypes) {
+        internal static void DestroyFishTypes(FishTypePreset[] fishTypes)
+        {
             if (fishTypes == null) return;
             for (int i = 0; i < fishTypes.Length; i++)
                 if (fishTypes[i] != null)
                     Object.DestroyImmediate(fishTypes[i]);
         }
 
-        internal static uint Mask(params int[] indices) {
+        internal static uint Mask(params int[] indices)
+        {
             uint m = 0u;
             if (indices == null) return m;
 
-            for (int i = 0; i < indices.Length; i++) {
+            for (int i = 0; i < indices.Length; i++)
+            {
                 int idx = indices[i];
                 Assert.That(idx, Is.InRange(0, 31), "Mask indices must be 0..31 (uint bitmask).");
                 m |= (1u << idx);
@@ -34,7 +41,8 @@ namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
             return m;
         }
 
-        internal static void AssertMaskArray(uint[] actual, uint[] expected, string label) {
+        internal static void AssertMaskArray(uint[] actual, uint[] expected, string label)
+        {
             Assert.That(actual, Is.Not.Null, $"{label} is null");
             Assert.That(actual.Length, Is.EqualTo(expected.Length), $"{label} length mismatch");
 
@@ -42,7 +50,8 @@ namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
                 Assert.That(actual[i], Is.EqualTo(expected[i]), $"{label}[{i}] mismatch");
         }
 
-        internal static void SetPrivateField(object target, string fieldName, object value) {
+        internal static void SetPrivateField(object target, string fieldName, object value)
+        {
             FieldInfo fi = target.GetType().GetField(fieldName, BF);
             Assert.That(fi, Is.Not.Null, $"Missing private field '{fieldName}' on {target.GetType().Name}.");
             fi.SetValue(target, value);
@@ -53,7 +62,8 @@ namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
             int a,
             int b,
             bool enabled,
-            RelationType relation) {
+            RelationType relation)
+        {
 
             FieldInfo flagsFi = typeof(FishInteractionMatrix).GetField("interactionFlags", BF);
             FieldInfo relFi = typeof(FishInteractionMatrix).GetField("relationTypes", BF);
@@ -81,4 +91,3 @@ namespace Flock.Scripts.Tests.EditorMode.Data.InteractionMatrixCompiler {
         }
     }
 }
-#endif

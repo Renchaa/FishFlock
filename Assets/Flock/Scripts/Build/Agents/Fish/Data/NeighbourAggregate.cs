@@ -1,13 +1,15 @@
 using Unity.Mathematics;
 
-namespace Flock.Scripts.Build.Agents.Fish.Data {
+namespace Flock.Scripts.Build.Agents.Fish.Data
+{
     /**
      * <summary>
      * Per-agent neighbour aggregation output.
      * Contains accumulated sums and counts consumed by steering integration.
      * </summary>
      */
-    public struct NeighbourAggregate {
+    public struct NeighbourAggregate
+    {
         public float3 AlignmentSum;
         public float3 CohesionSum;
         public float3 SeparationSum;

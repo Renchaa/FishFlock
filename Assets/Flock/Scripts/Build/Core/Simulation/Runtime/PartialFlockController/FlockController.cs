@@ -6,6 +6,7 @@ using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
 using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
 using Flock.Scripts.Build.Influence.PatternVolume.Profiles;
 using Flock.Scripts.Build.Core.Simulation.Runtime.Spawn;
+using Flock.Scripts.Build.Influence.Environment.Data;
 using Flock.Scripts.Build.Influence.Noise.Profiles;
 using Flock.Scripts.Build.Agents.Fish.Profiles;
 using Flock.Scripts.Build.Influence.Noise.Data;
@@ -13,22 +14,22 @@ using Flock.Scripts.Build.Agents.Fish.Data;
 using Flock.Scripts.Build.Utilities.Data;
 using Flock.Scripts.Build.Debug;
 
-using System;
 using Unity.Jobs;
 using UnityEngine;
 using Unity.Mathematics;
 using Unity.Collections;
 using System.Collections.Generic;
-using Flock.Scripts.Build.Influence.Environment.Data;
 
-namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
+namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController
+{
 
     /**
     * <summary>
     * Creates, owns, and steps the flock simulation, and binds it to spawned agent GameObjects.
     * </summary>
     */
-    public sealed partial class FlockController : MonoBehaviour, IFlockLogger {
+    public sealed partial class FlockController : MonoBehaviour, IFlockLogger
+    {
         [Header("Fish Types"), HideInInspector]
         [SerializeField] private FishTypePreset[] fishTypes;
 
@@ -43,7 +44,6 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
         [SerializeField] private Vector3 boundsCenter = Vector3.zero;
         [SerializeField] private Vector3 boundsExtents = new Vector3(10.0f, 10.0f, 10.0f);
 
-        // Used when boundsType == Sphere
         [SerializeField, Min(0f)] private float boundsSphereRadius = 10.0f;
 
         [Header("Grid")]
@@ -52,14 +52,16 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
         [Header("Movement")]
         [SerializeField] private float globalDamping = 0.5f;
 
-        [Header("Debug")]
+        [Header("Logging")]
+        [SerializeField] private FlockLogLevel enabledLogLevels = FlockLogLevel.All;
+        [SerializeField] private FlockLogCategory enabledLogCategories = FlockLogCategory.All;
+
         [SerializeField] private bool debugDrawBounds = true;
         [SerializeField] private bool debugDrawGrid = false;
         [SerializeField] private bool debugDrawAgents = true;
         [SerializeField] private bool debugDrawNeighbourhood = false;
         [SerializeField, Min(0)] private int debugAgentIndex = 0;
 
-        // NEW: per-agent radius debug toggles
         [SerializeField] private bool debugDrawBodyRadius = true;
         [SerializeField] private bool debugDrawSeparationRadius = true;
         [SerializeField] private bool debugDrawNeighbourRadiusSphere = true;
@@ -68,14 +70,6 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
         [Header("Obstacles")]
         [SerializeField] private FlockObstacle[] staticObstacles;
         [SerializeField] private FlockObstacle[] dynamicObstacles;
-
-        [Header("Logging")]
-        [SerializeField] private FlockLogLevel enabledLogLevels = FlockLogLevel.All;
-        [SerializeField] private FlockLogCategory enabledLogCategories = FlockLogCategory.All;
-
-        [Header("Debug Obstacle Avoidance")]
-        [SerializeField] private bool debugObstacleAvoidance = false;
-        [SerializeField, Range(1, 32)] private int debugObstacleCellsToLog = 4;
 
         [Header("Interactions")]
         [SerializeField] private FishInteractionMatrix interactionMatrix;
@@ -87,66 +81,24 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
         [Header("Layer-3 Patterns")]
         [SerializeField] private PatternVolumeFlockProfile[] layer3Patterns;
 
-        /**
-        * <summary>
-        * Gets the enabled log levels for this controller.
-        * </summary>
-        */
         public FlockLogLevel EnabledLevels => enabledLogLevels;
-
-        /**
-        * <summary>
-        * Gets the enabled log categories for this controller.
-        * </summary>
-        */
         public FlockLogCategory EnabledCategories => enabledLogCategories;
-
-        /**
-        * <summary>
-        * Gets the fish type presets used by this controller (index = behaviour id).
-        * </summary>
-        */
         public FishTypePreset[] FishTypes => fishTypes;
-
-        /**
-        * <summary>
-        * Gets the main spawner used to build agent distributions and initial positions.
-        * </summary>
-        */
         public FlockMainSpawner MainSpawner => mainSpawner;
-
-        /**
-        * <summary>
-        * Gets the layer-3 pattern profiles used by the simulation.
-        * </summary>
-        */
         public PatternVolumeFlockProfile[] Layer3Patterns => layer3Patterns;
-
-        /**
-         * <summary>
-         * Gets whether the simulation is currently running (stepping jobs each frame).
-         * </summary>
-         */
         public bool IsSimulationRunning => simulationRunState == SimulationRunState.Running;
-
-        /**
-         * <summary>
-         * Gets whether the simulation is currently paused (no stepping; agents remain frozen).
-         * </summary>
-         */
         public bool IsSimulationPaused => simulationRunState == SimulationRunState.Paused;
+
+        private readonly List<Transform> agentTransforms = new List<Transform>();
 
         private FlockSimulation simulation;
         private NativeArray<FlockBehaviourSettings> behaviourSettingsArray;
         private int[] agentBehaviourIds;
-        private int totalAgentCount;
-
-        private readonly List<Transform> agentTransforms = new List<Transform>();
-
         private JobHandle lastStepHandle;
         private SimulationRunState simulationRunState = SimulationRunState.Stopped;
 
-        private void Awake() {
+        private void Awake()
+        {
             FlockLog.SetGlobalMask(enabledLogLevels, enabledLogCategories);
 
             FlockLog.Info(
@@ -158,12 +110,15 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             StartSimulation();
         }
 
-        private void Update() {
-            if (simulationRunState != SimulationRunState.Running) {
+        private void Update()
+        {
+            if (simulationRunState != SimulationRunState.Running)
+            {
                 return;
             }
 
-            if (simulation == null || !simulation.IsCreated) {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 simulationRunState = SimulationRunState.Stopped;
                 return;
             }
@@ -178,7 +133,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             ApplySimulationToTransforms();
         }
 
-        private void OnDestroy() {
+        private void OnDestroy()
+        {
             StopSimulationInternal();
         }
 
@@ -187,7 +143,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
          * Stops the simulation completely and destroys spawned agent instances.
          * </summary>
          */
-        public void StopSimulation() {
+        public void StopSimulation()
+        {
             StopSimulationInternal();
         }
 
@@ -197,7 +154,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
          * This rebuilds the simulation and respawns agents.
          * </summary>
          */
-        public void StartSimulation() {
+        public void StartSimulation()
+        {
             StopSimulationInternal();
 
             CreateSimulation();
@@ -213,8 +171,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
          * Pauses the simulation (no stepping; agents freeze in place).
          * </summary>
          */
-        public void PauseSimulation() {
-            if (simulationRunState != SimulationRunState.Running) {
+        public void PauseSimulation()
+        {
+            if (simulationRunState != SimulationRunState.Running)
+            {
                 return;
             }
 
@@ -226,12 +186,15 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
          * Resumes the simulation if it is currently paused.
          * </summary>
          */
-        public void ResumeSimulation() {
-            if (simulationRunState != SimulationRunState.Paused) {
+        public void ResumeSimulation()
+        {
+            if (simulationRunState != SimulationRunState.Paused)
+            {
                 return;
             }
 
-            if (simulation == null || !simulation.IsCreated) {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 simulationRunState = SimulationRunState.Stopped;
                 return;
             }
@@ -239,7 +202,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             simulationRunState = SimulationRunState.Running;
         }
 
-        private void StopSimulationInternal() {
+        private void StopSimulationInternal()
+        {
             lastStepHandle.Complete();
             lastStepHandle = default;
 
@@ -248,17 +212,18 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             DestroySpawnedAgentsInternal();
 
             agentBehaviourIds = null;
-            totalAgentCount = 0;
-
             simulationRunState = SimulationRunState.Stopped;
         }
 
-        private void DisposeSimulationInternal() {
-            if (simulation == null) {
+        private void DisposeSimulationInternal()
+        {
+            if (simulation == null)
+            {
                 return;
             }
 
-            if (simulation.IsCreated) {
+            if (simulation.IsCreated)
+            {
                 simulation.Dispose();
 
                 FlockLog.Info(
@@ -271,18 +236,23 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             simulation = null;
         }
 
-        private void DisposeBehaviourSettingsArrayInternal() {
-            if (!behaviourSettingsArray.IsCreated) {
+        private void DisposeBehaviourSettingsArrayInternal()
+        {
+            if (!behaviourSettingsArray.IsCreated)
+            {
                 return;
             }
 
             behaviourSettingsArray.Dispose();
         }
 
-        private void DestroySpawnedAgentsInternal() {
-            for (int index = agentTransforms.Count - 1; index >= 0; index -= 1) {
+        private void DestroySpawnedAgentsInternal()
+        {
+            for (int index = agentTransforms.Count - 1; index >= 0; index -= 1)
+            {
                 Transform agentTransform = agentTransforms[index];
-                if (agentTransform != null) {
+                if (agentTransform != null)
+                {
                     Destroy(agentTransform.gameObject);
                 }
             }
@@ -290,13 +260,16 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             agentTransforms.Clear();
         }
 
-        private void ApplyLayer2GroupNoisePatternToSimulation() {
-            if (simulation == null || !simulation.IsCreated) {
+        private void ApplyLayer2GroupNoisePatternToSimulation()
+        {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 return;
             }
 
             // Default if nothing assigned
-            if (groupNoisePattern == null) {
+            if (groupNoisePattern == null)
+            {
                 simulation.SetLayer2GroupNoiseSimpleSine(
                     FlockGroupNoiseCommonSettings.Default,
                     FlockGroupNoiseSimpleSinePayload.Default);
@@ -305,7 +278,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
 
             var common = groupNoisePattern.ToCommonSettings();
 
-            switch (groupNoisePattern.PatternType) {
+            switch (groupNoisePattern.PatternType)
+            {
                 case FlockGroupNoisePatternType.VerticalBands:
                     simulation.SetLayer2GroupNoiseVerticalBands(common, groupNoisePattern.ToVerticalBandsPayload());
                     break;
@@ -325,8 +299,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             }
         }
 
-        private void CreateBehaviourSettingsArray() {
-            if (fishTypes == null || fishTypes.Length == 0) {
+        private void CreateBehaviourSettingsArray()
+        {
+            if (fishTypes == null || fishTypes.Length == 0)
+            {
                 FlockLog.Error(
                     this,
                     FlockLogCategory.Controller,
@@ -335,7 +311,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 return;
             }
 
-            if (behaviourSettingsArray.IsCreated) {
+            if (behaviourSettingsArray.IsCreated)
+            {
                 behaviourSettingsArray.Dispose();
             }
 
@@ -363,9 +340,11 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 out compiledAvoidMasks,
                 out compiledNeutralMasks);
 
-            for (int index = 0; index < behaviourCount; index += 1) {
+            for (int index = 0; index < behaviourCount; index += 1)
+            {
                 FishTypePreset preset = fishTypes[index];
-                if (preset == null) {
+                if (preset == null)
+                {
                     FlockLog.Warning(
                         this,
                         FlockLogCategory.Controller,
@@ -378,23 +357,32 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 FlockBehaviourSettings settings = preset.ToSettings();
 
                 // Leadership weight from matrix (or default)
-                if (compiledLeadership != null && index < compiledLeadership.Length) {
+                if (compiledLeadership != null && index < compiledLeadership.Length)
+                {
                     settings.LeadershipWeight = compiledLeadership[index];
-                } else {
+                }
+                else
+                {
                     settings.LeadershipWeight = 1.0f;
                 }
 
                 // Avoidance weight from matrix (or default)
-                if (compiledAvoidance != null && index < compiledAvoidance.Length) {
+                if (compiledAvoidance != null && index < compiledAvoidance.Length)
+                {
                     settings.AvoidanceWeight = compiledAvoidance[index];
-                } else {
+                }
+                else
+                {
                     settings.AvoidanceWeight = 1.0f;
                 }
 
                 // Neutral weight from matrix (or default)
-                if (compiledNeutral != null && index < compiledNeutral.Length) {
+                if (compiledNeutral != null && index < compiledNeutral.Length)
+                {
                     settings.NeutralWeight = compiledNeutral[index];
-                } else {
+                }
+                else
+                {
                     settings.NeutralWeight = 1.0f;
                 }
 
@@ -421,10 +409,12 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 this);
         }
 
-        private void CreateSimulation() {
+        private void CreateSimulation()
+        {
             CreateBehaviourSettingsArray();
 
-            if (!behaviourSettingsArray.IsCreated || behaviourSettingsArray.Length == 0) {
+            if (!behaviourSettingsArray.IsCreated || behaviourSettingsArray.Length == 0)
+            {
                 FlockLog.Error(
                     this,
                     FlockLogCategory.Controller,
@@ -433,7 +423,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 return;
             }
 
-            if (mainSpawner == null) {
+            if (mainSpawner == null)
+            {
                 FlockLog.Error(
                     this,
                     FlockLogCategory.Controller,
@@ -445,7 +436,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             // Build agent behaviour IDs from spawner (all counts live there now)
             agentBehaviourIds = mainSpawner.BuildAgentBehaviourIds(fishTypes);
 
-            if (agentBehaviourIds == null || agentBehaviourIds.Length == 0) {
+            if (agentBehaviourIds == null || agentBehaviourIds.Length == 0)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -454,7 +446,6 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 return;
             }
 
-            totalAgentCount = agentBehaviourIds.Length;
 
             FlockEnvironmentData environmentData = BuildEnvironmentData();
             FlockObstacleData[] obstacleData = BuildObstacleData();
@@ -501,17 +492,21 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 this);
         }
 
-        private FlockEnvironmentData BuildEnvironmentData() {
+        private FlockEnvironmentData BuildEnvironmentData()
+        {
             FlockEnvironmentData environmentData;
 
             environmentData.BoundsType = boundsType;
             environmentData.BoundsCenter = boundsCenter;
 
-            if (boundsType == FlockBoundsType.Box) {
+            if (boundsType == FlockBoundsType.Box)
+            {
                 // Classic AABB bounds
                 environmentData.BoundsExtents = boundsExtents;
                 environmentData.BoundsRadius = math.length(boundsExtents);
-            } else {
+            }
+            else
+            {
                 // Spherical bounds: radius drives clamp; extents define grid volume (cube around sphere)
                 float radius = math.max(boundsSphereRadius, 0.1f);
                 environmentData.BoundsRadius = radius;
@@ -533,17 +528,22 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             environmentData.GridResolution = resolution;
             environmentData.GlobalDamping = math.max(globalDamping, 0.0f);
 
-            if (groupNoisePattern != null) {
+            if (groupNoisePattern != null)
+            {
                 environmentData.GroupNoisePattern = groupNoisePattern.ToSettings();
-            } else {
+            }
+            else
+            {
                 environmentData.GroupNoisePattern = FlockGroupNoisePatternSettings.Default;
             }
 
             return environmentData;
         }
 
-        private void SpawnAgents() {
-            if (simulation == null || !simulation.IsCreated) {
+        private void SpawnAgents()
+        {
+            if (simulation == null || !simulation.IsCreated)
+            {
                 FlockLog.Warning(
                     this,
                     FlockLogCategory.Controller,
@@ -552,7 +552,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 return;
             }
 
-            if (fishTypes == null || fishTypes.Length == 0) {
+            if (fishTypes == null || fishTypes.Length == 0)
+            {
                 FlockLog.Error(
                     this,
                     FlockLogCategory.Controller,
@@ -562,7 +563,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             }
 
             if (agentBehaviourIds == null
-                || agentBehaviourIds.Length != simulation.AgentCount) {
+                || agentBehaviourIds.Length != simulation.AgentCount)
+            {
                 FlockLog.Error(
                     this,
                     FlockLogCategory.Controller,
@@ -576,18 +578,21 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             NativeArray<float3> positionsNative = simulation.Positions;
             int count = simulation.AgentCount;
 
-            for (int index = 0; index < count; index += 1) {
+            for (int index = 0; index < count; index += 1)
+            {
                 int behaviourIndex = agentBehaviourIds[index];
 
                 if ((uint)behaviourIndex >= (uint)fishTypes.Length
-                    || fishTypes[behaviourIndex] == null) {
+                    || fishTypes[behaviourIndex] == null)
+                {
                     continue;
                 }
 
                 FishTypePreset preset = fishTypes[behaviourIndex];
                 GameObject prefab = preset.Prefab;
 
-                if (prefab == null) {
+                if (prefab == null)
+                {
                     FlockLog.Warning(
                         this,
                         FlockLogCategory.Controller,
@@ -614,7 +619,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 this);
         }
 
-        private void ApplySimulationToTransforms() {
+        private void ApplySimulationToTransforms()
+        {
             NativeArray<float3> positions = simulation.Positions;
             NativeArray<float3> velocities = simulation.Velocities;
 
@@ -622,7 +628,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
                 agentTransforms.Count,
                 math.min(positions.Length, velocities.Length));
 
-            for (int index = 0; index < count; index += 1) {
+            for (int index = 0; index < count; index += 1)
+            {
                 float3 position = positions[index];
                 float3 velocity = velocities[index];
                 Transform agentTransform = agentTransforms[index];
@@ -632,7 +639,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
 
                 // Rotate fish to face its velocity direction (if moving)
                 float speedSquared = math.lengthsq(velocity);
-                if (speedSquared > 1e-6f) {
+                if (speedSquared > 1e-6f)
+                {
                     Vector3 forward = new Vector3(
                         velocity.x,
                         velocity.y,
@@ -645,7 +653,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController {
             }
         }
 
-        private enum SimulationRunState {
+        private enum SimulationRunState
+        {
             Stopped = 0,
             Running = 1,
             Paused = 2

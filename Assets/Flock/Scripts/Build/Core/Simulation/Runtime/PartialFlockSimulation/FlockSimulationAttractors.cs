@@ -1,14 +1,18 @@
-namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
-    using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
-    using Unity.Collections;
-    using Unity.Mathematics;
+using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
 
+using Unity.Collections;
+using Unity.Mathematics;
+
+namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation
+{
     /**
      * <summary>
      * Simulation runtime that manages native state for agents, grids, and attractors.
      * </summary>
      */
-    public sealed partial class FlockSimulation {
+    public sealed partial class FlockSimulation
+    {
+
         /**
          * <summary>
          * Queues a single attractor data update to be applied to the simulation.
@@ -17,16 +21,20 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
          * <param name="index">Index of the attractor to update.</param>
          * <param name="data">New attractor data to apply.</param>
          */
-        public void SetAttractorData(int index, FlockAttractorData data) {
-            if (!IsCreated || !attractors.IsCreated) {
+        public void SetAttractorData(int index, FlockAttractorData data)
+        {
+            if (!IsCreated || !attractors.IsCreated)
+            {
                 return;
             }
 
-            if ((uint)index >= (uint)attractors.Length) {
+            if ((uint)index >= (uint)attractors.Length)
+            {
                 return;
             }
 
-            pendingAttractorChanges.Add(new IndexedAttractorChange {
+            pendingAttractorChanges.Add(new IndexedAttractorChange
+            {
                 Index = index,
                 Data = data,
             });
@@ -39,33 +47,40 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
          * Marks the attractor grid as dirty so it will be rebuilt on the next simulation update.
          * </summary>
          */
-        public void RebuildAttractorGrid() {
+        public void RebuildAttractorGrid()
+        {
             attractorGridDirty = true;
         }
 
-        void AllocateAttractors(FlockAttractorData[] sourceAttractors, Allocator allocator) {
-            if (!TryAllocateAttractorArray(sourceAttractors, allocator)) {
+        void AllocateAttractors(FlockAttractorData[] sourceAttractors, Allocator allocator)
+        {
+            if (!TryAllocateAttractorArray(sourceAttractors, allocator))
+            {
                 return;
             }
 
             GetEnvironmentDepthBounds(out float environmentMinimumY, out float environmentHeight);
 
-            for (int index = 0; index < attractorCount; index += 1) {
+            for (int index = 0; index < attractorCount; index += 1)
+            {
                 FlockAttractorData attractorData = sourceAttractors[index];
                 ApplyNormalizedDepthRange(ref attractorData, environmentMinimumY, environmentHeight);
                 attractors[index] = attractorData;
             }
         }
 
-        void AllocateAttractorSimulationData(Allocator allocator) {
+        private void AllocateAttractorSimulationData(Allocator allocator)
+        {
             attractionSteering = new NativeArray<float3>(
                 AgentCount,
                 allocator,
                 NativeArrayOptions.ClearMemory);
         }
 
-        bool TryAllocateAttractorArray(FlockAttractorData[] sourceAttractors, Allocator allocator) {
-            if (sourceAttractors == null || sourceAttractors.Length == 0) {
+        private bool TryAllocateAttractorArray(FlockAttractorData[] sourceAttractors, Allocator allocator)
+        {
+            if (sourceAttractors == null || sourceAttractors.Length == 0)
+            {
                 attractorCount = 0;
                 attractors = default;
                 return false;
@@ -81,17 +96,19 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return true;
         }
 
-        void GetEnvironmentDepthBounds(out float environmentMinimumY, out float environmentHeight) {
+        private void GetEnvironmentDepthBounds(out float environmentMinimumY, out float environmentHeight)
+        {
             environmentMinimumY = environmentData.BoundsCenter.y - environmentData.BoundsExtents.y;
 
             float environmentMaximumY = environmentData.BoundsCenter.y + environmentData.BoundsExtents.y;
             environmentHeight = math.max(environmentMaximumY - environmentMinimumY, 0.0001f);
         }
 
-        void ApplyNormalizedDepthRange(
+        private void ApplyNormalizedDepthRange(
             ref FlockAttractorData attractorData,
             float environmentMinimumY,
-            float environmentHeight) {
+            float environmentHeight)
+        {
 
             GetAttractorWorldMinMaxY(attractorData, out float worldMinimumY, out float worldMaximumY);
 
@@ -104,12 +121,14 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             attractorData.DepthMaxNorm = depthMaximumNormalized;
         }
 
-        void GetAttractorWorldMinMaxY(
+        private void GetAttractorWorldMinMaxY(
             in FlockAttractorData attractorData,
             out float worldMinimumY,
-            out float worldMaximumY) {
+            out float worldMaximumY)
+        {
 
-            if (attractorData.Shape == FlockAttractorShape.Sphere) {
+            if (attractorData.Shape == FlockAttractorShape.Sphere)
+            {
                 worldMinimumY = attractorData.Position.y - attractorData.Radius;
                 worldMaximumY = attractorData.Position.y + attractorData.Radius;
                 return;
@@ -120,7 +139,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             worldMaximumY = attractorData.Position.y + worldExtentY;
         }
 
-        float ComputeWorldBoxExtentY(quaternion rotation, float3 halfExtents) {
+        private float ComputeWorldBoxExtentY(quaternion rotation, float3 halfExtents)
+        {
             float3 right = math.mul(rotation, new float3(1f, 0f, 0f));
             float3 up = math.mul(rotation, new float3(0f, 1f, 0f));
             float3 forward = math.mul(rotation, new float3(0f, 0f, 1f));
@@ -130,8 +150,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 + math.abs(forward.y) * halfExtents.z;
         }
 
-        static void EnsureOrderedMinMax(ref float minimum, ref float maximum) {
-            if (maximum >= minimum) {
+        private void EnsureOrderedMinMax(ref float minimum, ref float maximum)
+        {
+            if (maximum >= minimum)
+            {
                 return;
             }
 

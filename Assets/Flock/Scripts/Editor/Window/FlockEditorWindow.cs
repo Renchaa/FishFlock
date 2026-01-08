@@ -1,45 +1,35 @@
 ﻿#if UNITY_EDITOR
-using Flock.Scripts.Build.Core.Simulation.Profiles;
 using Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController;
+using Flock.Scripts.Build.Core.Simulation.Profiles;
+using Flock.Scripts.Editor.Sync;
+
+using UnityEngine;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
-using UnityEditor.Rendering.HighDefinition;
-using Flock.Scripts.Editor.Sync;
-using UnityEngine;
 
-namespace Flock.Scripts.Editor.Window {
+namespace Flock.Scripts.Editor.Window
+{
     /**
      * <summary>
      * Top-level flock editor window.
      * </summary>
      */
-    public sealed partial class FlockEditorWindow : EditorWindow {
-        // Serialized window state
-        [SerializeField]
-        private FlockSetup _setup;
+    public sealed partial class FlockEditorWindow : EditorWindow
+    {
+        // Serialized window state.
+        [SerializeField] private FlockSetup _setup;
+        [SerializeField] private FlockSetupControllerSync _sync = new FlockSetupControllerSync();
 
+        [SerializeField] private FlockController sceneController;
 
-        [SerializeField]
-        private FlockController sceneController;
+        // Selection state.
+        [SerializeField] private FlockEditorTabKind _selectedTab = FlockEditorTabKind.Species;
+        [SerializeField] private int _selectedSpeciesIndex = -1;
+        [SerializeField] private int _speciesInspectorModeIndex = 0;
 
-        [SerializeField]
-        private int _selectedSpeciesIndex = -1;
-
-        [SerializeField]
-        private int _speciesInspectorModeIndex = 0;
-
-        [SerializeField]
-        private int _selectedNoiseIndex = -1; // -1 = Group Noise Pattern, >=0 = PatternAssets[i]
-
-        [SerializeField]
-        private FlockEditorTabKind _selectedTab = FlockEditorTabKind.Species;
-
-        [SerializeField]
-        private NoiseInspectorMode _noiseInspectorMode = NoiseInspectorMode.GroupNoise;
-
-
-        [SerializeField]
-        private FlockSetupControllerSync _sync = new FlockSetupControllerSync();
+        // Noise selection / mode.
+        [SerializeField] private NoiseInspectorMode _noiseInspectorMode = NoiseInspectorMode.GroupNoise;
+        [SerializeField] private int _selectedNoiseIndex = -1; // -1 = Group Noise Pattern, >=0 = PatternAssets[i]
 
         // Scroll
         private Vector2 _speciesListScroll;
@@ -65,12 +55,14 @@ namespace Flock.Scripts.Editor.Window {
 
         private double _nextSceneAutoSyncTime = 0.0d;
 
-        private SpeciesInspectorMode CurrentSpeciesInspectorMode {
+        private SpeciesInspectorMode CurrentSpeciesInspectorMode
+        {
             get => (SpeciesInspectorMode)_speciesInspectorModeIndex;
             set => _speciesInspectorModeIndex = (int)value;
         }
 
-        private void OnEnable() {
+        private void OnEnable()
+        {
             EnsureTabs();
 
             int selectedTabIndex = Mathf.Clamp((int)_selectedTab, 0, tabs.Length - 1);
@@ -82,7 +74,8 @@ namespace Flock.Scripts.Editor.Window {
             ResetSceneSyncState();
         }
 
-        private void OnDisable() {
+        private void OnDisable()
+        {
             EditorApplication.update -= OnEditorUpdate;
 
             var active = GetActiveTabOrNull();
@@ -96,10 +89,12 @@ namespace Flock.Scripts.Editor.Window {
         }
 
         // REPLACE OnGUI() WITH:
-        private void OnGUI() {
+        private void OnGUI()
+        {
             DrawSetupSelector();
 
-            if (_setup == null) {
+            if (_setup == null)
+            {
                 DrawNoSetupHelp();
                 return;
             }
@@ -111,9 +106,12 @@ namespace Flock.Scripts.Editor.Window {
             int selectedTabIndex = Mathf.Clamp((int)_selectedTab, 0, tabs.Length - 1);
             int newTabIndex = GUILayout.Toolbar(selectedTabIndex, tabLabels);
 
-            if (newTabIndex != (int)_selectedTab) {
+            if (newTabIndex != (int)_selectedTab)
+            {
                 SetActiveTab(newTabIndex, fireCallbacks: true);
-            } else if (activeTabIndex != (int)_selectedTab) {
+            }
+            else if (activeTabIndex != (int)_selectedTab)
+            {
                 SetActiveTab((int)_selectedTab, fireCallbacks: false);
             }
 
@@ -123,11 +121,13 @@ namespace Flock.Scripts.Editor.Window {
         }
 
         [MenuItem("Window/Flock/Flock Editor")]
-        public static void Open() {
+        public static void Open()
+        {
             GetWindow<FlockEditorWindow>("Flock Editor");
         }
 
-        private static void DrawNoSetupHelp() {
+        private static void DrawNoSetupHelp()
+        {
             EditorGUILayout.HelpBox(
                 "Assign or create a FlockSetup asset.\n\n" +
                 "This asset is the central config that holds your species, " +
@@ -135,12 +135,14 @@ namespace Flock.Scripts.Editor.Window {
                 MessageType.Info);
         }
 
-        private enum NoiseInspectorMode {
+        private enum NoiseInspectorMode
+        {
             GroupNoise = 0,
             PatternAssets = 1
         }
 
-        private enum SpeciesInspectorMode {
+        private enum SpeciesInspectorMode
+        {
             Preset = 0,
             Behaviour = 1
         }

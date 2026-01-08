@@ -1,11 +1,13 @@
-using Flock.Scripts.Build.Influence.Environment.Data;
-using Flock.Scripts.Build.Influence.PatternVolume.Data;
 using Flock.Scripts.Build.Influence.PatternVolume.Profiles;
-using System.Collections.Generic;
-using Unity.Mathematics;
-using UnityEngine;
+using Flock.Scripts.Build.Influence.PatternVolume.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
 
-namespace Flock.Scripts.Build.Influence.PatternVolume.Profile {
+using UnityEngine;
+using Unity.Mathematics;
+using System.Collections.Generic;
+
+namespace Flock.Scripts.Build.Influence.PatternVolume.Profile
+{
     /**
      * <summary>
      * Layer-3 pattern profile that bakes a sphere shell pattern payload and command.
@@ -14,7 +16,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profile {
     [CreateAssetMenu(
         menuName = "Flock/Layer-3 Patterns/Sphere Shell",
         fileName = "Layer3_SphereShell")]
-    public sealed class PatternVolumeSphereShellProfile : PatternVolumeFlockProfile {
+    public sealed class PatternVolumeSphereShellProfile : PatternVolumeFlockProfile
+    {
         [Header("Sphere Shell")]
 
         [Tooltip("If true, uses the environment bounds center as the sphere shell center.")]
@@ -34,11 +37,6 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profile {
         [SerializeField]
         private float thickness = -1f;
 
-        /**
-         * <summary>
-         * Gets the baked pattern kind.
-         * </summary>
-         */
         public override PatternVolumeKind Kind => PatternVolumeKind.SphereShell;
 
         /**
@@ -56,7 +54,8 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profile {
             uint behaviourMask,
             List<PatternVolumeCommand> commands,
             List<PatternVolumeSphereShell> sphereShellPayloads,
-            List<PatternVolumeBoxShell> boxShellPayloads) {
+            List<PatternVolumeBoxShell> boxShellPayloads)
+        {
             EnsureMinimumRadius();
 
             float safeThickness = GetSafeThickness(radius, thickness);
@@ -67,13 +66,15 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profile {
 
             int payloadIndex = sphereShellPayloads.Count;
 
-            sphereShellPayloads.Add(new PatternVolumeSphereShell {
+            sphereShellPayloads.Add(new PatternVolumeSphereShell
+            {
                 Center = center,
                 Radius = radius,
                 Thickness = safeThickness,
             });
 
-            commands.Add(new PatternVolumeCommand {
+            commands.Add(new PatternVolumeCommand
+            {
                 Kind = Kind,
                 PayloadIndex = payloadIndex,
                 Strength = Strength,
@@ -82,13 +83,16 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Profile {
         }
 
         // Preserves existing behaviour: mutates the serialized radius field when <= 0.
-        private void EnsureMinimumRadius() {
-            if (radius <= 0f) {
+        private void EnsureMinimumRadius()
+        {
+            if (radius <= 0f)
+            {
                 radius = 0.1f;
             }
         }
 
-        private static float GetSafeThickness(float radius, float thickness) {
+        private static float GetSafeThickness(float radius, float thickness)
+        {
             float computedThickness = thickness <= 0f
                 ? radius * 0.25f
                 : thickness;

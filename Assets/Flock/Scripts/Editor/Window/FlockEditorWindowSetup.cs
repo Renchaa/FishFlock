@@ -1,22 +1,27 @@
 #if UNITY_EDITOR
 using Flock.Scripts.Build.Core.Simulation.Profiles;
 using Flock.Scripts.Build.Influence.PatternVolume.Profiles;
-using System.Collections.Generic;
+
 using UnityEditor;
 using UnityEngine;
+using System.Collections.Generic;
 
-namespace Flock.Scripts.Editor.Window {
+namespace Flock.Scripts.Editor.Window
+{
     /**
      * <summary>
      * Editor window for configuring flock setup assets and related editor tooling.
      * </summary>
      */
-    public sealed partial class FlockEditorWindow {
-        private static void DrawSetupSelectorHeader() {
+    public sealed partial class FlockEditorWindow
+    {
+        private static void DrawSetupSelectorHeader()
+        {
             EditorGUILayout.LabelField("Flock Setup", EditorStyles.boldLabel);
         }
 
-        private static bool TryGetSetupAssetPath(out string path) {
+        private static bool TryGetSetupAssetPath(out string path)
+        {
             path = EditorUtility.SaveFilePanelInProject(
                 "Create Flock Setup",
                 "FlockSetup",
@@ -26,7 +31,8 @@ namespace Flock.Scripts.Editor.Window {
             return !string.IsNullOrEmpty(path);
         }
 
-        private static FlockSetup CreateSetupAssetAtPath(string path) {
+        private static FlockSetup CreateSetupAssetAtPath(string path)
+        {
             FlockSetup asset = ScriptableObject.CreateInstance<FlockSetup>();
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
@@ -34,12 +40,15 @@ namespace Flock.Scripts.Editor.Window {
             return asset;
         }
 
-        private void DrawSetupSelector() {
+        private void DrawSetupSelector()
+        {
             DrawSetupSelectorHeader();
             TryDrawSetupAssetField();
 
-            using (new EditorGUILayout.HorizontalScope()) {
-                if (GUILayout.Button("Create Setup", GUILayout.Width(EditorUI.CreateSetupButtonWidth))) {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Create Setup", GUILayout.Width(EditorUI.CreateSetupButtonWidth)))
+                {
                     CreateSetupAsset();
                 }
             }
@@ -47,7 +56,8 @@ namespace Flock.Scripts.Editor.Window {
             EditorGUILayout.Space();
         }
 
-        private void TryDrawSetupAssetField() {
+        private void TryDrawSetupAssetField()
+        {
             EditorGUI.BeginChangeCheck();
 
             _setup = (FlockSetup)EditorGUILayout.ObjectField(
@@ -56,32 +66,38 @@ namespace Flock.Scripts.Editor.Window {
                 typeof(FlockSetup),
                 false);
 
-            if (EditorGUI.EndChangeCheck()) {
+            if (EditorGUI.EndChangeCheck())
+            {
                 ApplySetupSelectionChanged();
             }
         }
 
-        private void ApplySetupSelectionChanged() {
+        private void ApplySetupSelectionChanged()
+        {
             ResetEditorSelection();
             DestroyAllTabEditors();
             ResetSceneSyncState();
         }
 
-        private void ResetEditorSelection() {
+        private void ResetEditorSelection()
+        {
             _selectedSpeciesIndex = -1;
             _selectedNoiseIndex = -1;
             _selectedTab = FlockEditorTabKind.Species;
         }
 
-        private void DestroyAllTabEditors() {
+        private void DestroyAllTabEditors()
+        {
             DestroySpeciesEditor();
             DestroyInteractionMatrixEditor();
             DestroyGroupNoiseEditor();
             DestroyPatternAssetEditor();
         }
 
-        private void CreateSetupAsset() {
-            if (!TryGetSetupAssetPath(out string path)) {
+        private void CreateSetupAsset()
+        {
+            if (!TryGetSetupAssetPath(out string path))
+            {
                 return;
             }
 
@@ -92,7 +108,8 @@ namespace Flock.Scripts.Editor.Window {
             EditorGUIUtility.PingObject(asset);
         }
 
-        private void AssignCreatedSetup(FlockSetup asset) {
+        private void AssignCreatedSetup(FlockSetup asset)
+        {
             _setup = asset;
             _setup.PatternAssets = new List<PatternVolumeFlockProfile>();
             EditorUtility.SetDirty(_setup);

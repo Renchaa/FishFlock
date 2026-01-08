@@ -1,10 +1,10 @@
-
-#if UNITY_EDITOR
-using System.Reflection;
-using NUnit.Framework;
-using Unity.Mathematics;
-using UnityEngine;
 using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
+using Unity.Mathematics;
+
+using UnityEngine;
+using NUnit.Framework;
+using System.Reflection;
+
 namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockAttractorArea {
     public sealed class FlockAttractorArea_ToData_ExceptionValues_Fallbacks_Test {
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -101,4 +101,3 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockAttractorArea {
         }
     }
 }
-#endif

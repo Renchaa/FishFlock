@@ -1,22 +1,25 @@
-// Assets/Flock/Editor/Tests/EditorMode/Simulation/FlockSimulation_ApplyPendingObstacleAndAttractorChanges_Test.cs
-#if UNITY_EDITOR
-using System;
-using System.Reflection;
-using Flock.Scripts.Build.Agents.Fish.Data;
 using Flock.Scripts.Build.Influence.Environment.Attractors.Data;
-using Flock.Scripts.Build.Influence.Environment.Data;
 using Flock.Scripts.Build.Influence.Environment.Obstacles.Data;
+using Flock.Scripts.Build.Influence.Environment.Data;
+using Flock.Scripts.Build.Agents.Fish.Data;
+
+using System;
+using Unity.Jobs;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Jobs;
+using System.Reflection;
 using Unity.Mathematics;
-namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
 
-    public sealed class FlockSimulation_ScheduleApplyPendingChanges_ApplyPendingObstacleAndAttractorChanges_Test {
+namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation
+{
+
+    public sealed class FlockSimulation_ScheduleApplyPendingChanges_ApplyPendingObstacleAndAttractorChanges_Test
+    {
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
         [Test]
-        public void ApplyPendingObstacleAndAttractorChanges_MutatesNativeDataAndSetsDirtyFlags() {
+        public void ApplyPendingObstacleAndAttractorChanges_MutatesNativeDataAndSetsDirtyFlags()
+        {
             var sim = new Build.Core.Simulation.Runtime.PartialFlockSimulation.FlockSimulation();
 
             var env = CreateEnvironment(
@@ -33,7 +36,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
             FlockObstacleData[] obstaclesSrc = { default };
             FlockAttractorData[] attractorsSrc = { default };
 
-            try {
+            try
+            {
                 sim.Initialize(
                     agentCount: 1,
                     environment: env,
@@ -89,7 +93,9 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
 
                 Assert.That(afterObstacle, Is.Not.EqualTo(beforeObstacle), "Obstacle[0] should change after apply");
                 Assert.That(afterAttractor, Is.Not.EqualTo(beforeAttractor), "Attractor[0] should change after apply");
-            } finally {
+            }
+            finally
+            {
                 if (behaviourSettings.IsCreated) behaviourSettings.Dispose();
                 sim.Dispose();
             }
@@ -97,7 +103,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
 
         // ----------------- indexed-change builder (reflection-safe) -----------------
 
-        private static object CreateIndexedChange(Type changeType, int index, object payload) {
+        private static object CreateIndexedChange(Type changeType, int index, object payload)
+        {
             object boxed = Activator.CreateInstance(changeType);
 
             // Pick an int field for index (prefer name contains "index")
@@ -113,18 +120,23 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
             return boxed;
         }
 
-        private static FieldInfo FindBestField(Type t, Type fieldType, string nameContainsLower) {
+        private static FieldInfo FindBestField(Type t, Type fieldType, string nameContainsLower)
+        {
             var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             FieldInfo[] fields = t.GetFields(flags);
 
-            for (int i = 0; i < fields.Length; i++) {
-                if (fields[i].FieldType == fieldType && fields[i].Name.ToLowerInvariant().Contains(nameContainsLower)) {
+            for (int i = 0; i < fields.Length; i++)
+            {
+                if (fields[i].FieldType == fieldType && fields[i].Name.ToLowerInvariant().Contains(nameContainsLower))
+                {
                     return fields[i];
                 }
             }
 
-            for (int i = 0; i < fields.Length; i++) {
-                if (fields[i].FieldType == fieldType) {
+            for (int i = 0; i < fields.Length; i++)
+            {
+                if (fields[i].FieldType == fieldType)
+                {
                     return fields[i];
                 }
             }
@@ -132,29 +144,34 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
             return null;
         }
 
-        private static FieldInfo FindPayloadField(Type changeType, Type payloadType) {
+        private static FieldInfo FindPayloadField(Type changeType, Type payloadType)
+        {
             var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             FieldInfo[] fields = changeType.GetFields(flags);
 
-            for (int i = 0; i < fields.Length; i++) {
+            for (int i = 0; i < fields.Length; i++)
+            {
                 if (fields[i].FieldType == payloadType) return fields[i];
             }
 
             // fallback: assignable (in case payload is a base type, unlikely but safe)
-            for (int i = 0; i < fields.Length; i++) {
+            for (int i = 0; i < fields.Length; i++)
+            {
                 if (fields[i].FieldType.IsAssignableFrom(payloadType)) return fields[i];
             }
 
             return null;
         }
 
-        private static void AddToList(object list, object item) {
+        private static void AddToList(object list, object item)
+        {
             var mi = list.GetType().GetMethod("Add", BindingFlags.Instance | BindingFlags.Public);
             Assert.That(mi, Is.Not.Null, "List.Add not found");
             mi.Invoke(list, new object[] { item });
         }
 
-        private static int GetListCount(object list) {
+        private static int GetListCount(object list)
+        {
             var pi = list.GetType().GetProperty("Count", BindingFlags.Instance | BindingFlags.Public);
             Assert.That(pi, Is.Not.Null, "List.Count not found");
             return (int)pi.GetValue(list, null);
@@ -162,12 +179,14 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
 
         // ----------------- distinct payload builder -----------------
 
-        private static T CreateDistinctStruct<T>(int seed) where T : struct {
+        private static T CreateDistinctStruct<T>(int seed) where T : struct
+        {
             object boxed = Activator.CreateInstance(typeof(T));
             var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             var fields = typeof(T).GetFields(flags);
 
-            for (int i = 0; i < fields.Length; i++) {
+            for (int i = 0; i < fields.Length; i++)
+            {
                 FieldInfo f = fields[i];
                 Type ft = f.FieldType;
 
@@ -190,7 +209,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
             int3 gridResolution,
             float cellSize,
             float3 boundsCenter,
-            float3 boundsExtents) {
+            float3 boundsExtents)
+        {
 
             FlockEnvironmentData env = default;
             env = SetStructMember(env, "GridOrigin", gridOrigin);
@@ -201,7 +221,8 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
             return env;
         }
 
-        private static FlockBehaviourSettings CreateBehaviourSettings(float maxSpeed, float maxAccel, float neighbourRadius) {
+        private static FlockBehaviourSettings CreateBehaviourSettings(float maxSpeed, float maxAccel, float neighbourRadius)
+        {
             FlockBehaviourSettings s = default;
             s = SetStructMember(s, "MaxSpeed", maxSpeed);
             s = SetStructMember(s, "MaxAcceleration", maxAccel);
@@ -209,18 +230,21 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
             return s;
         }
 
-        private static T SetStructMember<T>(T value, string name, object memberValue) where T : struct {
+        private static T SetStructMember<T>(T value, string name, object memberValue) where T : struct
+        {
             object boxed = value;
             Type t = typeof(T);
 
             var fi = t.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (fi != null) {
+            if (fi != null)
+            {
                 fi.SetValue(boxed, memberValue);
                 return (T)boxed;
             }
 
             var pi = t.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (pi != null && pi.CanWrite) {
+            if (pi != null && pi.CanWrite)
+            {
                 pi.SetValue(boxed, memberValue, null);
                 return (T)boxed;
             }
@@ -231,23 +255,25 @@ namespace Flock.Scripts.Tests.EditorMode.Simulation.FlockSimulation {
 
         // ----------------- reflection helpers -----------------
 
-        private static object InvokePrivate(object target, string method, object[] args) {
+        private static object InvokePrivate(object target, string method, object[] args)
+        {
             var mi = target.GetType().GetMethod(method, BF);
             Assert.That(mi, Is.Not.Null, $"Missing method {target.GetType().Name}.{method}");
             return mi.Invoke(target, args);
         }
 
-        private static T GetPrivateField<T>(object target, string field) {
+        private static T GetPrivateField<T>(object target, string field)
+        {
             var fi = target.GetType().GetField(field, BF);
             Assert.That(fi, Is.Not.Null, $"Missing field {target.GetType().Name}.{field}");
             return (T)fi.GetValue(target);
         }
 
-        private static void SetPrivateField(object target, string field, object value) {
+        private static void SetPrivateField(object target, string field, object value)
+        {
             var fi = target.GetType().GetField(field, BF);
             Assert.That(fi, Is.Not.Null, $"Missing field {target.GetType().Name}.{field}");
             fi.SetValue(target, value);
         }
     }
 }
-#endif

@@ -1,17 +1,20 @@
-using Flock.Scripts.Build.Debug;
 using Flock.Scripts.Build.Influence.PatternVolume.Data;
+using Flock.Scripts.Build.Debug;
+
 using System;
-using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
-namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
+using Unity.Collections;
 
+namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation
+{
     /**
      * <summary>
      * Simulation runtime that manages native state for agents, grids, attractors, and Layer-3 pattern steering.
      * </summary>
      */
-    public sealed partial class FlockSimulation {
+    public sealed partial class FlockSimulation
+    {
         /**
          * <summary>
          * Sets the baked Layer-3 pattern command stream and payload arrays used by the simulation.
@@ -23,16 +26,17 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
         public void SetLayer3Patterns(
             PatternVolumeCommand[] commands,
             PatternVolumeSphereShell[] sphereShellPayloads,
-            PatternVolumeBoxShell[] boxShellPayloads) {
+            PatternVolumeBoxShell[] boxShellPayloads)
+        {
 
-            layer3PatternCommands = commands ?? Array.Empty<PatternVolumeCommand>();
-            layer3SphereShells = sphereShellPayloads ?? Array.Empty<PatternVolumeSphereShell>();
-            layer3BoxShells = boxShellPayloads ?? Array.Empty<PatternVolumeBoxShell>();
+            patternVolumeCommands = commands ?? Array.Empty<PatternVolumeCommand>();
+            patternVolumeSphereShells = sphereShellPayloads ?? Array.Empty<PatternVolumeSphereShell>();
+            patternVolumeBoxShells = boxShellPayloads ?? Array.Empty<PatternVolumeBoxShell>();
 
             FlockLog.Info(
                 logger,
                 FlockLogCategory.Patterns,
-                $"Layer-3 baked patterns set: commands={layer3PatternCommands.Length}, sphereShells={layer3SphereShells.Length}, boxShells={layer3BoxShells.Length}.",
+                $"Layer-3 baked patterns set: commands={patternVolumeCommands.Length}, sphereShells={patternVolumeSphereShells.Length}, boxShells={patternVolumeBoxShells.Length}.",
                 null);
         }
 
@@ -52,16 +56,20 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             float radius,
             float thickness = -1f,
             float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
+            uint behaviourMask = uint.MaxValue)
+        {
 
             patternSphereCenter = center;
             patternSphereRadius = math.max(0f, radius);
             patternSphereStrength = math.max(0f, strength);
             patternSphereBehaviourMask = behaviourMask;
 
-            if (thickness <= 0f) {
+            if (thickness <= 0f)
+            {
                 patternSphereThickness = patternSphereRadius * 0.25f;
-            } else {
+            }
+            else
+            {
                 patternSphereThickness = math.max(0.001f, thickness);
             }
         }
@@ -71,7 +79,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
          * Disables the pattern sphere influence completely.
          * </summary>
          */
-        public void ClearPatternSphere() {
+        public void ClearPatternSphere()
+        {
             patternSphereRadius = 0f;
             patternSphereStrength = 0f;
             patternSphereThickness = 0f;
@@ -94,18 +103,22 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             float radius,
             float thickness = -1f,
             float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
+            uint behaviourMask = uint.MaxValue)
+        {
 
-            if (!IsCreated) {
+            if (!IsCreated)
+            {
                 return PatternVolumeHandle.Invalid;
             }
 
-            if (!TryValidateSphereShellStart(radius, strength, thickness, out float clampedRadius, out float clampedStrength, out float clampedThickness)) {
+            if (!TryValidateSphereShellStart(radius, strength, thickness, out float clampedRadius, out float clampedStrength, out float clampedThickness))
+            {
                 return PatternVolumeHandle.Invalid;
             }
 
             int payloadIndex = AcquireSphereShellPayloadSlot();
-            runtimeSphereShells[payloadIndex] = new PatternVolumeSphereShell {
+            runtimeSphereShells[payloadIndex] = new PatternVolumeSphereShell
+            {
                 Center = center,
                 Radius = clampedRadius,
                 Thickness = clampedThickness,
@@ -120,12 +133,13 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             runtimePatternInstance.Strength = clampedStrength;
             runtimePatternInstance.BehaviourMask = behaviourMask;
 
-            runtimePatternInstance.ActiveListIndex = runtimeLayer3Active.Count;
-            runtimeLayer3Active.Add(patternIndex);
+            runtimePatternInstance.ActiveListIndex = runtimePatternVolumeActive.Count;
+            runtimePatternVolumeActive.Add(patternIndex);
 
             runtimeLayer3Patterns[patternIndex] = runtimePatternInstance;
 
-            PatternVolumeHandle handle = new PatternVolumeHandle {
+            PatternVolumeHandle handle = new PatternVolumeHandle
+            {
                 Index = patternIndex,
                 Generation = runtimePatternInstance.Generation,
             };
@@ -158,22 +172,27 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             float radius,
             float thickness = -1f,
             float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
+            uint behaviourMask = uint.MaxValue)
+        {
 
-            if (!IsCreated) {
+            if (!IsCreated)
+            {
                 return false;
             }
 
-            if (!TryGetRuntimePattern(handle, out RuntimePatternVolumeInstance runtimePatternInstance)) {
+            if (!TryGetRuntimePattern(handle, out RuntimePatternVolumeInstance runtimePatternInstance))
+            {
                 return false;
             }
 
-            if (runtimePatternInstance.Active == 0 || runtimePatternInstance.Kind != PatternVolumeKind.SphereShell) {
+            if (runtimePatternInstance.Active == 0 || runtimePatternInstance.Kind != PatternVolumeKind.SphereShell)
+            {
                 return false;
             }
 
             int payloadIndex = runtimePatternInstance.PayloadIndex;
-            if ((uint)payloadIndex >= (uint)runtimeSphereShells.Count) {
+            if ((uint)payloadIndex >= (uint)runtimeSphereShells.Count)
+            {
                 return false;
             }
 
@@ -181,7 +200,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             float clampedStrength = math.max(0f, strength);
             float clampedThickness = ComputeSphereShellThickness(clampedRadius, thickness);
 
-            runtimeSphereShells[payloadIndex] = new PatternVolumeSphereShell {
+            runtimeSphereShells[payloadIndex] = new PatternVolumeSphereShell
+            {
                 Center = center,
                 Radius = clampedRadius,
                 Thickness = clampedThickness,
@@ -211,18 +231,22 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             float3 halfExtents,
             float thickness = -1f,
             float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
+            uint behaviourMask = uint.MaxValue)
+        {
 
-            if (!IsCreated) {
+            if (!IsCreated)
+            {
                 return PatternVolumeHandle.Invalid;
             }
 
-            if (!TryValidateBoxShellStart(halfExtents, strength, thickness, out float3 clampedHalfExtents, out float clampedStrength, out float clampedThickness)) {
+            if (!TryValidateBoxShellStart(halfExtents, strength, thickness, out float3 clampedHalfExtents, out float clampedStrength, out float clampedThickness))
+            {
                 return PatternVolumeHandle.Invalid;
             }
 
             int payloadIndex = AcquireBoxShellPayloadSlot();
-            runtimeBoxShells[payloadIndex] = new PatternVolumeBoxShell {
+            runtimeBoxShells[payloadIndex] = new PatternVolumeBoxShell
+            {
                 Center = center,
                 HalfExtents = clampedHalfExtents,
                 Thickness = clampedThickness,
@@ -237,12 +261,13 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             runtimePatternInstance.Strength = clampedStrength;
             runtimePatternInstance.BehaviourMask = behaviourMask;
 
-            runtimePatternInstance.ActiveListIndex = runtimeLayer3Active.Count;
-            runtimeLayer3Active.Add(patternIndex);
+            runtimePatternInstance.ActiveListIndex = runtimePatternVolumeActive.Count;
+            runtimePatternVolumeActive.Add(patternIndex);
 
             runtimeLayer3Patterns[patternIndex] = runtimePatternInstance;
 
-            PatternVolumeHandle handle = new PatternVolumeHandle {
+            PatternVolumeHandle handle = new PatternVolumeHandle
+            {
                 Index = patternIndex,
                 Generation = runtimePatternInstance.Generation,
             };
@@ -275,22 +300,27 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             float3 halfExtents,
             float thickness = -1f,
             float strength = 1f,
-            uint behaviourMask = uint.MaxValue) {
+            uint behaviourMask = uint.MaxValue)
+        {
 
-            if (!IsCreated) {
+            if (!IsCreated)
+            {
                 return false;
             }
 
-            if (!TryGetRuntimePattern(handle, out RuntimePatternVolumeInstance runtimePatternInstance)) {
+            if (!TryGetRuntimePattern(handle, out RuntimePatternVolumeInstance runtimePatternInstance))
+            {
                 return false;
             }
 
-            if (runtimePatternInstance.Active == 0 || runtimePatternInstance.Kind != PatternVolumeKind.BoxShell) {
+            if (runtimePatternInstance.Active == 0 || runtimePatternInstance.Kind != PatternVolumeKind.BoxShell)
+            {
                 return false;
             }
 
             int payloadIndex = runtimePatternInstance.PayloadIndex;
-            if ((uint)payloadIndex >= (uint)runtimeBoxShells.Count) {
+            if ((uint)payloadIndex >= (uint)runtimeBoxShells.Count)
+            {
                 return false;
             }
 
@@ -299,14 +329,16 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             if (halfExtents.x <= 0f
                 || halfExtents.y <= 0f
                 || halfExtents.z <= 0f
-                || strength <= 0f) {
+                || strength <= 0f)
+            {
                 return false;
             }
 
             float3 clampedHalfExtents = ClampPositiveHalfExtents(halfExtents);
             float clampedThickness = ComputeBoxShellThickness(clampedHalfExtents, thickness);
 
-            runtimeBoxShells[payloadIndex] = new PatternVolumeBoxShell {
+            runtimeBoxShells[payloadIndex] = new PatternVolumeBoxShell
+            {
                 Center = center,
                 HalfExtents = clampedHalfExtents,
                 Thickness = clampedThickness,
@@ -326,16 +358,20 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
          * <param name="handle">Runtime pattern handle.</param>
          * <returns>True if the pattern was active and is now stopped; otherwise false.</returns>
          */
-        public bool StopPatternVolume(PatternVolumeHandle handle) {
-            if (!IsCreated) {
+        public bool StopPatternVolume(PatternVolumeHandle handle)
+        {
+            if (!IsCreated)
+            {
                 return false;
             }
 
-            if (!TryGetRuntimePattern(handle, out RuntimePatternVolumeInstance runtimePatternInstance)) {
+            if (!TryGetRuntimePattern(handle, out RuntimePatternVolumeInstance runtimePatternInstance))
+            {
                 return false;
             }
 
-            if (runtimePatternInstance.Active == 0) {
+            if (runtimePatternInstance.Active == 0)
+            {
                 return false;
             }
 
@@ -372,7 +408,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             float strength,
             int agentCount,
             JobHandle inputHandle)
-            where T : struct, IJobParallelFor, IPatternVolumeJob {
+            where T : struct, IJobParallelFor, IPatternVolumeJob
+        {
 
             job.SetCommonData(
                 positions,
@@ -386,35 +423,42 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
 
         bool TryGetRuntimePattern(
             PatternVolumeHandle handle,
-            out RuntimePatternVolumeInstance runtimePatternInstance) {
+            out RuntimePatternVolumeInstance runtimePatternInstance)
+        {
 
             runtimePatternInstance = default;
 
-            if (!handle.IsValid) {
+            if (!handle.IsValid)
+            {
                 return false;
             }
 
             int index = handle.Index;
 
-            if ((uint)index >= (uint)runtimeLayer3Patterns.Count) {
+            if ((uint)index >= (uint)runtimeLayer3Patterns.Count)
+            {
                 return false;
             }
 
             runtimePatternInstance = runtimeLayer3Patterns[index];
 
-            if (runtimePatternInstance.Generation != handle.Generation) {
+            if (runtimePatternInstance.Generation != handle.Generation)
+            {
                 return false;
             }
 
             return true;
         }
 
-        int AcquireRuntimePatternSlot() {
-            if (runtimeLayer3Free.Count > 0) {
+        int AcquireRuntimePatternSlot()
+        {
+            if (runtimeLayer3Free.Count > 0)
+            {
                 return runtimeLayer3Free.Pop();
             }
 
-            runtimeLayer3Patterns.Add(new RuntimePatternVolumeInstance {
+            runtimeLayer3Patterns.Add(new RuntimePatternVolumeInstance
+            {
                 Generation = 0,
                 Active = 0,
                 ActiveListIndex = -1,
@@ -427,8 +471,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return runtimeLayer3Patterns.Count - 1;
         }
 
-        int AcquireSphereShellPayloadSlot() {
-            if (runtimeSphereShellFree.Count > 0) {
+        int AcquireSphereShellPayloadSlot()
+        {
+            if (runtimeSphereShellFree.Count > 0)
+            {
                 return runtimeSphereShellFree.Pop();
             }
 
@@ -436,8 +482,10 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return runtimeSphereShells.Count - 1;
         }
 
-        int AcquireBoxShellPayloadSlot() {
-            if (runtimeBoxShellFree.Count > 0) {
+        int AcquireBoxShellPayloadSlot()
+        {
+            if (runtimeBoxShellFree.Count > 0)
+            {
                 return runtimeBoxShellFree.Pop();
             }
 
@@ -445,21 +493,24 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return runtimeBoxShells.Count - 1;
         }
 
-        void RemoveFromActiveList(int patternIndex, ref RuntimePatternVolumeInstance runtimePatternInstance) {
+        void RemoveFromActiveList(int patternIndex, ref RuntimePatternVolumeInstance runtimePatternInstance)
+        {
             int activeListIndex = runtimePatternInstance.ActiveListIndex;
 
-            if (activeListIndex < 0 || activeListIndex >= runtimeLayer3Active.Count) {
+            if (activeListIndex < 0 || activeListIndex >= runtimePatternVolumeActive.Count)
+            {
                 runtimePatternInstance.ActiveListIndex = -1;
                 return;
             }
 
-            int lastIndex = runtimeLayer3Active.Count - 1;
-            int movedPatternIndex = runtimeLayer3Active[lastIndex];
+            int lastIndex = runtimePatternVolumeActive.Count - 1;
+            int movedPatternIndex = runtimePatternVolumeActive[lastIndex];
 
-            runtimeLayer3Active[activeListIndex] = movedPatternIndex;
-            runtimeLayer3Active.RemoveAt(lastIndex);
+            runtimePatternVolumeActive[activeListIndex] = movedPatternIndex;
+            runtimePatternVolumeActive.RemoveAt(lastIndex);
 
-            if (movedPatternIndex != patternIndex) {
+            if (movedPatternIndex != patternIndex)
+            {
                 RuntimePatternVolumeInstance movedPatternInstance = runtimeLayer3Patterns[movedPatternIndex];
                 movedPatternInstance.ActiveListIndex = activeListIndex;
                 runtimeLayer3Patterns[movedPatternIndex] = movedPatternInstance;
@@ -474,12 +525,14 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             float thickness,
             out float clampedRadius,
             out float clampedStrength,
-            out float clampedThickness) {
+            out float clampedThickness)
+        {
 
             clampedRadius = math.max(0f, radius);
             clampedStrength = math.max(0f, strength);
 
-            if (clampedRadius <= 0f || clampedStrength <= 0f) {
+            if (clampedRadius <= 0f || clampedStrength <= 0f)
+            {
                 clampedThickness = 0f;
                 return false;
             }
@@ -488,7 +541,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return true;
         }
 
-        static float ComputeSphereShellThickness(float radius, float thickness) {
+        static float ComputeSphereShellThickness(float radius, float thickness)
+        {
             float thicknessValue = thickness <= 0f ? (radius * 0.25f) : thickness;
             return math.max(0.001f, thicknessValue);
         }
@@ -499,14 +553,16 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             float thickness,
             out float3 clampedHalfExtents,
             out float clampedStrength,
-            out float clampedThickness) {
+            out float clampedThickness)
+        {
 
             clampedStrength = math.max(0f, strength);
 
             if (halfExtents.x <= 0f
                 || halfExtents.y <= 0f
                 || halfExtents.z <= 0f
-                || clampedStrength <= 0f) {
+                || clampedStrength <= 0f)
+            {
                 clampedHalfExtents = default;
                 clampedThickness = 0f;
                 return false;
@@ -518,14 +574,16 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return true;
         }
 
-        static float3 ClampPositiveHalfExtents(float3 halfExtents) {
+        static float3 ClampPositiveHalfExtents(float3 halfExtents)
+        {
             return new float3(
                 math.max(halfExtents.x, 0.001f),
                 math.max(halfExtents.y, 0.001f),
                 math.max(halfExtents.z, 0.001f));
         }
 
-        static float ComputeBoxShellThickness(float3 halfExtents, float thickness) {
+        static float ComputeBoxShellThickness(float3 halfExtents, float thickness)
+        {
             float thicknessValue = thickness <= 0f
                 ? math.cmin(halfExtents) * 0.25f
                 : thickness;
@@ -533,17 +591,23 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return math.max(0.001f, thicknessValue);
         }
 
-        void ReleaseRuntimePatternPayload(in RuntimePatternVolumeInstance runtimePatternInstance) {
-            switch (runtimePatternInstance.Kind) {
-                case PatternVolumeKind.SphereShell: {
-                        if (runtimePatternInstance.PayloadIndex >= 0) {
+        void ReleaseRuntimePatternPayload(in RuntimePatternVolumeInstance runtimePatternInstance)
+        {
+            switch (runtimePatternInstance.Kind)
+            {
+                case PatternVolumeKind.SphereShell:
+                    {
+                        if (runtimePatternInstance.PayloadIndex >= 0)
+                        {
                             runtimeSphereShellFree.Push(runtimePatternInstance.PayloadIndex);
                         }
                         break;
                     }
 
-                case PatternVolumeKind.BoxShell: {
-                        if (runtimePatternInstance.PayloadIndex >= 0) {
+                case PatternVolumeKind.BoxShell:
+                    {
+                        if (runtimePatternInstance.PayloadIndex >= 0)
+                        {
                             runtimeBoxShellFree.Push(runtimePatternInstance.PayloadIndex);
                         }
                         break;

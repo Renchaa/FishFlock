@@ -1,18 +1,23 @@
-using Unity.Collections;
-using Unity.Mathematics;
+using Flock.Scripts.Build.Infrastructure.Grid.Data;
 using Flock.Scripts.Build.Agents.Fish.Data;
 using Flock.Scripts.Build.Debug;
-using Flock.Scripts.Build.Infrastructure.Grid.Data;
 
-namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
+using Unity.Collections;
+using Unity.Mathematics;
+
+namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation
+{
     /**
      * <summary>
      * Core simulation runtime that owns agent/state arrays and grid structures.
      * </summary>
      */
-    public sealed partial class FlockSimulation {
-        public void SetAgentBehaviourIds(int[] behaviourIdsSource) {
-            if (behaviourIdsSource == null) {
+    public sealed partial class FlockSimulation
+    {
+        public void SetAgentBehaviourIds(int[] behaviourIdsSource)
+        {
+            if (behaviourIdsSource == null)
+            {
                 return;
             }
 
@@ -25,20 +30,23 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             pendingBehaviourIdsDirty = true;
         }
 
-        private void AllocateAgentArrays(Allocator allocator) {
+        private void AllocateAgentArrays(Allocator allocator)
+        {
             AllocateAgentSoaArrays(allocator);
             AllocateAgentAuxArrays(allocator);
             InitializeBehaviourIdsToZero();
         }
 
-        private void AllocateBehaviourArrays(NativeArray<FlockBehaviourSettings> settings, Allocator allocator) {
+        private void AllocateBehaviourArrays(NativeArray<FlockBehaviourSettings> settings, Allocator allocator)
+        {
             int behaviourCount = settings.Length;
 
             AllocateBehaviourNativeArrays(behaviourCount, allocator);
 
             float cellSize = math.max(environmentData.CellSize, 0.0001f);
 
-            for (int index = 0; index < behaviourCount; index += 1) {
+            for (int index = 0; index < behaviourCount; index += 1)
+            {
                 FlockBehaviourSettings behaviour = ClampBehaviourSettings(settings[index]);
                 behaviourSettings[index] = behaviour;
 
@@ -47,14 +55,16 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             }
         }
 
-        private void AllocateGrid(Allocator allocator) {
+        private void AllocateGrid(Allocator allocator)
+        {
             gridCellCount = environmentData.GridResolution.x
                             * environmentData.GridResolution.y
                             * environmentData.GridResolution.z;
 
             AllocateCellGroupNoise(allocator);
 
-            if (gridCellCount > 0) {
+            if (gridCellCount > 0)
+            {
                 AllocateAgentGridStructures(allocator);
                 AllocateAttractorGridStructures(allocator);
                 return;
@@ -64,7 +74,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             ResetAttractorGridStructures();
         }
 
-        private void InitializeAgentsRandomInsideBounds() {
+        private void InitializeAgentsRandomInsideBounds()
+        {
             float3 center = environmentData.BoundsCenter;
             float3 extents = environmentData.BoundsExtents;
 
@@ -80,7 +91,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
                 null);
         }
 
-        private static FlockBehaviourSettings ClampBehaviourSettings(FlockBehaviourSettings behaviour) {
+        private static FlockBehaviourSettings ClampBehaviourSettings(FlockBehaviourSettings behaviour)
+        {
             behaviour.BodyRadius = math.max(0f, behaviour.BodyRadius);
 
             behaviour.SchoolingSpacingFactor = math.max(0.5f, behaviour.SchoolingSpacingFactor);
@@ -110,54 +122,67 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return behaviour;
         }
 
-        private static int ComputeCellRange(float viewRadius, float cellSize) {
+        private static int ComputeCellRange(float viewRadius, float cellSize)
+        {
             int cellRange = (int)math.ceil(viewRadius / cellSize);
-            if (cellRange < 1) {
+            if (cellRange < 1)
+            {
                 cellRange = 1;
             }
 
             return cellRange;
         }
 
-        private void EnsurePendingBehaviourIdBuffer() {
-            if (pendingBehaviourIdsManaged == null || pendingBehaviourIdsManaged.Length != AgentCount) {
+        private void EnsurePendingBehaviourIdBuffer()
+        {
+            if (pendingBehaviourIdsManaged == null || pendingBehaviourIdsManaged.Length != AgentCount)
+            {
                 pendingBehaviourIdsManaged = new int[AgentCount];
             }
         }
 
-        private void CopyBehaviourIdsToPending(int[] behaviourIdsSource, int count) {
-            for (int index = 0; index < count; index += 1) {
+        private void CopyBehaviourIdsToPending(int[] behaviourIdsSource, int count)
+        {
+            for (int index = 0; index < count; index += 1)
+            {
                 pendingBehaviourIdsManaged[index] = behaviourIdsSource[index];
             }
         }
 
-        private void AllocateAgentSoaArrays(Allocator allocator) {
+        private void AllocateAgentSoaArrays(Allocator allocator)
+        {
             positions = new NativeArray<float3>(AgentCount, allocator, NativeArrayOptions.UninitializedMemory);
             velocities = new NativeArray<float3>(AgentCount, allocator, NativeArrayOptions.UninitializedMemory);
             prevVelocities = new NativeArray<float3>(AgentCount, allocator, NativeArrayOptions.UninitializedMemory);
             behaviourIds = new NativeArray<int>(AgentCount, allocator, NativeArrayOptions.UninitializedMemory);
         }
 
-        private void AllocateAgentAuxArrays(Allocator allocator) {
+        private void AllocateAgentAuxArrays(Allocator allocator)
+        {
             patternSteering = new NativeArray<float3>(AgentCount, allocator, NativeArrayOptions.ClearMemory);
             wallDirections = new NativeArray<float3>(AgentCount, allocator, NativeArrayOptions.ClearMemory);
             wallDangers = new NativeArray<float>(AgentCount, allocator, NativeArrayOptions.ClearMemory);
             neighbourAggregates = new NativeArray<NeighbourAggregate>(AgentCount, allocator, NativeArrayOptions.ClearMemory);
         }
 
-        private void InitializeBehaviourIdsToZero() {
-            for (int index = 0; index < AgentCount; index += 1) {
+        private void InitializeBehaviourIdsToZero()
+        {
+            for (int index = 0; index < AgentCount; index += 1)
+            {
                 behaviourIds[index] = 0;
             }
         }
 
-        private void AllocateBehaviourNativeArrays(int behaviourCount, Allocator allocator) {
+        private void AllocateBehaviourNativeArrays(int behaviourCount, Allocator allocator)
+        {
             behaviourSettings = new NativeArray<FlockBehaviourSettings>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
             behaviourCellSearchRadius = new NativeArray<int>(behaviourCount, allocator, NativeArrayOptions.UninitializedMemory);
         }
 
-        private void AllocateCellGroupNoise(Allocator allocator) {
-            if (gridCellCount > 0) {
+        private void AllocateCellGroupNoise(Allocator allocator)
+        {
+            if (gridCellCount > 0)
+            {
                 cellGroupNoise = new NativeArray<float3>(gridCellCount, allocator, NativeArrayOptions.ClearMemory);
                 return;
             }
@@ -165,7 +190,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             cellGroupNoise = default;
         }
 
-        private void AllocateAgentGridStructures(Allocator allocator) {
+        private void AllocateAgentGridStructures(Allocator allocator)
+        {
             cellAgentStarts = new NativeArray<int>(gridCellCount, allocator, NativeArrayOptions.UninitializedMemory);
             cellAgentCounts = new NativeArray<int>(gridCellCount, allocator, NativeArrayOptions.ClearMemory);
             InitializeCellAgentStartsToMinusOne();
@@ -188,7 +214,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             touchedAgentCellCount = new NativeArray<int>(1, allocator, NativeArrayOptions.ClearMemory);
         }
 
-        private void ResetAgentGridStructures() {
+        private void ResetAgentGridStructures()
+        {
             cellAgentStarts = default;
             cellAgentCounts = default;
             cellAgentPairs = default;
@@ -204,7 +231,8 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             maxCellsPerAgent = 1;
         }
 
-        private void AllocateAttractorGridStructures(Allocator allocator) {
+        private void AllocateAttractorGridStructures(Allocator allocator)
+        {
             cellToIndividualAttractor = new NativeArray<int>(gridCellCount, allocator, NativeArrayOptions.UninitializedMemory);
             cellToGroupAttractor = new NativeArray<int>(gridCellCount, allocator, NativeArrayOptions.UninitializedMemory);
             cellIndividualPriority = new NativeArray<float>(gridCellCount, allocator, NativeArrayOptions.UninitializedMemory);
@@ -213,23 +241,28 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             InitializeAttractorGridDefaults();
         }
 
-        private void ResetAttractorGridStructures() {
+        private void ResetAttractorGridStructures()
+        {
             cellToIndividualAttractor = default;
             cellToGroupAttractor = default;
             cellIndividualPriority = default;
             cellGroupPriority = default;
         }
 
-        private void InitializeCellAgentStartsToMinusOne() {
-            for (int index = 0; index < gridCellCount; index += 1) {
+        private void InitializeCellAgentStartsToMinusOne()
+        {
+            for (int index = 0; index < gridCellCount; index += 1)
+            {
                 cellAgentStarts[index] = -1;
             }
         }
 
-        private int ComputeMaxCellsPerAgent(float cellSizeSafe) {
+        private int ComputeMaxCellsPerAgent(float cellSizeSafe)
+        {
             float maxBodyRadius = GetMaxBodyRadiusFromBehaviours();
 
-            if (maxBodyRadius <= 0f) {
+            if (maxBodyRadius <= 0f)
+            {
                 return 1;
             }
 
@@ -238,22 +271,27 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             return span * span * span;
         }
 
-        private float GetMaxBodyRadiusFromBehaviours() {
+        private float GetMaxBodyRadiusFromBehaviours()
+        {
             float maxBodyRadius = 0f;
 
-            if (!behaviourSettings.IsCreated || behaviourSettings.Length <= 0) {
+            if (!behaviourSettings.IsCreated || behaviourSettings.Length <= 0)
+            {
                 return maxBodyRadius;
             }
 
-            for (int index = 0; index < behaviourSettings.Length; index += 1) {
+            for (int index = 0; index < behaviourSettings.Length; index += 1)
+            {
                 maxBodyRadius = math.max(maxBodyRadius, behaviourSettings[index].BodyRadius);
             }
 
             return maxBodyRadius;
         }
 
-        private void InitializeAttractorGridDefaults() {
-            for (int index = 0; index < gridCellCount; index += 1) {
+        private void InitializeAttractorGridDefaults()
+        {
+            for (int index = 0; index < gridCellCount; index += 1)
+            {
                 cellToIndividualAttractor[index] = -1;
                 cellToGroupAttractor[index] = -1;
                 cellIndividualPriority[index] = float.NegativeInfinity;
@@ -261,30 +299,36 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockSimulation {
             }
         }
 
-        private float DetermineInitialBaseSpeed() {
+        private float DetermineInitialBaseSpeed()
+        {
             float baseSpeed = 1.0f;
 
-            if (behaviourSettings.IsCreated && behaviourSettings.Length > 0) {
+            if (behaviourSettings.IsCreated && behaviourSettings.Length > 0)
+            {
                 baseSpeed = math.max(0.1f, behaviourSettings[0].MaxSpeed * 0.5f);
             }
 
             return baseSpeed;
         }
 
-        private void InitializeAgentPositionsAndVelocities(float3 center, float3 extents, ref Unity.Mathematics.Random random, float baseSpeed) {
-            for (int index = 0; index < AgentCount; index += 1) {
+        private void InitializeAgentPositionsAndVelocities(float3 center, float3 extents, ref Unity.Mathematics.Random random, float baseSpeed)
+        {
+            for (int index = 0; index < AgentCount; index += 1)
+            {
                 float3 randomOffset = random.NextFloat3(-extents, extents);
                 positions[index] = center + randomOffset;
 
                 float3 direction = math.normalize(random.NextFloat3(-1.0f, 1.0f));
-                if (math.lengthsq(direction) < 1e-4f) {
+                if (math.lengthsq(direction) < 1e-4f)
+                {
                     direction = new float3(0.0f, 0.0f, 1.0f);
                 }
 
                 float3 velocity = direction * baseSpeed;
                 velocities[index] = velocity;
 
-                if (prevVelocities.IsCreated) {
+                if (prevVelocities.IsCreated)
+                {
                     prevVelocities[index] = velocity;
                 }
             }

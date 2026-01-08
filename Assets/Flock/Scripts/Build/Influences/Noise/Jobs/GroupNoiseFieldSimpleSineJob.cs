@@ -1,38 +1,35 @@
+using Flock.Scripts.Build.Influence.Noise.Utilities;
+using Flock.Scripts.Build.Influence.Noise.Data;
+
+using Unity.Jobs;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Jobs;
 using Unity.Mathematics;
-using Flock.Scripts.Build.Influence.Noise.Data;
-using Flock.Scripts.Build.Influence.Noise.Utilities;
 
-namespace Flock.Scripts.Build.Influence.Noise.Jobs {
+namespace Flock.Scripts.Build.Influence.Noise.Jobs
+{
     /**
      * <summary>
      * Generates per-cell noise directions using a simple sine-based field with optional XZ swirl.
      * </summary>
      */
     [BurstCompile]
-    public struct GroupNoiseFieldSimpleSineJob : IJobParallelFor {
-        [ReadOnly]
-        public float Time;
+    public struct GroupNoiseFieldSimpleSineJob : IJobParallelFor
+    {
+        [ReadOnly] public float Time;
+        [ReadOnly] public float Frequency;
 
-        [ReadOnly]
-        public float Frequency;
+        [ReadOnly] public int3 GridResolution;
 
-        [ReadOnly]
-        public int3 GridResolution;
+        [ReadOnly] public FlockGroupNoiseCommonSettings Common;
+        [ReadOnly] public FlockGroupNoiseSimpleSinePayload Payload;
 
-        [ReadOnly]
-        public FlockGroupNoiseCommonSettings Common;
+        [NativeDisableParallelForRestriction] public NativeArray<float3> CellNoise;
 
-        [ReadOnly]
-        public FlockGroupNoiseSimpleSinePayload Payload;
-
-        [NativeDisableParallelForRestriction]
-        public NativeArray<float3> CellNoise;
-
-        public void Execute(int index) {
-            if (!CellNoise.IsCreated || (uint)index >= (uint)CellNoise.Length) {
+        public void Execute(int index)
+        {
+            if (!CellNoise.IsCreated || (uint)index >= (uint)CellNoise.Length)
+            {
                 return;
             }
 
@@ -51,7 +48,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Jobs {
             CellNoise[index] = math.normalizesafe(direction, float3.zero);
         }
 
-        private float3 EvaluateDirection(float3 position, float timeScaled, float3 phase) {
+        private float3 EvaluateDirection(float3 position, float timeScaled, float3 phase)
+        {
             float3 timeVector = new float3(
                 timeScaled * Common.TimeScale.x,
                 timeScaled * Common.TimeScale.y,
@@ -69,15 +67,18 @@ namespace Flock.Scripts.Build.Influence.Noise.Jobs {
             return direction;
         }
 
-        private void ApplySwirl(ref float3 direction, float3 position) {
+        private void ApplySwirl(ref float3 direction, float3 position)
+        {
             float swirlStrength = math.max(0f, Payload.SwirlStrength);
-            if (swirlStrength <= 0f) {
+            if (swirlStrength <= 0f)
+            {
                 return;
             }
 
             float2 swirlPosition = new float2(position.x, position.z);
             float lengthSquared = math.lengthsq(swirlPosition);
-            if (lengthSquared <= 1e-6f) {
+            if (lengthSquared <= 1e-6f)
+            {
                 return;
             }
 

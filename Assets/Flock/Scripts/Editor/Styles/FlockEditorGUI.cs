@@ -2,17 +2,17 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Flock.Scripts.Editor.Window {
+namespace Flock.Scripts.Editor.Window
+{
     /**
     * <summary>
     * Shared styles and helper methods for all flock editor UIs.
     * Keeps section headers / cards consistent across tools.
     * </summary>
     */
-    public static class FlockEditorGUI {
+    public static class FlockEditorGUI
+    {
 
-        // Cached GUIStyles (lazy-initialized).
-        private static GUIStyle _sectionHeader;
         private static GUIStyle _sectionBox;
         private static GUIStyle _cardHeader;
         private static GUIStyle _arrayFoldout;
@@ -23,10 +23,14 @@ namespace Flock.Scripts.Editor.Window {
         * Box style used for array elements, matching Unity's HelpBox but with flock UI padding/margins.
         * </summary>
         */
-        public static GUIStyle ArrayElementBox {
-            get {
-                if (_arrayElementBox == null) {
-                    _arrayElementBox = new GUIStyle("HelpBox") {
+        public static GUIStyle ArrayElementBox
+        {
+            get
+            {
+                if (_arrayElementBox == null)
+                {
+                    _arrayElementBox = new GUIStyle("HelpBox")
+                    {
                         padding = EditorUI.Copy(EditorUI.ArrayElementPadding),
                         margin = EditorUI.Copy(EditorUI.ArrayElementMargin)
                     };
@@ -41,10 +45,14 @@ namespace Flock.Scripts.Editor.Window {
         * Card body style using HelpBox as a base.
         * </summary>
         */
-        public static GUIStyle SectionBox {
-            get {
-                if (_sectionBox == null) {
-                    _sectionBox = new GUIStyle("HelpBox") {
+        public static GUIStyle SectionBox
+        {
+            get
+            {
+                if (_sectionBox == null)
+                {
+                    _sectionBox = new GUIStyle("HelpBox")
+                    {
                         padding = EditorUI.Copy(EditorUI.SectionBoxPadding),
                         margin = EditorUI.Copy(EditorUI.SectionBoxMargin)
                     };
@@ -59,10 +67,14 @@ namespace Flock.Scripts.Editor.Window {
         * Header style for card titles.
         * </summary>
         */
-        public static GUIStyle CardHeader {
-            get {
-                if (_cardHeader == null) {
-                    _cardHeader = new GUIStyle(EditorStyles.boldLabel) {
+        public static GUIStyle CardHeader
+        {
+            get
+            {
+                if (_cardHeader == null)
+                {
+                    _cardHeader = new GUIStyle(EditorStyles.boldLabel)
+                    {
                         alignment = TextAnchor.MiddleLeft
                     };
                 }
@@ -71,11 +83,15 @@ namespace Flock.Scripts.Editor.Window {
             }
         }
 
-        private static GUIStyle ArrayFoldout {
-            get {
-                if (_arrayFoldout == null) {
+        private static GUIStyle ArrayFoldout
+        {
+            get
+            {
+                if (_arrayFoldout == null)
+                {
                     // Keep foldout behavior, but match normal label sizing/weight.
-                    _arrayFoldout = new GUIStyle(EditorStyles.foldout) {
+                    _arrayFoldout = new GUIStyle(EditorStyles.foldout)
+                    {
                         fontStyle = FontStyle.Normal,
                         fontSize = EditorStyles.label.fontSize
                     };
@@ -94,15 +110,18 @@ namespace Flock.Scripts.Editor.Window {
         * <param name="includeChildren">Whether to include child properties.</param>
         * <param name="labelOverride">Optional label override. If null, the display name is used.</param>
         */
-        public static void PropertyFieldClamped(SerializedProperty property, bool includeChildren = true, GUIContent labelOverride = null) {
-            if (property == null) {
+        public static void PropertyFieldClamped(SerializedProperty property, bool includeChildren = true, GUIContent labelOverride = null)
+        {
+            if (property == null)
+            {
                 return;
             }
 
             GUIContent label = labelOverride ?? EditorGUIUtility.TrTextContent(property.displayName);
 
             bool isArray = property.isArray && property.propertyType != SerializedPropertyType.String;
-            if (includeChildren && isArray) {
+            if (includeChildren && isArray)
+            {
                 DrawArrayField(property, label);
                 return;
             }
@@ -127,13 +146,17 @@ namespace Flock.Scripts.Editor.Window {
         * <param name="labelWidth">The label width to apply during the draw callback.</param>
         * <param name="draw">The draw callback.</param>
         */
-        public static void WithLabelWidth(float labelWidth, System.Action draw) {
+        public static void WithLabelWidth(float labelWidth, System.Action draw)
+        {
             float previousLabelWidth = EditorGUIUtility.labelWidth;
             EditorGUIUtility.labelWidth = labelWidth;
 
-            try {
+            try
+            {
                 draw?.Invoke();
-            } finally {
+            }
+            finally
+            {
                 EditorGUIUtility.labelWidth = previousLabelWidth;
             }
         }
@@ -145,7 +168,8 @@ namespace Flock.Scripts.Editor.Window {
         * </summary>
         * <param name="title">The card title.</param>
         */
-        public static void BeginCard(string title) {
+        public static void BeginCard(string title)
+        {
             EditorGUILayout.BeginVertical(SectionBox, GUILayout.ExpandWidth(true));
 
             Rect titleRowRect = GUILayoutUtility.GetRect(0f, EditorUI.CardTitleRowHeight, GUILayout.ExpandWidth(true));
@@ -160,7 +184,8 @@ namespace Flock.Scripts.Editor.Window {
         * Ends a card section started with <see cref="BeginCard"/>.
         * </summary>
         */
-        public static void EndCard() {
+        public static void EndCard()
+        {
             EditorGUILayout.EndVertical();
             EditorGUILayout.Space(EditorUI.CardAfterCardSpace);
         }
@@ -172,7 +197,8 @@ namespace Flock.Scripts.Editor.Window {
             float controlHeight,
             SerializedProperty property,
             GUIContent label,
-            bool includeChildren) {
+            bool includeChildren)
+        {
             GUI.BeginGroup(groupRect);
             {
                 Rect localRect = new Rect(foldoutGutterWidth, 0f, controlWidth, controlHeight);
@@ -181,12 +207,15 @@ namespace Flock.Scripts.Editor.Window {
             GUI.EndGroup();
         }
 
-        private static void DrawArrayField(SerializedProperty arrayProperty, GUIContent label) {
+        private static void DrawArrayField(SerializedProperty arrayProperty, GUIContent label)
+        {
             bool isHeaderless = (label == GUIContent.none) || string.IsNullOrEmpty(label.text);
 
-            if (!isHeaderless) {
+            if (!isHeaderless)
+            {
                 bool isExpanded = DrawArrayHeader(arrayProperty, label);
-                if (!isExpanded) {
+                if (!isExpanded)
+                {
                     return;
                 }
             }
@@ -197,7 +226,8 @@ namespace Flock.Scripts.Editor.Window {
             EditorGUILayout.Space(EditorUI.ArrayFooterSpace);
         }
 
-        private static bool DrawArrayHeader(SerializedProperty arrayProperty, GUIContent label) {
+        private static bool DrawArrayHeader(SerializedProperty arrayProperty, GUIContent label)
+        {
             Rect headerRect = EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight, GUILayout.ExpandWidth(true));
 
             float sizeFieldWidth = EditorUI.ArraySizeFieldWidth;
@@ -208,26 +238,32 @@ namespace Flock.Scripts.Editor.Window {
 
             EditorGUI.BeginChangeCheck();
             int newSize = EditorGUI.IntField(sizeRect, arrayProperty.arraySize);
-            if (EditorGUI.EndChangeCheck()) {
+            if (EditorGUI.EndChangeCheck())
+            {
                 arrayProperty.arraySize = Mathf.Max(0, newSize);
             }
 
             return arrayProperty.isExpanded;
         }
 
-        private static void DrawArrayBody(SerializedProperty arrayProperty, bool isHeaderless) {
+        private static void DrawArrayBody(SerializedProperty arrayProperty, bool isHeaderless)
+        {
             int bodyIndent = isHeaderless ? 0 : 1;
 
-            using (new EditorGUI.IndentLevelScope(bodyIndent)) {
-                if (arrayProperty.arraySize == 0) {
+            using (new EditorGUI.IndentLevelScope(bodyIndent))
+            {
+                if (arrayProperty.arraySize == 0)
+                {
                     EditorGUILayout.LabelField("List is Empty", EditorStyles.miniLabel);
                     return;
                 }
 
-                for (int elementIndex = 0; elementIndex < arrayProperty.arraySize; elementIndex++) {
+                for (int elementIndex = 0; elementIndex < arrayProperty.arraySize; elementIndex++)
+                {
                     SerializedProperty elementProperty = arrayProperty.GetArrayElementAtIndex(elementIndex);
 
-                    using (new EditorGUILayout.VerticalScope(ArrayElementBox)) {
+                    using (new EditorGUILayout.VerticalScope(ArrayElementBox))
+                    {
                         // Elements draw aligned like normal fields (and nested arrays still work).
                         PropertyFieldClamped(elementProperty, includeChildren: true);
                     }
@@ -235,16 +271,21 @@ namespace Flock.Scripts.Editor.Window {
             }
         }
 
-        private static void DrawArrayFooter(SerializedProperty arrayProperty) {
-            using (new EditorGUILayout.HorizontalScope()) {
+        private static void DrawArrayFooter(SerializedProperty arrayProperty)
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
                 GUILayout.FlexibleSpace();
 
-                if (GUILayout.Button("+", EditorStyles.miniButtonLeft, GUILayout.Width(EditorUI.ArrayPlusMinusButtonWidth))) {
+                if (GUILayout.Button("+", EditorStyles.miniButtonLeft, GUILayout.Width(EditorUI.ArrayPlusMinusButtonWidth)))
+                {
                     arrayProperty.arraySize += 1;
                 }
 
-                using (new EditorGUI.DisabledScope(arrayProperty.arraySize == 0)) {
-                    if (GUILayout.Button("-", EditorStyles.miniButtonRight, GUILayout.Width(EditorUI.ArrayPlusMinusButtonWidth))) {
+                using (new EditorGUI.DisabledScope(arrayProperty.arraySize == 0))
+                {
+                    if (GUILayout.Button("-", EditorStyles.miniButtonRight, GUILayout.Width(EditorUI.ArrayPlusMinusButtonWidth)))
+                    {
                         arrayProperty.arraySize = Mathf.Max(0, arrayProperty.arraySize - 1);
                     }
                 }

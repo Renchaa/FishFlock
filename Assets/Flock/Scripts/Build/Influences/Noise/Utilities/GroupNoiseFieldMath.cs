@@ -1,16 +1,19 @@
 using Unity.Mathematics;
 
-namespace Flock.Scripts.Build.Influence.Noise.Utilities {
+namespace Flock.Scripts.Build.Influence.Noise.Utilities
+{
     /**
      * <summary>
      * Math utilities for mapping grid cells into group-noise pattern space and generating
      * stable per-cell hash phases.
      * </summary>
      */
-    internal static class GroupNoiseFieldMath {
+    internal static class GroupNoiseFieldMath
+    {
         internal const float TwoPi = 6.2831853f;
 
-        internal static int3 IndexToCell(int index, int3 resolution) {
+        internal static int3 IndexToCell(int index, int3 resolution)
+        {
             int resolutionX = math.max(1, resolution.x);
             int resolutionY = math.max(1, resolution.y);
             int layerSize = resolutionX * resolutionY;
@@ -23,7 +26,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Utilities {
             return new int3(xIndex, yIndex, zIndex);
         }
 
-        internal static float3 CellToUVW(int3 cell, int3 resolution) {
+        internal static float3 CellToUVW(int3 cell, int3 resolution)
+        {
             float3 gridSize = new float3(
                 math.max(1, resolution.x),
                 math.max(1, resolution.y),
@@ -37,19 +41,22 @@ namespace Flock.Scripts.Build.Influence.Noise.Utilities {
             return cellCenter / gridSize;
         }
 
-        internal static float3 UVWToP(float3 uvw, float worldScale) {
+        internal static float3 UVWToP(float3 uvw, float worldScale)
+        {
             float3 centered = (uvw - 0.5f) * 2f;
             return centered * worldScale;
         }
 
-        internal static float ComputeT(float time, float frequency, float baseFrequency) {
+        internal static float ComputeT(float time, float frequency, float baseFrequency)
+        {
             float clampedFrequency = math.max(frequency, 0f);
             float clampedBaseFrequency = math.max(baseFrequency, 0f);
 
             return time * (clampedFrequency * clampedBaseFrequency);
         }
 
-        internal static uint HashCell(uint baseSeed, int3 cell) {
+        internal static uint HashCell(uint baseSeed, int3 cell)
+        {
             uint seed = baseSeed;
             seed ^= (uint)cell.x * 73856093u;
             seed ^= (uint)cell.y * 19349663u;
@@ -58,7 +65,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Utilities {
             return seed;
         }
 
-        internal static float Hash01(uint seed) {
+        internal static float Hash01(uint seed)
+        {
             seed ^= seed >> 17;
             seed *= 0xED5AD4BBu;
             seed ^= seed >> 11;
@@ -70,7 +78,8 @@ namespace Flock.Scripts.Build.Influence.Noise.Utilities {
             return (seed >> 8) * (1.0f / 16777216.0f);
         }
 
-        internal static float3 ComputeHashPhase(uint baseSeed, int3 cell) {
+        internal static float3 ComputeHashPhase(uint baseSeed, int3 cell)
+        {
             uint cellHash = HashCell(baseSeed, cell);
 
             float phaseX = Hash01(cellHash ^ 0xA2C2A1EDu);
