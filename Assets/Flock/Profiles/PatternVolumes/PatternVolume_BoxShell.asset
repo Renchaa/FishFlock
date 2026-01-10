@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e72401ec3a909604fa6c515795b14639, type: 3}
+  m_Name: PatternVolume_BoxShell
+  m_EditorClassIdentifier: 
+  enabled: 1
+  strength: 100
+  affectedTypes:
+  - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
+  useBoundsCenter: 1
+  centerNorm: {x: 0.5, y: 0.5, z: 0.5}
+  halfExtents: {x: 3, y: 3, z: 3}
+  thickness: 2

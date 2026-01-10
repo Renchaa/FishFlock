@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47e0eaefa1b0f4b45b356bbb3ff14cb4, type: 3}
+  m_Name: SharkProfile
+  m_EditorClassIdentifier: 
+  maxSpeed: 4
+  maxAcceleration: 7
+  desiredSpeed: 3
+  wanderStrength: 0.2
+  wanderFrequency: 0.1
+  groupNoiseStrength: 0.5
+  groupNoiseDirectionRate: 0.2
+  groupNoiseSpeedWeight: 0.663
+  patternWeight: 1
+  groupFlowWeight: 0.8
+  bodyRadius: 1
+  schoolingSpacingFactor: 0.5
+  schoolingOuterFactor: 1.5
+  schoolingStrength: 2
+  schoolingInnerSoftness: 0.308
+  schoolingRadialDamping: 0.7
+  schoolingDeadzoneFraction: 0.109
+  neighbourRadius: 2
+  separationRadius: 1.5
+  alignmentWeight: 0.8
+  cohesionWeight: 0.6
+  separationWeight: 1.4
+  influenceWeight: 0.01
+  avoidanceWeight: 5
+  neutralWeight: 1
+  attractionResponse: 1
+  avoidResponse: 1.5
+  splitPanicThreshold: 0.275
+  splitLateralWeight: 0.482
+  splitAccelBoost: 0.4
+  attractionWeight: 1
+  boundsWeight: 2
+  boundsTangentialDamping: 0.8
+  boundsInfluenceSuppression: 0.5
+  minGroupSize: 1
+  maxGroupSize: 2
+  minGroupSizeWeight: 3
+  maxGroupSizeWeight: 3
+  usePreferredDepth: 0
+  preferredDepthMin: 0.698
+  preferredDepthMax: 1
+  preferredDepthWeight: 5
+  depthBiasStrength: 3
+  depthWinsOverAttractor: 1
+  groupRadiusMultiplier: 1
+  lonerRadiusMultiplier: 1
+  lonerCohesionBoost: 1
+  preferredDepthEdgeFraction: 0
+  maxNeighbourChecks: 128
+  maxFriendlySamples: 24
+  maxSeparationSamples: 64

@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b8d3c87e170db146a63203da36ff003, type: 3}
+  m_Name: Shark
+  m_EditorClassIdentifier: 
+  displayName: Shark
+  behaviourProfile: {fileID: 11400000, guid: 9981b6622fbf22e49a5b67e2068ceb61, type: 2}
+  prefab: {fileID: 1193305330342240808, guid: 3424f2c7b90026947bef98694207061c, type: 3}

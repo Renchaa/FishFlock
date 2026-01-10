@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5873904421353f94ea0730c36d405216, type: 3}
+  m_Name: TestFishInteractionMatrix
+  m_EditorClassIdentifier: 
+  fishTypes:
+  - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
+  - {fileID: 11400000, guid: 9b8fabc2b6bb6a543b9837e3eb25c256, type: 2}
+  - {fileID: 11400000, guid: 38156f34bc920e1478ec13a50ae36497, type: 2}
+  - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
+  interactionFlags: 01010101010101010101010101010101
+  relationTypes: 01000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  neutralWeights:
+  - 1
+  - 1
+  - 1
+  - 1
+  leadershipWeights:
+  - 1
+  - 1
+  - 1
+  - 1
+  avoidanceWeights:
+  - 1
+  - 1
+  - 1
+  - 1
+  defaultLeadershipWeight: 1
+  defaultAvoidanceWeight: 1
+  defaultNeutralWeight: 1

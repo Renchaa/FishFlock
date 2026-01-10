@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47e0eaefa1b0f4b45b356bbb3ff14cb4, type: 3}
+  m_Name: WhaleProfile
+  m_EditorClassIdentifier: 
+  maxSpeed: 0.5
+  maxAcceleration: 0.75
+  desiredSpeed: 0.25
+  wanderStrength: 0
+  wanderFrequency: 0.5
+  groupNoiseStrength: 0
+  patternWeight: 0
+  groupFlowWeight: 0.75
+  bodyRadius: 0.5
+  schoolingSpacingFactor: 1.25
+  schoolingOuterFactor: 2
+  schoolingStrength: 1
+  schoolingInnerSoftness: 1
+  schoolingRadialDamping: 1
+  schoolingDeadzoneFraction: 0.1
+  neighbourRadius: 3
+  separationRadius: 1
+  alignmentWeight: 0.8
+  cohesionWeight: 0.7
+  separationWeight: 1
+  influenceWeight: 0.8
+  avoidanceWeight: 3
+  neutralWeight: 1
+  attractionResponse: 1
+  avoidResponse: 2
+  splitPanicThreshold: 0.4
+  splitLateralWeight: 0.8
+  splitAccelBoost: 1
+  attractionWeight: 5
+  boundsWeight: 1
+  boundsTangentialDamping: 1.5
+  boundsInfluenceSuppression: 1
+  minGroupSize: 3
+  maxGroupSize: 10
+  minGroupSizeWeight: 1
+  maxGroupSizeWeight: 1
+  usePreferredDepth: 0
+  preferredDepthMin: 0
+  preferredDepthMax: 1
+  preferredDepthWeight: 1
+  depthBiasStrength: 1
+  depthWinsOverAttractor: 1
+  groupRadiusMultiplier: 1
+  lonerRadiusMultiplier: 2
+  lonerCohesionBoost: 1.5
+  preferredDepthEdgeFraction: 0.25

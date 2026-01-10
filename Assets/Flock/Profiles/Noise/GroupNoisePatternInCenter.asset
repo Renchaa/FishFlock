@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3826b696077b4b24f9b5f4be623db280, type: 3}
+  m_Name: GroupNoisePatternInCenter
+  m_EditorClassIdentifier: 
+  baseFrequency: 100
+  timeScale: {x: 1, y: 1, z: 1}
+  phaseOffset: {x: 0, y: 0, z: 0}
+  worldScale: 1
+  seed: 0
+  patternType: 0
+  swirlStrength: 1000
+  verticalBias: 0.15
+  vortexCenterNorm: {x: 0.5, y: 0.5, z: 0.5}
+  vortexRadius: 14
+  vortexTightness: 1
+  sphereRadius: 4
+  sphereThickness: 2
+  sphereSwirlStrength: 10
+  sphereCenterNorm: {x: 0.5, y: 0.5, z: 0.5}

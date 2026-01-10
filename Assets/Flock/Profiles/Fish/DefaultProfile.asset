@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47e0eaefa1b0f4b45b356bbb3ff14cb4, type: 3}
+  m_Name: DefaultProfile
+  m_EditorClassIdentifier: 
+  maxSpeed: 5
+  maxAcceleration: 7
+  desiredSpeed: 2.5
+  wanderStrength: 0.3
+  wanderFrequency: 0.2
+  groupNoiseStrength: 2
+  groupNoiseDirectionRate: 1.5
+  groupNoiseSpeedWeight: 0.821
+  patternWeight: 0
+  groupFlowWeight: 1.366
+  bodyRadius: 0.2
+  schoolingSpacingFactor: 0.8
+  schoolingOuterFactor: 2
+  schoolingStrength: 5.68
+  schoolingInnerSoftness: 0.3
+  schoolingRadialDamping: 0.7
+  schoolingDeadzoneFraction: 0.3
+  neighbourRadius: 3
+  separationRadius: 1
+  alignmentWeight: 1.2
+  cohesionWeight: 0.8
+  separationWeight: 2
+  influenceWeight: 0.005
+  avoidanceWeight: 10
+  neutralWeight: 1
+  attractionResponse: 1
+  avoidResponse: 1.5
+  splitPanicThreshold: 0.4
+  splitLateralWeight: 0.8
+  splitAccelBoost: 1
+  attractionWeight: 1
+  boundsWeight: 5
+  boundsTangentialDamping: 0.8
+  boundsInfluenceSuppression: 0
+  minGroupSize: 100
+  maxGroupSize: 300
+  minGroupSizeWeight: 3
+  maxGroupSizeWeight: 1
+  usePreferredDepth: 0
+  preferredDepthMin: 0
+  preferredDepthMax: 0.441
+  preferredDepthWeight: 0.3
+  depthBiasStrength: 0.2
+  depthWinsOverAttractor: 1
+  groupRadiusMultiplier: 1
+  lonerRadiusMultiplier: 1.5
+  lonerCohesionBoost: 2.73
+  preferredDepthEdgeFraction: 0.2
