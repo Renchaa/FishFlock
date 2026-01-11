@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: Tilpia
   m_EditorClassIdentifier: 
   displayName: Tilapia
-  behaviourProfile: {fileID: 11400000, guid: f56a99c4059c4b947b1bc591001d04e1, type: 2}
+  behaviourProfile: {fileID: 11400000, guid: 779c888ac58ed6c47ba9790d09f0028a, type: 2}
   prefab: {fileID: 6466363788717974666, guid: 2eae9d3580f4ed94da78e2c377990de6, type: 3}

@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47e0eaefa1b0f4b45b356bbb3ff14cb4, type: 3}
   m_Name: SharkProfile
   m_EditorClassIdentifier: 
-  maxSpeed: 4
-  maxAcceleration: 7
-  desiredSpeed: 3
+  maxSpeed: 2
+  maxAcceleration: 4
+  desiredSpeed: 1
   wanderStrength: 0.2
   wanderFrequency: 0.1
   groupNoiseStrength: 0.5
@@ -22,7 +22,7 @@ MonoBehaviour:
   groupNoiseSpeedWeight: 0.663
   patternWeight: 1
   groupFlowWeight: 0.8
-  bodyRadius: 1
+  bodyRadius: 1.5
   schoolingSpacingFactor: 0.5
   schoolingOuterFactor: 1.5
   schoolingStrength: 2
@@ -35,16 +35,16 @@ MonoBehaviour:
   cohesionWeight: 0.6
   separationWeight: 1.4
   influenceWeight: 0.01
-  avoidanceWeight: 5
+  avoidanceWeight: 1
   neutralWeight: 1
   attractionResponse: 1
-  avoidResponse: 1.5
+  avoidResponse: 1
   splitPanicThreshold: 0.275
   splitLateralWeight: 0.482
   splitAccelBoost: 0.4
   attractionWeight: 1
-  boundsWeight: 2
-  boundsTangentialDamping: 0.8
+  boundsWeight: 10
+  boundsTangentialDamping: 0.2
   boundsInfluenceSuppression: 0.5
   minGroupSize: 1
   maxGroupSize: 2
@@ -62,4 +62,4 @@ MonoBehaviour:
   preferredDepthEdgeFraction: 0
   maxNeighbourChecks: 128
   maxFriendlySamples: 24
-  maxSeparationSamples: 64
+  maxSeparationSamples: 1000

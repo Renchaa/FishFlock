@@ -12,16 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47e0eaefa1b0f4b45b356bbb3ff14cb4, type: 3}
   m_Name: TilapiaProfile
   m_EditorClassIdentifier: 
-  maxSpeed: 1
-  maxAcceleration: 1.5
-  desiredSpeed: 0.5
+  maxSpeed: 4
+  maxAcceleration: 8
+  desiredSpeed: 2
   wanderStrength: 0.1
   wanderFrequency: 0.1
   groupNoiseStrength: 0.5
   groupNoiseDirectionRate: 1
   groupNoiseSpeedWeight: 0.512
   patternWeight: 1
-  groupFlowWeight: 2
+  groupFlowWeight: 1.8
   bodyRadius: 0.8
   schoolingSpacingFactor: 1.2
   schoolingOuterFactor: 1.6
@@ -30,22 +30,22 @@ MonoBehaviour:
   schoolingRadialDamping: 0.7
   schoolingDeadzoneFraction: 0.219
   neighbourRadius: 1.5
-  separationRadius: 0.5
+  separationRadius: 0.8
   alignmentWeight: 0.8
   cohesionWeight: 0.6
-  separationWeight: 1.4
-  influenceWeight: 0.01
-  avoidanceWeight: 5
+  separationWeight: 5
+  influenceWeight: 0.1
+  avoidanceWeight: 1000
   neutralWeight: 1
   attractionResponse: 1
-  avoidResponse: 1.5
-  splitPanicThreshold: 0.228
-  splitLateralWeight: 0.415
-  splitAccelBoost: 0.39
+  avoidResponse: 1000
+  splitPanicThreshold: 0.198
+  splitLateralWeight: 2
+  splitAccelBoost: 3
   attractionWeight: 1
-  boundsWeight: 1
-  boundsTangentialDamping: 0.8
-  boundsInfluenceSuppression: 0.5
+  boundsWeight: 8
+  boundsTangentialDamping: 2
+  boundsInfluenceSuppression: 1
   minGroupSize: 50
   maxGroupSize: 1000
   minGroupSizeWeight: 3
