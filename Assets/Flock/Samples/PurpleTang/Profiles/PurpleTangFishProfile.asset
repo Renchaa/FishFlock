@@ -19,7 +19,7 @@ MonoBehaviour:
   wanderFrequency: 0.1
   groupNoiseStrength: 0.5
   groupNoiseDirectionRate: 1
-  groupNoiseSpeedWeight: 0.512
+  groupNoiseSpeedWeight: 0.5
   patternWeight: 1
   groupFlowWeight: 1.807
   bodyRadius: 0.3
@@ -35,8 +35,6 @@ MonoBehaviour:
   cohesionWeight: 0.6
   separationWeight: 1.4
   influenceWeight: 0.1
-  avoidanceWeight: 1
-  neutralWeight: 2
   attractionResponse: 2
   avoidResponse: 100
   splitPanicThreshold: 0.148

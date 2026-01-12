@@ -181,7 +181,6 @@ namespace Flock.Scripts.Build.Utilities.Data
             uint[] avoidMasks,
             uint[] neutralMasks)
         {
-            // Just enforce symmetry to be safe (editor already does it, but whatever).
             for (int firstTypeIndex = 0; firstTypeIndex < fishTypeCount; firstTypeIndex++)
             {
                 for (int secondTypeIndex = firstTypeIndex + 1;

@@ -4528,7 +4528,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &596208762
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6016,7 +6016,7 @@ MonoBehaviour:
   enabledLogCategories: 16
   debugDrawBounds: 1
   debugDrawGrid: 0
-  debugDrawAgents: 1
+  debugDrawAgents: 0
   debugDrawNeighbourhood: 0
   debugAgentIndex: 0
   debugDrawBodyRadius: 1
@@ -6161,7 +6161,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &745878723
 Transform:
   m_ObjectHideFlags: 0

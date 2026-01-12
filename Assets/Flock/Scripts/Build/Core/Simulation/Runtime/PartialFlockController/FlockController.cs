@@ -659,6 +659,5 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController
             Running = 1,
             Paused = 2
         }
-
     }
 }
