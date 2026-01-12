@@ -1,0 +1,6 @@
+scene - includes all the meshes with the default Unity shader.
+
+scene_Shadergraph - includes meshes using a custom shader, simulating the ocean movement (a tweaked wind shader).
+The prefabs are located inside "prefabs/Shader_Wind".
+The materials are located inside "materials/Shadergraph".
+The shader graphs are located inside "Shadergraph". They are fully editable.

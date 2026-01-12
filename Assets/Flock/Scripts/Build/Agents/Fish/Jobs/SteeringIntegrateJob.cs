@@ -89,9 +89,15 @@ namespace Flock.Scripts.Build.Agents.Fish.Jobs
 
             float3 steeringAcceleration = ComputeCoreSteering(behaviourContext, neighbourAggregate, behaviourSettings, alignmentWeight, cohesionWeight, separationWeight);
             steeringAcceleration = AddGroupFlowSteering(steeringAcceleration, behaviourContext.Velocity, neighbourAggregate, behaviourSettings);
+
             steeringAcceleration = ApplySplitBehaviour(agentIndex, steeringAcceleration, behaviourContext.Velocity, neighbourAggregate, behaviourSettings, ref maximumSpeed, ref maximumAcceleration, separationWeight);
 
+            // NEW: species avoidance is standalone (obstacle-like channel)
+            steeringAcceleration += ComputeAvoidSpeciesSteering(neighbourAggregate, maximumAcceleration);
+
             steeringAcceleration = AddObstacleAvoidanceSteering(agentIndex, steeringAcceleration);
+
+
             steeringAcceleration += ComputeAttractionSteering(agentIndex);
             steeringAcceleration += ComputePropulsionAcceleration(behaviourContext.Velocity, behaviourSettings.DesiredSpeed);
 
@@ -222,15 +228,34 @@ namespace Flock.Scripts.Build.Agents.Fish.Jobs
 
         private static float3 ComputeSeparationSteering(NeighbourAggregate neighbourAggregate, float separationWeight, float separationPanicMultiplier)
         {
-            if (neighbourAggregate.SeparationCount <= 0)
+            int coreSeparationCount = neighbourAggregate.SeparationCount;
+            if (coreSeparationCount <= 0)
             {
                 return float3.zero;
             }
 
-            float inverseSeparationCount = 1f / neighbourAggregate.SeparationCount;
+            float inverseSeparationCount = 1f / coreSeparationCount;
             float3 separationAverage = neighbourAggregate.SeparationSum * inverseSeparationCount;
 
             return separationAverage * separationWeight * separationPanicMultiplier;
+        }
+
+
+        private static float3 ComputeAvoidSpeciesSteering(NeighbourAggregate neighbourAggregate, float maximumAcceleration)
+        {
+            if (neighbourAggregate.AvoidSeparationCount <= 0 || neighbourAggregate.AvoidDanger <= 0f)
+            {
+                return float3.zero;
+            }
+
+            float3 direction = math.normalizesafe(neighbourAggregate.AvoidSeparationSum, float3.zero);
+            if (math.lengthsq(direction) < 1e-8f)
+            {
+                return float3.zero;
+            }
+
+            // Obstacle-like: direction from aggregate, magnitude from strongest local danger.
+            return direction * (neighbourAggregate.AvoidDanger * maximumAcceleration);
         }
 
         private static float3 AddGroupFlowSteering(float3 steeringAcceleration, float3 currentVelocity, NeighbourAggregate neighbourAggregate, FlockBehaviourSettings behaviourSettings)

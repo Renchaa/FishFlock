@@ -14,14 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   FishTypes:
   - {fileID: 11400000, guid: 7b102d1db780a5947a21d2887490831f, type: 2}
-  - {fileID: 11400000, guid: 9b8fabc2b6bb6a543b9837e3eb25c256, type: 2}
   - {fileID: 11400000, guid: 38156f34bc920e1478ec13a50ae36497, type: 2}
-  - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
   - {fileID: 11400000, guid: 5574d2f70c704644aaff410e18b61995, type: 2}
   - {fileID: 11400000, guid: 9dacd700e32e6734d90bbadd73e705e6, type: 2}
-  - {fileID: 11400000, guid: 690375e4412be33468b8c7f1d7450151, type: 2}
   - {fileID: 11400000, guid: c87dd1d972edb854780c095120192f57, type: 2}
   - {fileID: 11400000, guid: 234151c80dd699f40b316684ef9acf82, type: 2}
   InteractionMatrix: {fileID: 11400000, guid: 69997841281513840a4f142d2cae17de, type: 2}
-  GroupNoiseSettings: {fileID: 11400000, guid: 0cf9db20c6ef69a40aba5e2a14a83848, type: 2}
+  GroupNoiseSettings: {fileID: 11400000, guid: 5db971d17ac9bec4388a58f9b56f0a70, type: 2}
   PatternAssets: []

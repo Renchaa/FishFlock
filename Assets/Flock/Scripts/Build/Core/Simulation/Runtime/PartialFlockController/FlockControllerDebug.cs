@@ -20,11 +20,6 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController
         {
             FlockEnvironmentData environmentData = BuildEnvironmentData();
 
-            if (debugDrawBounds)
-            {
-                DrawBoundsGizmos(environmentData);
-            }
-
             if (!Application.isPlaying || simulation == null || !simulation.IsCreated)
             {
                 return;
@@ -46,6 +41,16 @@ namespace Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController
             if (debugDrawNeighbourhood)
             {
                 DrawNeighbourhoodGizmos(positions, velocities, environmentData);
+            }
+        }
+
+        private void OnDrawGizmos()
+        {
+            FlockEnvironmentData environmentData = BuildEnvironmentData();
+
+            if (debugDrawBounds)
+            {
+                DrawBoundsGizmos(environmentData);
             }
         }
 

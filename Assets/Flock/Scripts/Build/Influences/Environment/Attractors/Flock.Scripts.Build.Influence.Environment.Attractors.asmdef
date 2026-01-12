@@ -2,9 +2,9 @@
     "name": "Flock.Scripts.Build.Influence.Environment.Attractors",
     "rootNamespace": "",
     "references": [
+        "GUID:d8b63aba1907145bea998dd612889d6b",
         "GUID:e0cd26848372d4e5c891c569017e11f1",
         "GUID:2665a8d13d1b3f18800f46e256720795",
-        "GUID:d8b63aba1907145bea998dd612889d6b",
         "GUID:b56619cea2cbe3f4bacbf92fb8bab8d8",
         "GUID:946698928f040e84b87bfd65c4ab54a2",
         "GUID:bace9149c4e58f44089eed897cf9cd03"

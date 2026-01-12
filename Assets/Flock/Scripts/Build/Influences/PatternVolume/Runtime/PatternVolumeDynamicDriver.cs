@@ -53,6 +53,12 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime
         [SerializeField]
         private float boxThickness = -1f;
 
+        [Header("Affected Types")]
+
+        [Tooltip("Bitmask of fish types affected by this pattern. Bits map to indices in FlockController.FishTypes.")]
+        [SerializeField]
+        private uint affectedTypesMask = uint.MaxValue;
+
         [Header("Pattern")]
 
         [Tooltip("Overall strength applied by the pattern updates.")]
@@ -161,12 +167,15 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime
                 return;
             }
 
-            controller = GetComponent<FlockController>();
+            controller = GetComponent<FlockController>()
+                ?? GetComponentInParent<FlockController>();
         }
+
 
         private void UpdatePattern()
         {
             float3 centerPosition = GetCenterPosition();
+            uint mask = GetAffectedTypesMaskClamped();
 
             switch (shape)
             {
@@ -177,7 +186,7 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime
                         sphereRadius,
                         sphereThickness,
                         strength,
-                        AllAffectedTypesMask);
+                        mask);
                     return;
 
                 case PatternVolumeShape.BoxShell:
@@ -187,13 +196,15 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime
                         (float3)boxHalfExtents,
                         boxThickness,
                         strength,
-                        AllAffectedTypesMask);
+                        mask);
                     return;
             }
         }
 
         private PatternVolumeHandle StartPattern(float3 centerPosition)
         {
+            uint mask = GetAffectedTypesMaskClamped();
+
             switch (shape)
             {
                 case PatternVolumeShape.SphereShell:
@@ -202,7 +213,7 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime
                         sphereRadius,
                         sphereThickness,
                         strength,
-                        AllAffectedTypesMask);
+                        mask);
 
                 case PatternVolumeShape.BoxShell:
                     return controller.StartRuntimeBoxShell(
@@ -210,7 +221,7 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime
                         (float3)boxHalfExtents,
                         boxThickness,
                         strength,
-                        AllAffectedTypesMask);
+                        mask);
 
                 default:
                     return PatternVolumeHandle.Invalid;
@@ -222,5 +233,28 @@ namespace Flock.Scripts.Build.Influence.PatternVolume.Runtime
             Transform trackingTransform = target != null ? target : transform;
             return (float3)trackingTransform.position;
         }
+
+        private uint GetAffectedTypesMaskClamped()
+        {
+            if (controller == null)
+            {
+                return 0u;
+            }
+
+            int count = controller.FishTypes != null ? controller.FishTypes.Length : 0;
+            if (count <= 0)
+            {
+                return 0u;
+            }
+
+            // uint mask implies a 32-type hard cap.
+            uint validBits = (count >= 32)
+                ? uint.MaxValue
+                : ((1u << count) - 1u);
+
+            return affectedTypesMask & validBits;
+        }
+
+
     }
 }

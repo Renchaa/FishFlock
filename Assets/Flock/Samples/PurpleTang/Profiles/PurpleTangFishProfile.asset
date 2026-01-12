@@ -21,7 +21,7 @@ MonoBehaviour:
   groupNoiseDirectionRate: 1
   groupNoiseSpeedWeight: 0.512
   patternWeight: 1
-  groupFlowWeight: 2
+  groupFlowWeight: 1.807
   bodyRadius: 0.3
   schoolingSpacingFactor: 1.2
   schoolingOuterFactor: 1.6
@@ -34,14 +34,14 @@ MonoBehaviour:
   alignmentWeight: 0.8
   cohesionWeight: 0.6
   separationWeight: 1.4
-  influenceWeight: 0.01
-  avoidanceWeight: 5
-  neutralWeight: 1
-  attractionResponse: 1
-  avoidResponse: 1.5
-  splitPanicThreshold: 0.228
-  splitLateralWeight: 0.415
-  splitAccelBoost: 0.39
+  influenceWeight: 0.1
+  avoidanceWeight: 1
+  neutralWeight: 2
+  attractionResponse: 2
+  avoidResponse: 100
+  splitPanicThreshold: 0.148
+  splitLateralWeight: 0.299
+  splitAccelBoost: 0.24
   attractionWeight: 1
   boundsWeight: 3
   boundsTangentialDamping: 1.3

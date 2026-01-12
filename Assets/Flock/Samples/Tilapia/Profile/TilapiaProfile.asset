@@ -35,10 +35,10 @@ MonoBehaviour:
   cohesionWeight: 0.6
   separationWeight: 5
   influenceWeight: 0.1
-  avoidanceWeight: 1000
+  avoidanceWeight: 2
   neutralWeight: 1
-  attractionResponse: 1
-  avoidResponse: 1000
+  attractionResponse: 2
+  avoidResponse: 2
   splitPanicThreshold: 0.198
   splitLateralWeight: 2
   splitAccelBoost: 3

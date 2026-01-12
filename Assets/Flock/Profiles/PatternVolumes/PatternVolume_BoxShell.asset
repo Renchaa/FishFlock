@@ -15,8 +15,8 @@ MonoBehaviour:
   enabled: 1
   strength: 100
   affectedTypes:
-  - {fileID: 11400000, guid: 92c61cbc5c70b71428b1132e4fad548f, type: 2}
+  - {fileID: 11400000, guid: c87dd1d972edb854780c095120192f57, type: 2}
   useBoundsCenter: 1
   centerNorm: {x: 0.5, y: 0.5, z: 0.5}
   halfExtents: {x: 3, y: 3, z: 3}
-  thickness: 2
+  thickness: 3

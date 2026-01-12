@@ -105,13 +105,6 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles
         [Tooltip("Weight of external influence sources relative to the core flocking rules.")]
         [SerializeField] float influenceWeight = 1.0f;
 
-        [Header("Relationships")]
-        [Tooltip("Baseline weight applied when avoiding other types.")]
-        [SerializeField, Min(0f)] float avoidanceWeight = 1.0f;
-
-        [Tooltip("Baseline weight applied when interacting with neutral types.")]
-        [SerializeField, Min(0f)] float neutralWeight = 1.0f;
-
         [Tooltip("Response multiplier when attracted to another type.")]
         [SerializeField, Min(0f)] float attractionResponse = 1.0f;
 
@@ -269,13 +262,14 @@ namespace Flock.Scripts.Build.Agents.Fish.Profiles
 
         private void ApplyRelationshipDefaults(ref FlockBehaviourSettings settings)
         {
-            // Relationship-related defaults – will be overridden by interaction matrix.
-            settings.AvoidanceWeight = Mathf.Max(0f, avoidanceWeight);
-            settings.NeutralWeight = Mathf.Max(0f, neutralWeight);
+            settings.AvoidanceWeight = 1.0f;
+            settings.NeutralWeight = 1.0f;
 
+            // Masks are always matrix-driven; default to none.
             settings.AvoidMask = 0u;
             settings.NeutralMask = 0u;
         }
+
 
         private void ApplyRuleWeightSettings(ref FlockBehaviourSettings settings)
         {

@@ -1,0 +1,5 @@
+If you are using HDRP workflow, any texture named "_AO" or "_MetalicSmoothness" can be removed from the project as those won't be used.
+
+When unpacking your preferred workflow, overwriting is OK to do. :)
+
+A dedicated vegetation shader should be used for the best results!

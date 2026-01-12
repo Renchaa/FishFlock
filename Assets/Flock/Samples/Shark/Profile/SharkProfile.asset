@@ -39,9 +39,9 @@ MonoBehaviour:
   neutralWeight: 1
   attractionResponse: 1
   avoidResponse: 1
-  splitPanicThreshold: 0.275
-  splitLateralWeight: 0.482
-  splitAccelBoost: 0.4
+  splitPanicThreshold: 0.107
+  splitLateralWeight: 0.235
+  splitAccelBoost: 0.17
   attractionWeight: 1
   boundsWeight: 10
   boundsTangentialDamping: 0.2

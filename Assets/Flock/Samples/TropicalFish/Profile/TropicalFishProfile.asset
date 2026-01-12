@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47e0eaefa1b0f4b45b356bbb3ff14cb4, type: 3}
   m_Name: TropicalFishProfile
   m_EditorClassIdentifier: 
-  maxSpeed: 3
-  maxAcceleration: 6
+  maxSpeed: 6
+  maxAcceleration: 8
   desiredSpeed: 4
   wanderStrength: 0.1
   wanderFrequency: 0.1
@@ -35,13 +35,13 @@ MonoBehaviour:
   cohesionWeight: 0.6
   separationWeight: 1.4
   influenceWeight: 0.01
-  avoidanceWeight: 5
-  neutralWeight: 1
-  attractionResponse: 1
+  avoidanceWeight: 1
+  neutralWeight: 2
+  attractionResponse: 2
   avoidResponse: 1.5
-  splitPanicThreshold: 0.228
-  splitLateralWeight: 0.415
-  splitAccelBoost: 0.39
+  splitPanicThreshold: 0.089
+  splitLateralWeight: 0.217
+  splitAccelBoost: 0.21
   attractionWeight: 1
   boundsWeight: 3
   boundsTangentialDamping: 1.3

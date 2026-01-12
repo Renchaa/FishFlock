@@ -18,6 +18,7 @@ namespace Flock.Scripts.Build.Agents.Fish.Data
 
         public int LeaderNeighbourCount;
         public int SeparationCount;
+        public int AvoidSeparationCount;
         public int FriendlyNeighbourCount;
 
         public float AlignmentWeightSum;

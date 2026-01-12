@@ -489,6 +489,7 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs
             scanState.LeaderTieSamples += 1;
         }
 
+
         private static void AccumulateAvoidNeighbour(
             FlockBehaviourSettings neighbourBehaviourSettings,
             float3 directionUnit,
@@ -507,27 +508,24 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs
                 return;
             }
 
-            float weightDelta = neighbourAvoidWeight - scanState.AvoidanceWeight;
-            float normalised = weightDelta / math.max(neighbourAvoidWeight, 1e-3f);
-
-            float localIntensity = proximityWeight * normalised * scanState.AvoidResponse;
+            float localIntensity = proximityWeight * scanState.AvoidResponse;
 
             if (localIntensity > accumulator.AvoidDanger)
             {
                 accumulator.AvoidDanger = localIntensity;
             }
 
-            bool canAddSeparation = scanState.MaximumSeparationSamples == 0 || accumulator.SeparationCount < scanState.MaximumSeparationSamples;
-            if (!canAddSeparation)
+            bool canAddAvoid = scanState.MaximumSeparationSamples == 0
+                || accumulator.AvoidSeparationCount < scanState.MaximumSeparationSamples;
+
+            if (!canAddAvoid)
             {
                 return;
             }
 
-            float3 repulse = -directionUnit * localIntensity;
+            accumulator.AvoidSeparationSum += -directionUnit * localIntensity;
+            accumulator.AvoidSeparationCount += 1;
 
-            accumulator.SeparationSum += repulse;
-            accumulator.AvoidSeparationSum += repulse;
-            accumulator.SeparationCount += 1;
         }
 
         private static void AccumulateNeutralNeighbour(
@@ -729,6 +727,7 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs
 
             public int LeaderNeighbourCount;
             public int SeparationCount;
+            public int AvoidSeparationCount; // NEW
             public int FriendlyNeighbourCount;
 
             public float AlignmentWeightSum;
@@ -747,6 +746,7 @@ namespace Flock.Scripts.Build.Infrastructure.Grid.Jobs
 
                 neighbourAggregate.LeaderNeighbourCount = LeaderNeighbourCount;
                 neighbourAggregate.SeparationCount = SeparationCount;
+                neighbourAggregate.AvoidSeparationCount = AvoidSeparationCount; // NEW
                 neighbourAggregate.FriendlyNeighbourCount = FriendlyNeighbourCount;
 
                 neighbourAggregate.AlignmentWeightSum = AlignmentWeightSum;

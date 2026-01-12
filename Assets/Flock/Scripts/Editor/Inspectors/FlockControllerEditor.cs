@@ -1,7 +1,6 @@
 #if UNITY_EDITOR
 using Flock.Scripts.Build.Core.Simulation.Runtime.PartialFlockController;
 using Flock.Scripts.Build.Influence.Environment.Bounds.Data;
-using Flock.Scripts.Editor.Window;
 
 using UnityEditor;
 
@@ -60,7 +59,8 @@ namespace Flock.Scripts.Editor.Inspectors
                     continue;
                 }
 
-                FlockEditorGUI.PropertyFieldClamped(propertyIterator, true);
+                // Default Unity inspector drawing (no custom list UI).
+                EditorGUILayout.PropertyField(propertyIterator, true);
             }
 
             serializedObject.ApplyModifiedProperties();
@@ -70,7 +70,8 @@ namespace Flock.Scripts.Editor.Inspectors
         {
             if (fishTypesProperty != null)
             {
-                FlockEditorGUI.PropertyFieldClamped(fishTypesProperty, true);
+                // Default Unity array/list UI.
+                EditorGUILayout.PropertyField(fishTypesProperty, true);
                 return;
             }
 
@@ -91,8 +92,8 @@ namespace Flock.Scripts.Editor.Inspectors
 
             using (new EditorGUI.IndentLevelScope())
             {
-                FlockEditorGUI.PropertyFieldClamped(boundsTypeProperty, true);
-                FlockEditorGUI.PropertyFieldClamped(boundsCenterProperty, true);
+                EditorGUILayout.PropertyField(boundsTypeProperty, true);
+                EditorGUILayout.PropertyField(boundsCenterProperty, true);
 
                 FlockBoundsType boundsType = (FlockBoundsType)boundsTypeProperty.enumValueIndex;
 
@@ -100,7 +101,7 @@ namespace Flock.Scripts.Editor.Inspectors
                 {
                     if (boundsExtentsProperty != null)
                     {
-                        FlockEditorGUI.PropertyFieldClamped(boundsExtentsProperty, true);
+                        EditorGUILayout.PropertyField(boundsExtentsProperty, true);
                     }
                     return;
                 }
@@ -109,26 +110,10 @@ namespace Flock.Scripts.Editor.Inspectors
                 {
                     if (boundsSphereRadiusProperty != null)
                     {
-                        FlockEditorGUI.PropertyFieldClamped(boundsSphereRadiusProperty, true);
+                        EditorGUILayout.PropertyField(boundsSphereRadiusProperty, true);
                     }
                 }
             }
-        }
-
-        private enum Section
-        {
-            FishTypes,
-            Spawning,
-            GroupNoise,
-            Bounds,
-            Grid,
-            Movement,
-            Obstacles,
-            Attractors,
-            Layer3Patterns,
-            Logging,
-            Debug,
-            ControllerSettings
         }
     }
 }

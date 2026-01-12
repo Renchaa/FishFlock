@@ -23,9 +23,9 @@ MonoBehaviour:
   patternWeight: 1
   groupFlowWeight: 2
   bodyRadius: 0.3
-  schoolingSpacingFactor: 1.2
+  schoolingSpacingFactor: 1.3
   schoolingOuterFactor: 1.6
-  schoolingStrength: 1.2
+  schoolingStrength: 1.3
   schoolingInnerSoftness: 0.3
   schoolingRadialDamping: 0.7
   schoolingDeadzoneFraction: 0.219
@@ -35,13 +35,13 @@ MonoBehaviour:
   cohesionWeight: 0.6
   separationWeight: 1.4
   influenceWeight: 0.01
-  avoidanceWeight: 5
-  neutralWeight: 1
-  attractionResponse: 1
+  avoidanceWeight: 1
+  neutralWeight: 2
+  attractionResponse: 2
   avoidResponse: 1.5
-  splitPanicThreshold: 0.228
-  splitLateralWeight: 0.415
-  splitAccelBoost: 0.39
+  splitPanicThreshold: 0.076
+  splitLateralWeight: 0.211
+  splitAccelBoost: 0.12
   attractionWeight: 1
   boundsWeight: 3
   boundsTangentialDamping: 1.3
